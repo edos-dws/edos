@@ -67,10 +67,10 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 6 — Verification Engine (Ch 6, 18) — the safety spine
 
-- [ ] **6.1 Verification pass**: takes (request, decision, evidence), **critiques (does not regenerate)**,
+- [x] **6.1 Verification pass**: takes (request, decision, evidence), **critiques (does not regenerate)**,
   returns agreement + adjusted confidence + found issues; can only *lower* confidence. Test: an unsupported
   claim lowers confidence and sets agreement=false.
-- [ ] **6.2 Status promotion**: `recommended`→`verified` only if verification agrees; populate
+- [x] **6.2 Status promotion**: `recommended`→`verified` only if verification agrees; populate
   `freeze_blockers` otherwise. Test: disagreement blocks promotion and records blockers.
 
 ## EPIC 7 — API & pipelines (Ch 10, 14)
