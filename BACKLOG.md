@@ -40,12 +40,12 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 3 — Model Router & Prompt layer (Ch 4, 9, 16)
 
-- [ ] **3.1 `model_router.execute(capability, context, schema)`** provider-abstract interface; **stubbed**
+- [x] **3.1 `model_router.execute(capability, context, schema)`** provider-abstract interface; **stubbed**
   to return schema-valid fixtures (no live LLM). Test: returns a `decision`-schema-valid object for the
   decision capability; tier selection table (Ch 4) maps task→tier.
-- [ ] **3.2 Prompt registry** (`src/edos/prompts/`) with versioned entries (`decision_prompt:vX`), each with
+- [x] **3.2 Prompt registry** (`src/edos/prompts/`) with versioned entries (`decision_prompt:vX`), each with
   purpose/compatible-models/output-schema metadata. Test: registry lookup + every prompt names a valid schema.
-- [ ] **3.3 JSON validation + repair loop** (Ch 9): validate → repair-retry → fallback → reject; malformed
+- [x] **3.3 JSON validation + repair loop** (Ch 9): validate → repair-retry → fallback → reject; malformed
   never persisted. Test: malformed fixture is repaired or rejected, never written.
 
 ## EPIC 4 — Context Engine (Ch 5, 15)
