@@ -1,0 +1,49 @@
+{
+  "id": "scenario-03",
+  "title": "Edge AI Camera (InnoFusion)",
+  "domain": "vision-edge-ai",
+  "intake": "Documents/concept-dry-run/scenarios/Scenario-03-DEEP — Edge AI Camera (EDOS session, 31 turns).md",
+  "pass_total": 16,
+  "criteria": [
+    {
+      "key": "factual_correctness",
+      "critical": true
+    },
+    {
+      "key": "contradiction_detection",
+      "critical": true
+    },
+    {
+      "key": "calculation_quality"
+    },
+    {
+      "key": "assumption_tracking"
+    },
+    {
+      "key": "no_hallucination",
+      "hard_fail_if_zero": true
+    },
+    {
+      "key": "cross_domain_awareness"
+    },
+    {
+      "key": "confidence_calibration"
+    },
+    {
+      "key": "freeze_discipline"
+    },
+    {
+      "key": "decision_support"
+    },
+    {
+      "key": "over_engineering_check"
+    }
+  ],
+  "traps": [
+    "NPU TOPS is not real FPS; pin inference resolution separately",
+    "4K60 MIPI CSI-2 bandwidth (~5 Gbit/s) vs lane count",
+    "continuous-record storage (~130 GB/day) + SD wear",
+    "thermal throttling in a sealed plastic housing"
+  ],
+  "notes": "Generic embedded-reasoning rubric (0-2 per criterion). Traps map to the dimensions; at go-live an LLM-judge scores whether each trap was caught. factual_correctness + contradiction_detection are critical (must be maxed); no_hallucination hard-fails at 0."
+}

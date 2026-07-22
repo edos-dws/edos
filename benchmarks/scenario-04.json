@@ -1,0 +1,49 @@
+{
+  "id": "scenario-04",
+  "title": "Outdoor PTZ Camera (umbrella)",
+  "domain": "surveillance",
+  "intake": "Documents/concept-dry-run/scenarios/Scenario-04-DEEP — Outdoor PTZ Camera (EDOS session, 31 turns).md",
+  "pass_total": 16,
+  "criteria": [
+    {
+      "key": "factual_correctness",
+      "critical": true
+    },
+    {
+      "key": "contradiction_detection",
+      "critical": true
+    },
+    {
+      "key": "calculation_quality"
+    },
+    {
+      "key": "assumption_tracking"
+    },
+    {
+      "key": "no_hallucination",
+      "hard_fail_if_zero": true
+    },
+    {
+      "key": "cross_domain_awareness"
+    },
+    {
+      "key": "confidence_calibration"
+    },
+    {
+      "key": "freeze_discipline"
+    },
+    {
+      "key": "decision_support"
+    },
+    {
+      "key": "over_engineering_check"
+    }
+  ],
+  "traps": [
+    "continuous 360 pan with wires -> cable twist (slip ring vs limits)",
+    "optical zoom on a wind-loaded umbrella -> shaky image",
+    "small-panel solar energy budget vs PTZ motors + streaming",
+    "IP66 on a rotating/tilting joint"
+  ],
+  "notes": "Generic embedded-reasoning rubric (0-2 per criterion). Traps map to the dimensions; at go-live an LLM-judge scores whether each trap was caught. factual_correctness + contradiction_detection are critical (must be maxed); no_hallucination hard-fails at 0."
+}

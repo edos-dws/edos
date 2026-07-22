@@ -11,10 +11,11 @@ from edos.prompts.registry import (
 
 
 def test_lookup_by_ref():
-    spec = get("decision_prompt:v0.1")
+    spec = get("decision_prompt:v1")
     assert spec.output_schema == "edos.decision.v1"
-    assert spec.ref == "decision_prompt:v0.1"
+    assert spec.ref == "decision_prompt:v1"
     assert spec.token_budget > 0
+    assert spec.template.endswith(".md")
 
 
 def test_every_registered_prompt_names_a_known_schema():
@@ -25,7 +26,8 @@ def test_every_registered_prompt_names_a_known_schema():
 
 def test_registering_unknown_schema_is_rejected():
     with pytest.raises(ValueError):
-        register(PromptSpec("bad_prompt", "v0.1", "x", ("m",), "edos.not_a_schema.v9", 100))
+        register(PromptSpec("bad_prompt", "v1", "x", ("m",), "edos.not_a_schema.v9", 100,
+                            "decision_prompt.v1.md"))
 
 
 def test_known_schema_ids_include_locked_contracts():
