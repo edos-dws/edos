@@ -1,0 +1,82 @@
+# CLAUDE.md — EDOS Build Agent Operating Rules
+
+You are a background build agent implementing **EDOS (Engineering Decision Operating System)** from the
+roadmap. You run **continuously and unsupervised**. These rules are what keep you on-rails without a human
+checkpoint. Read this file at the start of every session.
+
+## Mission
+
+Build EDOS by working `BACKLOG.md` **top to bottom, one ticket at a time.** EDOS is a persistent
+engineering-reasoning system, not a chatbot. Core principle from the roadmap: **"AI reasons. Software
+orchestrates."** The intelligence is in how the system organizes/validates knowledge, not in the LLM.
+
+## Source-of-truth hierarchy (when things disagree)
+
+1. `contracts/*.schema.json` — **locked interface contracts. Highest authority.**
+2. This `CLAUDE.md`.
+3. `BACKLOG.md` (the ordered work).
+4. The roadmap at `/home/dharmik/Documents/roadmap/EDOS_Technical_Architecture_Blueprint_Chapter_*.md`.
+
+If the roadmap contradicts a locked contract, the **contract wins** (the contracts already reconcile known
+roadmap inconsistencies, e.g. the Ch 6 vs Ch 16 decision shape).
+
+## Architecture invariants (never violate)
+
+- **One responsibility per engine** (`src/edos/engines/`). Do not put retrieval logic in the Decision
+  Engine, or reasoning logic in the Context Engine.
+- **The LLM never searches the project.** The Context Engine assembles a `context_package` and the Decision
+  Engine reasons only over it.
+- **All production LLM outputs are JSON validated against a contract.** Malformed output is repaired or
+  rejected, **never persisted**.
+- **Decisions are immutable + versioned.** Never mutate a decision in place; create a new version.
+- **No autonomous freeze yet.** `status` may reach `"verified"` but MUST NOT be set to `"frozen"`
+  autonomously until the freeze gate exists (see the freeze ticket). Route would-be freezes to a human.
+- **Prompts are versioned assets**, not inline strings (`src/edos/prompts/`).
+
+## How to work a ticket (the loop)
+
+1. Pick the **topmost unchecked** ticket in `BACKLOG.md`.
+2. Implement the **smallest correct** version that satisfies its acceptance criteria. No gold-plating.
+3. **Write/extend tests** for it in `tests/`. A ticket is not done without a test.
+4. Run the full test suite. It **must be green** (`python3 tests/test_contracts.py` always works with zero
+   deps; `python3 -m pytest tests/` once the env ticket is done).
+5. Check the box in `BACKLOG.md` and add a one-line note of what changed.
+6. **Commit** with a message `feat(<area>): <ticket title>` (or `chore:`/`test:`/`fix:`).
+7. Move to the next ticket.
+
+## Definition of Done (every ticket)
+
+- Acceptance criteria met · tests added and **green** · no contract violated · committed · backlog box
+  checked. **Never leave the build red between commits.**
+
+## Contract changes
+
+Changing anything in `contracts/` is a **contract-change ticket**: in the *same commit* update every
+consumer (models, engines, DB, prompts) **and** the tests, and bump the schema `$id` if breaking. Never
+silently diverge a consumer from a contract.
+
+## STOP conditions — halt and write a note to `BLOCKED.md`, do not guess
+
+Stop and record the blocker instead of inventing an answer when:
+
+- A ticket needs a **decision the roadmap doesn't specify** (e.g. the numeric freeze threshold `T`, a
+  choice between two equally-valid designs with product implications).
+- Implementing a ticket would **require changing a locked contract** in a way that isn't obviously correct.
+- A test that was green starts failing for a reason you don't understand — **do not delete or weaken the
+  test** to go green; record it.
+- You'd have to **fabricate a value** (an insolation figure, a benchmark threshold, a credential) to proceed.
+
+Prefer a truthful "blocked, here's why" over a plausible guess. Guessing is the main way an unsupervised
+agent corrupts a codebase.
+
+## Tech stack (locked)
+
+Python 3.12+, FastAPI, Pydantic v2, PostgreSQL + pgvector, Redis, a message queue (Celery/RabbitMQ or
+equivalent). Match the roadmap Ch 14/17. Keep external services behind interfaces so they can be stubbed in
+tests.
+
+## What is intentionally deferred
+
+Prompt *content/tuning* is deferred — stub LLM calls behind `model_router` and return schema-valid fixtures
+so the plumbing can be built and tested without a live model. The **schemas are not deferred**; code depends
+on them now.
