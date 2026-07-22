@@ -15,20 +15,22 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 | Field | Value |
 |-------|-------|
 | Current checkpoint | **CP-0 — Setup & prerequisites** |
-| Current ticket | `0.2 Dev environment` (next up) |
+| Current ticket | `0.2 Dev environment` (next up, after CP-0 approval) |
 | Build gate | 🟢 GREEN (`scripts/check.sh`) |
 | Blocked? | No |
-| Waiting on human? | **YES — see Human Action Queue** |
-| Last updated | 2026-07-22 (foundation committed) |
+| Waiting on human? | **YES — bring up Docker infra + approve CP-0 (see Human Action Queue)** |
+| Repo | https://github.com/edos-dws/edos (`main` pushed) |
+| Last updated | 2026-07-22 (repo pushed to GitHub) |
 
 ---
 
 ## Human Action Queue  ⟵ what needs YOU right now
 
-- [ ] Install + authenticate `gh` so the repo can be created (or provide a token) — *see repo setup note*.
-- [ ] Bring up infra: `cp .env.example .env && docker compose up -d`.
+- [x] ~~Create GitHub repo~~ — done: https://github.com/edos-dws/edos (pushed over SSH).
+- [ ] Bring up infra: `cp .env.example .env && docker compose up -d` — then confirm Postgres:5432 + Redis:6379 reachable.
 - [ ] Confirm the git-as-gate flow (CP-branch → PR → your review/merge).
 - [ ] Decide: where the runner runs (this machine vs a VM that stays up).
+- [ ] Approve CP-0 once infra is up → runner starts CP-1.
 
 *(Runner: as gates are reached, replace this list with the specific thing the human must validate for that CP.)*
 
@@ -98,6 +100,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — Repo pushed to https://github.com/edos-dws/edos over SSH (`main` @ `5faed77`). CI live on next PR/push. Awaiting human infra bring-up + CP-0 approval.
 - 2026-07-22 — CP-0 foundation + local infra + CI committed (`0e4c241`, `0c1b3c1`). Awaiting GitHub repo + human infra bring-up.
 
 ---
