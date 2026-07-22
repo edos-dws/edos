@@ -52,9 +52,9 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 - [ ] **4.1 Deterministic pipeline skeleton** intent→entities→plan→graph→rules→semantic→rank→compress→assemble,
   emitting a valid `context_package`. Test: given fixture project data, output validates + is ranked desc.
-- [ ] **4.2 Ranking formula** `0.40*graph + 0.30*semantic + 0.15*recency + 0.10*confidence + 0.05*focus`.
+- [x] **4.2 Ranking formula** `0.40*graph + 0.30*semantic + 0.15*recency + 0.10*confidence + 0.05*focus`.
   Test: known inputs produce the hand-computed score/order.
-- [ ] **4.3 Rule expansion** (deterministic, no LLM): MCU→drivers/bootloader/clock/power; battery→power budget.
+- [x] **4.3 Rule expansion** (deterministic, no LLM): MCU→drivers/bootloader/clock/power; battery→power budget.
   Test: an MCU-change entity expands to the required related items.
 
 ## EPIC 5 — Decision Engine (Ch 6)

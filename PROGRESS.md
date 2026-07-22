@@ -80,8 +80,8 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 3.2 Prompt registry | ✅ | `cp-2` | PromptSpec registry; output_schema validated vs contracts; 4 tests |
 | 3.3 JSON validate + repair loop | ✅ | `cp-2` | produce_valid() gen→repair→fallback→reject; router uses it; 5 tests |
 | 4.1 Context pipeline skeleton | ⬜ | — | emits valid context_package |
-| 4.2 Ranking formula | ⬜ | — | 0.40/0.30/0.15/0.10/0.05 |
-| 4.3 Rule expansion | ⬜ | — | deterministic, no LLM |
+| 4.2 Ranking formula | ✅ | `cp-3` | rank_score() Ch15; hand-computed tests |
+| 4.3 Rule expansion | ✅ | `cp-3` | expand() MCU/battery/protocol; dedup; no LLM |
 | 5.1 Decision pipeline | ⬜ | — | caps at `recommended` |
 | 5.2 Clarification policy | ⬜ | — | no guessing |
 | 6.1 Verification pass | ⬜ | — | critique, lower-only |
@@ -106,6 +106,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-3 t4.2/4.3: ranking formula (Ch15 weighted score) + deterministic rule expansion (MCU→drivers/bootloader/... , no LLM). 9 tests. Built before 4.1 (dependency order).
 - 2026-07-22 — Workflow change: base branch → **`develop`** (main paused). CP-2 self-merged into develop (✅). Runner now self-merges low-risk CPs; will pause for sign-off at CP-4/5/8/9. Starting CP-3.
 - 2026-07-22 — **CP-2 build complete → 🔵 awaiting approval.** Model Router + Prompt registry + repair loop, 38 tests green. Report in `CP-2-REPORT.md`.
 - 2026-07-22 — CP-2 t3.3: `produce_valid()` validate→repair→fallback→reject (`MalformedOutputError`); ModelRouter wired to it; malformed never returned/persisted; 5 tests. 38 green. CP-2 build complete.
