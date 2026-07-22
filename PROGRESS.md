@@ -67,7 +67,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 0.2 Dev environment | ✅ | (venv) | `.venv`+pip bootstrapped; deps clean on Py3.14; gate green |
 | 0.3 CI-equivalent check script | ✅ | `0c1b3c1` | `scripts/check.sh` + Actions CI |
 | 1.1 Decision Pydantic model | ✅ | `cp-1` | bound to contract; 8 tests (enum/range/extra/missing) |
-| 1.2 ContextPackage model | ⬜ | — | bound to `context_package.schema.json` |
+| 1.2 ContextPackage model | ✅ | `cp-1` | bound to contract; ranked_items() + 6 tests |
 | 1.3 Core entities + graph edges | ⬜ | — | Ch 3 |
 | 2.1 SQLAlchemy models + migrations | ⬜ | — | immutable/versioned decisions |
 | 2.2 Decision Graph edges | ⬜ | — | traversal + weights |
@@ -102,6 +102,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-1 t1.2: `ContextPackage`/`ContextItem` bound to `context_package.schema.json`; `ranked_items()`; 6 tests green.
 - 2026-07-22 — CP-1 t1.1: `Decision` model + `validate_against_contract()` bound to `decision.schema.json`; 8 tests green.
 - 2026-07-22 — **CP-0 APPROVED / locked in.** Defaults confirmed: git-as-gate flow (branch→PR→merge), runner on this machine. Started CP-1 on branch `cp-1`.
 - 2026-07-22 — CP-0 complete: `.venv`+pip bootstrapped (Py3.14), deps installed, Postgres+pgvector & Redis up & healthy, full gate green (pytest+ruff). CP-0 → 🔵 awaiting approval; report in `CP-0-REPORT.md`.
