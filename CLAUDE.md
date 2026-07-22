@@ -51,11 +51,19 @@ roadmap inconsistencies, e.g. the Ch 6 vs Ch 16 decision shape).
 - Acceptance criteria met · tests added and **green** · no contract violated · **`PROGRESS.md` updated** ·
   committed · backlog box checked. **Never leave the build red between commits.**
 
+## Branching & merge (current mode)
+
+- Base / integration branch is **`develop`**, not `main` (for now). Every checkpoint branches off `develop`
+  (`cp-N`) and merges back into `develop`.
+- **Current mode: the runner self-merges** each completed, green checkpoint into `develop` via direct git
+  merge (GitHub PRs need `gh` auth, not set up yet). Always still write `CP-N-REPORT.md` for async review.
+- Even in self-merge mode, **pause for explicit human sign-off before CP-4 (first live LLM + prompt
+  content), CP-5 (verification), and CP-8/CP-9 (freeze)** — too consequential to self-approve.
+
 ## At a checkpoint gate
 
-Do NOT roll into the next checkpoint. Instead: set the CP row in `PROGRESS.md` to 🔵 *awaiting human review*,
-rewrite the Human Action Queue to the exact thing to validate, write `CP-N-REPORT.md`, and **stop until the
-human merges the PR and marks the CP ✅**. This is the human-in-the-loop gate; there is no self-merge.
+Set the CP row in `PROGRESS.md`, write `CP-N-REPORT.md` (what was built, test evidence, blockers), then per
+the mode above: **self-merge into `develop`** for low-risk CPs, or **stop for human sign-off** at CP-4/5/8/9.
 
 ## Contract changes
 

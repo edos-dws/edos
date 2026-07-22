@@ -14,14 +14,15 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-2 — Model Router + Prompt layer → 🔵 awaiting approval** |
-| Current ticket | none in-flight; CP-3 starts on approval |
+| Current checkpoint | **CP-3 — Context Engine** (🟡 starting on `cp-3`) |
+| Current ticket | `4.1 Context pipeline skeleton` |
 | Build gate | 🟢 GREEN — 38 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
+| Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
-| Waiting on human? | **YES — review + merge `cp-2` PR (see `CP-2-REPORT.md`)** |
-| Repo | https://github.com/edos-dws/edos (`main` @ CP-1 ✅; `cp-2` pushed) |
-| Last updated | 2026-07-22 (CP-2 complete, awaiting gate) |
+| Waiting on human? | No — self-merge mode until CP-4 (first live LLM), where I pause for sign-off |
+| Repo | https://github.com/edos-dws/edos (`develop` @ CP-2 ✅) |
+| Last updated | 2026-07-22 (base→develop; CP-2 merged; CP-3 started) |
 
 ---
 
@@ -32,8 +33,10 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 - [x] ~~Approve CP-0~~ — **locked in 2026-07-22.**
 - [x] ~~Git-as-gate flow~~ — **confirmed:** CP-branch → PR → human merge.
 - [x] ~~Runner location~~ — **confirmed:** this machine (Claude Code).
-- [ ] **Review + merge the `cp-2` PR** — see `CP-2-REPORT.md`: confirm routing-by-capability abstraction, that CP-2 is fully stubbed (no live LLM), and the repair-or-reject safety behavior.
-- [ ] (still open from CP-1) the 3 flagged items: Alembic timing · the 6 unweighted relation types · embedding dim (set at CP-3).
+- [ ] Nothing blocking right now — runner is in **self-merge mode** into `develop` for low-risk CPs.
+- [ ] **I will pause for your sign-off at CP-4** (first live LLM + prompt content). That's your next real gate.
+- [ ] (optional) run `! gh auth login` once so I open real GitHub PRs instead of direct merges.
+- [ ] (still open from CP-1) 3 flagged items: Alembic timing · 6 unweighted relation types · embedding dim (CP-3).
 
 *(Runner: as gates are reached, replace this list with the specific thing the human must validate for that CP.)*
 
@@ -47,7 +50,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 |----|-----------|:------:|-------------|-----------------|:----------:|
 | CP-0 | Setup, repo, CI, infra | ✅ | `main` (see `CP-0-REPORT.md`) | repo on GH · CI green on a PR · Postgres+Redis reachable · runner can push | ☑ 2026-07-22 |
 | CP-1 | Domain model + persistence | ✅ | merged to `main` | schemas capture intent; decision versioning immutable; graph weights | ☑ 2026-07-22 |
-| CP-2 | Model router + prompt layer (stubbed) | 🔵 | `cp-2` (see `CP-2-REPORT.md`) | abstraction clean; validate/repair; no live LLM | ☐ |
+| CP-2 | Model router + prompt layer (stubbed) | ✅ | merged to `develop` | abstraction clean; validate/repair; no live LLM | ☑ 2026-07-22 |
 | CP-3 | Context engine | ⬜ | — | ranking order correct; LLM doesn't search the project | ☐ |
 | CP-4 | Decision engine | ⬜ | — | real scenario → valid decision; **first prompt tuning** | ☐ |
 | CP-5 | Verification engine (safety spine) | ⬜ | — | critiques not regenerates; only lowers confidence | ☐ |
@@ -103,6 +106,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — Workflow change: base branch → **`develop`** (main paused). CP-2 self-merged into develop (✅). Runner now self-merges low-risk CPs; will pause for sign-off at CP-4/5/8/9. Starting CP-3.
 - 2026-07-22 — **CP-2 build complete → 🔵 awaiting approval.** Model Router + Prompt registry + repair loop, 38 tests green. Report in `CP-2-REPORT.md`.
 - 2026-07-22 — CP-2 t3.3: `produce_valid()` validate→repair→fallback→reject (`MalformedOutputError`); ModelRouter wired to it; malformed never returned/persisted; 5 tests. 38 green. CP-2 build complete.
 - 2026-07-22 — CP-2 t3.2: Prompt registry (versioned `PromptSpec`; seeded planner/decision/verification/knowledge; output_schema validated against locked contracts); 4 tests. 34 green.
