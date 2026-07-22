@@ -14,14 +14,14 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-6 ✅ (stub) merged → next: CP-7 (Knowledge Engine)** |
+| Current checkpoint | **CP-7 ✅ (stub) merged → next: CP-8 (Evaluation harness)** |
 | Current ticket | none in-flight (loop self-pacing) |
-| Build gate | 🟢 GREEN — 65 tests + ruff |
+| Build gate | 🟢 GREEN — 69 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
 | Waiting on human? | No (stub mode). Real LLM connect = separate go-live step (needs your API key) |
-| Repo | https://github.com/edos-dws/edos (`develop` @ CP-6 ✅) |
+| Repo | https://github.com/edos-dws/edos (`develop` @ CP-7 ✅) |
 | Last updated | 2026-07-22 (base→develop; CP-2 merged; CP-3 started) |
 
 ---
@@ -55,7 +55,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 | CP-4 | Decision engine (stub LLM) | ✅ | merged to `develop` | valid decision; status capped; clarification not guess | ☑ 2026-07-22 (self) |
 | CP-5 | Verification engine (safety spine) | ✅ | merged to `develop` | critiques not regenerates; only lowers confidence | ☑ 2026-07-22 (self; review) |
 | CP-6 | API + pipelines | ✅ | merged to `develop` | `/v1/analyze` end-to-end | ☑ 2026-07-22 (self) |
-| CP-7 | Knowledge engine | ⬜ | — | quality gates before persist | ☐ |
+| CP-7 | Knowledge engine | ✅ | merged to `develop` | quality gates before persist | ☑ 2026-07-22 (self) |
 | CP-8 | Evaluation harness | ⬜ | — | scores dry-run scenarios vs Evaluation Keys | ☐ |
 | CP-9 | Freeze gate | ⬜ | — | `T` derived from CP-8 scores; unsafe freezes refused | ☐ |
 
@@ -88,7 +88,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 6.2 Status promotion | ✅ | `cp-5` | promote(): verified only on agreement; else freeze_blockers |
 | 7.1 FastAPI endpoints | ✅ | `cp-6` | /v1/ask,/analyze,/verify wired to engines; TestClient tests |
 | 7.2 Async passive pipeline | ✅ | `cp-6` | DecisionAccepted→jobs fan-out; in-memory queue |
-| 8.1 Knowledge extraction + gates | ⬜ | — | Ch 7 |
+| 8.1 Knowledge extraction + gates | ✅ | `cp-7` | extract→normalize→hard-gate→dedupe→confidence-floor; 4 tests |
 | 9.1 Evaluation harness | ⬜ | — | rubric scoring |
 | 9.2 Freeze gate | ⬜ | — | **T blocked until CP-8 data** |
 
@@ -106,6 +106,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-7 (Knowledge Engine) self-merged: extract→normalize(STM32 H743→STM32H743)→hard-gate(attribution/schema)→dedupe→confidence-floor. LLM extractor at go-live. 69 tests.
 - 2026-07-22 — CP-6 (API + pipelines) self-merged: FastAPI /v1/ask,/analyze,/verify wired to engines (TestClient); passive pipeline DecisionAccepted→jobs fan-out (in-memory queue; real broker at deploy). 65 tests.
 - 2026-07-22 — CP-5 (Verification Engine, safety spine, deterministic) self-merged into develop: verify() critiques + lowers-only confidence; promote() → verified only on agreement, else records freeze_blockers. 59 tests. Real independent critic LLM at go-live. **Review-when-free** (safety spine).
 - 2026-07-22 — CP-4 (Decision Engine, on STUB LLM) built + self-merged into develop: analyze() emits contract-valid decision, status capped at recommended, empty context → clarification (no guessing). 53 tests. Real-LLM connect deferred to a go-live step (needs API key).
