@@ -27,7 +27,7 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
   is a superset-compatible match of the locked contract; a helper validates dicts against the JSON Schema.
   Test: a valid decision passes; missing `evidence`/bad `confidence`/unknown `status` each fail.
 - [x] **1.2 `ContextPackage` model bound to `context_package.schema.json`** — analogous. Test: round-trips + rejects malformed.
-- [ ] **1.3 Remaining core entities** (Project, Requirement, Assumption, Risk, Component, Document, Edge)
+- [x] **1.3 Remaining core entities** (Project, Requirement, Assumption, Risk, Component, Document, Edge)
   per roadmap Ch 3. Test: construct each; graph `Edge` enforces the 11 relation types.
 
 ## EPIC 2 — Persistence (Ch 11, 13)
