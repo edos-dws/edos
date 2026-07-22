@@ -89,7 +89,7 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 - [x] **9.1 Evaluation harness** to score benchmark runs against a rubric (see the `concept-dry-run`
   scenarios + Evaluation Keys). Test: scoring a fixture run yields the expected rubric total.
-- [ ] **9.2 Freeze gate** `confidence>=T AND verified AND freeze_blockers==[] AND no open contradictions`.
+- [x] **9.2 Freeze gate** `confidence>=T AND verified AND freeze_blockers==[] AND no open contradictions`.
   **T is BLOCKED** until derived from scored runs — do not invent it (STOP condition). Test: gate refuses to
   freeze when any clause fails; with T undefined, freeze is disabled.
 
