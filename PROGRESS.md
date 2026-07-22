@@ -14,23 +14,24 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-0 — Setup & prerequisites** |
-| Current ticket | `0.2 Dev environment` (next up, after CP-0 approval) |
-| Build gate | 🟢 GREEN (`scripts/check.sh`) |
+| Current checkpoint | **CP-0 — Setup & prerequisites → 🔵 awaiting approval** |
+| Current ticket | none in-flight; CP-1 starts on approval |
+| Build gate | 🟢 GREEN (`scripts/check.sh`: stdlib + pytest + ruff) |
+| Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 — both healthy |
 | Blocked? | No |
-| Waiting on human? | **YES — bring up Docker infra + approve CP-0 (see Human Action Queue)** |
+| Waiting on human? | **YES — approve CP-0 (see `CP-0-REPORT.md`) + 2 decisions** |
 | Repo | https://github.com/edos-dws/edos (`main` pushed) |
-| Last updated | 2026-07-22 (repo pushed to GitHub) |
+| Last updated | 2026-07-22 (CP-0 complete, awaiting gate) |
 
 ---
 
 ## Human Action Queue  ⟵ what needs YOU right now
 
 - [x] ~~Create GitHub repo~~ — done: https://github.com/edos-dws/edos (pushed over SSH).
-- [ ] Bring up infra: `cp .env.example .env && docker compose up -d` — then confirm Postgres:5432 + Redis:6379 reachable.
+- [x] ~~Bring up infra~~ — done by runner: Postgres+pgvector :5432, Redis :6379, both healthy.
+- [ ] **Review + approve CP-0** — see `CP-0-REPORT.md`. Approval = start CP-1.
 - [ ] Confirm the git-as-gate flow (CP-branch → PR → your review/merge).
 - [ ] Decide: where the runner runs (this machine vs a VM that stays up).
-- [ ] Approve CP-0 once infra is up → runner starts CP-1.
 
 *(Runner: as gates are reached, replace this list with the specific thing the human must validate for that CP.)*
 
@@ -42,7 +43,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 
 | CP | Milestone | Status | Branch / PR | Human validates | Signed off |
 |----|-----------|:------:|-------------|-----------------|:----------:|
-| CP-0 | Setup, repo, CI, infra | 🟡 | `main` | repo on GH · CI green on a PR · Postgres+Redis reachable · runner can push | ☐ |
+| CP-0 | Setup, repo, CI, infra | 🔵 | `main` (see `CP-0-REPORT.md`) | repo on GH · CI green on a PR · Postgres+Redis reachable · runner can push | ☐ |
 | CP-1 | Domain model + persistence | ⬜ | — | schemas capture intent; decision versioning immutable; graph weights | ☐ |
 | CP-2 | Model router + prompt layer (stubbed) | ⬜ | — | abstraction clean; validate/repair; no live LLM | ☐ |
 | CP-3 | Context engine | ⬜ | — | ranking order correct; LLM doesn't search the project | ☐ |
@@ -62,7 +63,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | Ticket | Status | Commit | Note |
 |--------|:------:|--------|------|
 | 0.1 Scaffold + contracts + baseline | ✅ | `0e4c241` | done at scaffold |
-| 0.2 Dev environment | ⬜ | — | pyproject installs; pytest/ruff green |
+| 0.2 Dev environment | ✅ | (venv) | `.venv`+pip bootstrapped; deps clean on Py3.14; gate green |
 | 0.3 CI-equivalent check script | ✅ | `0c1b3c1` | `scripts/check.sh` + Actions CI |
 | 1.1 Decision Pydantic model | ⬜ | — | bound to `decision.schema.json` |
 | 1.2 ContextPackage model | ⬜ | — | bound to `context_package.schema.json` |
@@ -100,6 +101,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-0 complete: `.venv`+pip bootstrapped (Py3.14), deps installed, Postgres+pgvector & Redis up & healthy, full gate green (pytest+ruff). CP-0 → 🔵 awaiting approval; report in `CP-0-REPORT.md`.
 - 2026-07-22 — Repo pushed to https://github.com/edos-dws/edos over SSH (`main` @ `5faed77`). CI live on next PR/push. Awaiting human infra bring-up + CP-0 approval.
 - 2026-07-22 — CP-0 foundation + local infra + CI committed (`0e4c241`, `0c1b3c1`). Awaiting GitHub repo + human infra bring-up.
 

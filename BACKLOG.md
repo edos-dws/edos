@@ -12,12 +12,13 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 - [x] **0.1 Repo scaffold + locked contracts + green baseline test**
   Acceptance: repo tree, `contracts/decision.schema.json` + `context_package.schema.json`, stdlib baseline
   test passing. Test: `python3 tests/test_contracts.py` exits 0. *(done at scaffold)*
-- [ ] **0.2 Dev environment**
+- [x] **0.2 Dev environment**
   Acceptance: `pyproject.toml` installs cleanly; `pytest`, `pydantic>=2`, `fastapi`, `jsonschema`,
   `sqlalchemy`, `redis` available; `ruff` configured. Test: `python3 -m pytest tests/` runs and is green.
-- [ ] **0.3 CI-equivalent check script**
+  *(done: `.venv` bootstrapped, `pip install -e .[dev]` clean on Py3.14, full gate green.)*
+- [x] **0.3 CI-equivalent check script**
   Acceptance: `scripts/check.sh` runs lint + full test suite and exits nonzero on any failure.
-  Test: script exists, runs green on current tree.
+  Test: script exists, runs green on current tree. *(done: venv-aware `check.sh` + GitHub Actions CI.)*
 
 ## EPIC 1 — Domain model & schema validation
 

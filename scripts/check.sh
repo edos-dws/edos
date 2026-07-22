@@ -3,19 +3,23 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "== stdlib baseline (always runs, zero deps) =="
-python3 tests/test_contracts.py
+# Prefer the project venv locally; fall back to system python (e.g. CI runners).
+if [ -x ".venv/bin/python" ]; then PY=".venv/bin/python"; else PY="python3"; fi
+echo "using: $($PY --version) at $PY"
 
-if python3 -m pytest --version >/dev/null 2>&1; then
+echo "== stdlib baseline (always runs, zero deps) =="
+$PY tests/test_contracts.py
+
+if $PY -m pytest --version >/dev/null 2>&1; then
   echo "== pytest suite =="
-  python3 -m pytest -q tests/
+  $PY -m pytest -q tests/
 else
   echo "== pytest not installed — skipping full suite (finish ticket 0.2) =="
 fi
 
-if python3 -m ruff --version >/dev/null 2>&1; then
+if $PY -m ruff --version >/dev/null 2>&1; then
   echo "== ruff lint =="
-  python3 -m ruff check src tests
+  $PY -m ruff check src tests
 else
   echo "== ruff not installed — skipping lint (finish ticket 0.2) =="
 fi
