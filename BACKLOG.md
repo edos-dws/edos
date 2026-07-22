@@ -82,7 +82,7 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 8 — Knowledge Engine (Ch 7)
 
-- [ ] **8.1 Extraction → normalization → quality gates → graph write.** Test: a decision produces structured
+- [x] **8.1 Extraction → normalization → quality gates → graph write.** Test: a decision produces structured
   knowledge that passes the quality gates (schema/refs/dedupe/confidence/attribution) before persist.
 
 ## EPIC 9 — Freeze gate & evaluation (Ch 12) — DO LAST, NEEDS DATA
