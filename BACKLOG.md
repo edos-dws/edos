@@ -50,7 +50,7 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 4 — Context Engine (Ch 5, 15)
 
-- [ ] **4.1 Deterministic pipeline skeleton** intent→entities→plan→graph→rules→semantic→rank→compress→assemble,
+- [x] **4.1 Deterministic pipeline skeleton** intent→entities→plan→graph→rules→semantic→rank→compress→assemble,
   emitting a valid `context_package`. Test: given fixture project data, output validates + is ranked desc.
 - [x] **4.2 Ranking formula** `0.40*graph + 0.30*semantic + 0.15*recency + 0.10*confidence + 0.05*focus`.
   Test: known inputs produce the hand-computed score/order.

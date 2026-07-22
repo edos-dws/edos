@@ -15,8 +15,8 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 | Field | Value |
 |-------|-------|
 | Current checkpoint | **CP-3 — Context Engine** (🟡 starting on `cp-3`) |
-| Current ticket | `4.1 Context pipeline skeleton` |
-| Build gate | 🟢 GREEN — 38 tests + ruff |
+| Current ticket | CP-3 complete → merging to develop |
+| Build gate | 🟢 GREEN — 50 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
@@ -79,7 +79,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 3.1 model_router (stubbed) | ✅ | `cp-2` | Capability/Tier table + StubProvider; 4 tests |
 | 3.2 Prompt registry | ✅ | `cp-2` | PromptSpec registry; output_schema validated vs contracts; 4 tests |
 | 3.3 JSON validate + repair loop | ✅ | `cp-2` | produce_valid() gen→repair→fallback→reject; router uses it; 5 tests |
-| 4.1 Context pipeline skeleton | ⬜ | — | emits valid context_package |
+| 4.1 Context pipeline skeleton | ✅ | `cp-3` | ContextEngine.build(): score→sort→compress→assemble; valid pkg; 3 tests |
 | 4.2 Ranking formula | ✅ | `cp-3` | rank_score() Ch15; hand-computed tests |
 | 4.3 Rule expansion | ✅ | `cp-3` | expand() MCU/battery/protocol; dedup; no LLM |
 | 5.1 Decision pipeline | ⬜ | — | caps at `recommended` |
@@ -106,6 +106,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-3 t4.1: ContextEngine deterministic pipeline (score→sort→compress→assemble) emitting a valid ContextPackage; LLM does not search the project. 50 tests green. CP-3 build complete.
 - 2026-07-22 — CP-3 t4.2/4.3: ranking formula (Ch15 weighted score) + deterministic rule expansion (MCU→drivers/bootloader/... , no LLM). 9 tests. Built before 4.1 (dependency order).
 - 2026-07-22 — Workflow change: base branch → **`develop`** (main paused). CP-2 self-merged into develop (✅). Runner now self-merges low-risk CPs; will pause for sign-off at CP-4/5/8/9. Starting CP-3.
 - 2026-07-22 — **CP-2 build complete → 🔵 awaiting approval.** Model Router + Prompt registry + repair loop, 38 tests green. Report in `CP-2-REPORT.md`.
