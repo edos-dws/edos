@@ -11,8 +11,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Protocol
 
-import jsonschema
-
+from edos.engines.prompt import produce_valid
 from edos.models.decision import Decision
 
 
@@ -71,13 +70,22 @@ class StubProvider:
 
 
 class ModelRouter:
-    def __init__(self, provider: Provider | None = None) -> None:
+    def __init__(self, provider: Provider | None = None, fallback: Provider | None = None) -> None:
         self.provider: Provider = provider or StubProvider()
+        self.fallback: Provider = fallback or self.provider
 
     def execute(self, capability: Capability | str, context: dict, schema: dict | None = None) -> dict:
         cap = Capability(capability)
         _ = tier_for(cap)  # tier selection (routing to a real model happens at CP-4)
-        result = self.provider.execute(cap, context, schema)
-        if schema is not None:
-            jsonschema.validate(instance=result, schema=schema)  # CP-2: validate once; repair loop in 3.3
-        return result
+        if schema is None:
+            return self.provider.execute(cap, context, None)
+        # generate → repair-retry (same provider, repair hint) → fallback provider (Ch 9). If none of these
+        # produce schema-valid JSON, produce_valid raises and nothing is persisted.
+        return produce_valid(
+            schema,
+            [
+                lambda: self.provider.execute(cap, context, schema),
+                lambda: self.provider.execute(cap, {**context, "_repair": True}, schema),
+                lambda: self.fallback.execute(cap, context, schema),
+            ],
+        )

@@ -15,8 +15,8 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 | Field | Value |
 |-------|-------|
 | Current checkpoint | **CP-2 — Model Router + Prompt layer (stubbed)** (🟡 on `cp-2`) |
-| Current ticket | `3.3 JSON validate + repair loop` |
-| Build gate | 🟢 GREEN — 34 tests + ruff |
+| Current ticket | CP-2 complete → building PR |
+| Build gate | 🟢 GREEN — 38 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Blocked? | No |
 | Waiting on human? | No — next gate at CP-2 completion |
@@ -77,7 +77,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 2.3 pgvector document_chunks | ✅ | `cp-1` | DocumentChunk(Vector) + nearest-k L2 |
 | 3.1 model_router (stubbed) | ✅ | `cp-2` | Capability/Tier table + StubProvider; 4 tests |
 | 3.2 Prompt registry | ✅ | `cp-2` | PromptSpec registry; output_schema validated vs contracts; 4 tests |
-| 3.3 JSON validate + repair loop | ⬜ | — | never persist malformed |
+| 3.3 JSON validate + repair loop | ✅ | `cp-2` | produce_valid() gen→repair→fallback→reject; router uses it; 5 tests |
 | 4.1 Context pipeline skeleton | ⬜ | — | emits valid context_package |
 | 4.2 Ranking formula | ⬜ | — | 0.40/0.30/0.15/0.10/0.05 |
 | 4.3 Rule expansion | ⬜ | — | deterministic, no LLM |
@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-2 t3.3: `produce_valid()` validate→repair→fallback→reject (`MalformedOutputError`); ModelRouter wired to it; malformed never returned/persisted; 5 tests. 38 green. CP-2 build complete.
 - 2026-07-22 — CP-2 t3.2: Prompt registry (versioned `PromptSpec`; seeded planner/decision/verification/knowledge; output_schema validated against locked contracts); 4 tests. 34 green.
 - 2026-07-22 — CP-1 merged to `main` (✅ signed off). Started CP-2 on `cp-2`. t3.1: Model Router (Capability/Tier Ch4 table, StubProvider, schema-validated output); 4 tests. 30 green.
 - 2026-07-22 — **CP-1 build complete → 🔵 awaiting approval.** E1 models + E2 persistence, 26 tests green. Report in `CP-1-REPORT.md`; branch `cp-1` ready to push.
