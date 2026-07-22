@@ -1,0 +1,29 @@
+name: CI
+
+# The checkpoint gate. Every PR must pass this before a human merges it.
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Baseline gate (zero-dependency, always runs)
+        run: python3 tests/test_contracts.py
+
+      - name: Install package + dev tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Full gate (pytest + ruff)
+        run: ./scripts/check.sh
