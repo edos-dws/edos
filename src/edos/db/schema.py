@@ -1,7 +1,7 @@
 """Schema bootstrap (roadmap Ch 11/13).
 
-CP-1 uses create_all against a Postgres with pgvector. Formal Alembic migrations are a deferred follow-up
-(flagged in CP-1-REPORT.md).
+Deployments use **Alembic** migrations (`alembic upgrade head`; see `alembic/versions/`). `create_all` here
+is kept for fast, ephemeral test setup and local bootstrap — not for production schema evolution.
 """
 from __future__ import annotations
 

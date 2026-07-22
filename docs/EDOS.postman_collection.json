@@ -1,13 +1,20 @@
 {
   "info": {
     "name": "EDOS API (v0.0.1)",
-    "description": "Engineering Decision Operating System — /v1 endpoints. Runs on the stub LLM until go-live. Base URL variable {{baseUrl}} defaults to http://localhost:8000.",
+    "description": "Engineering Decision Operating System — REST endpoints. Runs on the stub LLM until go-live. Base URL variable {{baseUrl}} defaults to http://localhost:8000.\n\nWebSocket endpoints (live connectivity) are NOT in this REST collection — Postman WS requests are created via New → WebSocket Request. See docs/websocket-examples.md:\n  • WS {{baseUrl}}/v1/ws/analyze  (stream an analysis)\n  • WS {{baseUrl}}/v1/ws/projects/:project_id/events  (live project event stream)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8000" }
   ],
   "item": [
+    {
+      "name": "GET /health",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+      }
+    },
     {
       "name": "POST /v1/ask — intent detection",
       "request": {
@@ -30,7 +37,7 @@
           "mode": "raw",
           "raw": "{\n  \"project_id\": \"agrisense-n1\",\n  \"question\": \"Should we keep the nRF52840 for a LoRaWAN node?\",\n  \"context_items\": [\n    {\n      \"type\": \"requirement\",\n      \"ref_id\": \"R-3\",\n      \"content\": \"Report telemetry over LoRaWAN\",\n      \"signals\": { \"graph\": 0.9, \"semantic\": 0.9, \"recency\": 0.9, \"confidence\": 0.9, \"focus\": 0.9 }\n    }\n  ]\n}"
         },
-        "description": "Empty context_items => the engine returns needs_clarification instead of guessing."
+        "description": "Empty context_items => the engine returns needs_clarification instead of guessing. Also publishes a decision.ready event to /v1/ws/projects/{project_id}/events."
       }
     },
     {
@@ -43,6 +50,23 @@
           "mode": "raw",
           "raw": "{\n  \"decision\": {\n    \"schema_version\": \"edos.decision.v1\",\n    \"summary\": \"Use STM32WL\",\n    \"recommendation\": \"Switch to an SoC with an integrated LoRa radio\",\n    \"confidence\": 0.8,\n    \"status\": \"recommended\",\n    \"evidence\": [ { \"claim\": \"nRF52840 has no LoRa radio\", \"source\": \"datasheet\", \"kind\": \"fact\" } ]\n  }\n}"
         }
+      }
+    },
+    {
+      "name": "POST /v1/projects/:project_id/events — publish to live stream",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/projects/:project_id/events",
+          "host": ["{{baseUrl}}"], "path": ["v1", "projects", ":project_id", "events"],
+          "variable": [ { "key": "project_id", "value": "agrisense-n1" } ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"alert\",\n  \"message\": \"check duty cycle\"\n}"
+        },
+        "description": "Delivered to every WebSocket subscriber of that project's event stream."
       }
     }
   ]

@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-23 — Overnight build 2 (autonomous): **prompt implementation** (render() wires templates→provider), **live connectivity** (WebSocket streaming analyze + project event stream + EventHub + CORS + health), **Alembic migrations** (CP-1 deferral resolved, reversible), integration test, docs/Swagger/Postman/architecture-live all updated, status page refreshed. 102 tests green. Merged to develop. Report: LIVE-CONNECTIVITY-AND-PROMPT-IMPL-REPORT.md.
 - 2026-07-23 — Overnight build (autonomous): **Step 1 production prompt suite** (generic embedded; erc_core + decision/verification/planner/knowledge templates, registry v1 + loader) and **Step 2 benchmark dataset** (benchmarks/scenario-02..06 + eval/benchmarks loader wired to CP-8 harness). 90 tests green. Self-merged to develop. Report: PROMPTS-AND-BENCHMARKS-REPORT.md. Go-live (real LLM + derive T) pending API key — to review together.
 - 2026-07-22 — Added: 4 cross-domain benchmark runs (edge-AI camera, PTZ/umbrella, LMFP BMS, home zone-gateway) in concept-dry-run/scenarios; API Swagger (docs/openapi.json) + Postman collection + docs/API.md; shareable status page (docs/status.html, published as Artifact).
 - 2026-07-22 — **CP-9 freeze-gate MECHANISM built (freeze DISABLED, T unset — fail-safe).** ALL backlog code CP-0…CP-9 done, 81 tests green. Loop STOPPED. Remaining = human/data-gated: go-live (API key) + derive T. Not guessing T.
