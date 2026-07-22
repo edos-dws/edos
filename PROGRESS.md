@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — Added: 4 cross-domain benchmark runs (edge-AI camera, PTZ/umbrella, LMFP BMS, home zone-gateway) in concept-dry-run/scenarios; API Swagger (docs/openapi.json) + Postman collection + docs/API.md; shareable status page (docs/status.html, published as Artifact).
 - 2026-07-22 — **CP-9 freeze-gate MECHANISM built (freeze DISABLED, T unset — fail-safe).** ALL backlog code CP-0…CP-9 done, 81 tests green. Loop STOPPED. Remaining = human/data-gated: go-live (API key) + derive T. Not guessing T.
 - 2026-07-22 — CP-8 (Evaluation harness) self-merged: score_run() + EDOS_BENCHMARK_RUBRIC (10 criteria from Scenario-02 key; critical traps + hallucination hard-fail; pass ≥16/20). 74 tests.
 - 2026-07-22 — CP-7 (Knowledge Engine) self-merged: extract→normalize(STM32 H743→STM32H743)→hard-gate(attribution/schema)→dedupe→confidence-floor. LLM extractor at go-live. 69 tests.

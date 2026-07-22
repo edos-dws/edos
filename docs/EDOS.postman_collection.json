@@ -1,0 +1,49 @@
+{
+  "info": {
+    "name": "EDOS API (v0.0.1)",
+    "description": "Engineering Decision Operating System — /v1 endpoints. Runs on the stub LLM until go-live. Base URL variable {{baseUrl}} defaults to http://localhost:8000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" }
+  ],
+  "item": [
+    {
+      "name": "POST /v1/ask — intent detection",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/v1/ask", "host": ["{{baseUrl}}"], "path": ["v1", "ask"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": \"agrisense-n1\",\n  \"question\": \"Is the nRF52840 right for LoRaWAN?\"\n}"
+        }
+      }
+    },
+    {
+      "name": "POST /v1/analyze — decision over a context package",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/v1/analyze", "host": ["{{baseUrl}}"], "path": ["v1", "analyze"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": \"agrisense-n1\",\n  \"question\": \"Should we keep the nRF52840 for a LoRaWAN node?\",\n  \"context_items\": [\n    {\n      \"type\": \"requirement\",\n      \"ref_id\": \"R-3\",\n      \"content\": \"Report telemetry over LoRaWAN\",\n      \"signals\": { \"graph\": 0.9, \"semantic\": 0.9, \"recency\": 0.9, \"confidence\": 0.9, \"focus\": 0.9 }\n    }\n  ]\n}"
+        },
+        "description": "Empty context_items => the engine returns needs_clarification instead of guessing."
+      }
+    },
+    {
+      "name": "POST /v1/verify — critique + gated promotion",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/v1/verify", "host": ["{{baseUrl}}"], "path": ["v1", "verify"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": {\n    \"schema_version\": \"edos.decision.v1\",\n    \"summary\": \"Use STM32WL\",\n    \"recommendation\": \"Switch to an SoC with an integrated LoRa radio\",\n    \"confidence\": 0.8,\n    \"status\": \"recommended\",\n    \"evidence\": [ { \"claim\": \"nRF52840 has no LoRa radio\", \"source\": \"datasheet\", \"kind\": \"fact\" } ]\n  }\n}"
+        }
+      }
+    }
+  ]
+}

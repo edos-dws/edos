@@ -1,0 +1,203 @@
+<style>
+  :root{
+    --bg:#F5F8F7; --surface:#FFFFFF; --surface-2:#EEF3F2;
+    --ink:#132321; --muted:#57706C; --faint:#859894; --border:#E0E8E6;
+    --accent:#0E9E93; --accent-ink:#0A7A72;
+    --done:#15925A; --done-bg:#E4F3EA;
+    --pend:#B4791A; --pend-bg:#F8EFDD;
+    --shadow:0 1px 2px rgba(19,35,33,.04),0 8px 24px rgba(19,35,33,.06);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0B1211; --surface:#121C1B; --surface-2:#182322;
+      --ink:#E7EEEC; --muted:#93A6A3; --faint:#5E726F; --border:#21302E;
+      --accent:#2DD4BF; --accent-ink:#5EE7D6;
+      --done:#34D399; --done-bg:#123227;
+      --pend:#FBBF24; --pend-bg:#2C2410;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F5F8F7; --surface:#FFFFFF; --surface-2:#EEF3F2; --ink:#132321; --muted:#57706C;
+    --border:#E0E8E6; --accent:#0E9E93; --accent-ink:#0A7A72; --done:#15925A; --done-bg:#E4F3EA;
+    --pend:#B4791A; --pend-bg:#F8EFDD; --shadow:0 1px 2px rgba(19,35,33,.04),0 8px 24px rgba(19,35,33,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0B1211; --surface:#121C1B; --surface-2:#182322; --ink:#E7EEEC; --muted:#93A6A3;
+    --border:#21302E; --accent:#2DD4BF; --accent-ink:#5EE7D6; --done:#34D399; --done-bg:#123227;
+    --pend:#FBBF24; --pend-bg:#2C2410; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;margin:0}
+  .wrap{max-width:920px;margin:0 auto;padding:clamp(28px,5vw,64px) clamp(18px,4vw,32px)}
+  h1,h2,h3{text-wrap:balance;line-height:1.2;margin:0}
+  a{color:var(--accent-ink)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:600}
+  .muted{color:var(--muted)}
+  section{margin-top:clamp(38px,6vw,64px)}
+  .lead{font-size:clamp(16px,2.4vw,18px);color:var(--muted);max-width:62ch;margin-top:14px}
+
+  /* header */
+  header .title{font-size:clamp(30px,6vw,46px);font-weight:700;letter-spacing:-.02em;margin-top:12px}
+  header .title span{color:var(--accent)}
+  .sub{margin-top:8px;font-size:clamp(15px,2vw,17px);color:var(--muted)}
+
+  /* metric row */
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:30px}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 18px 16px;
+    box-shadow:var(--shadow)}
+  .metric .n{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .metric .n small{font-size:15px;font-weight:600;color:var(--muted)}
+  .metric .l{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .metric .accent{color:var(--accent)}
+
+  /* pills */
+  .pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;
+    font-weight:600;letter-spacing:.02em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill.done{background:var(--done-bg);color:var(--done)}
+  .pill.pend{background:var(--pend-bg);color:var(--pend)}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  /* checkpoint list */
+  .cps{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+  .cp{display:grid;grid-template-columns:64px 1fr auto;gap:16px;align-items:start;
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 17px}
+  .cp .id{font-family:var(--mono);font-weight:700;color:var(--accent);font-size:14px;padding-top:1px}
+  .cp .body h3{font-size:15.5px;font-weight:650}
+  .cp .body p{margin:3px 0 0;font-size:13.5px;color:var(--muted)}
+  .cp .st{padding-top:2px}
+
+  /* two-col cards */
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  @media (max-width:640px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;
+    box-shadow:var(--shadow)}
+  .card.flag{border-color:color-mix(in srgb,var(--pend) 45%,var(--border))}
+  .card h3{font-size:16px;font-weight:650;display:flex;align-items:center;gap:9px}
+  .card ul{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px}
+  .card li{font-size:14px;padding-left:22px;position:relative;color:var(--ink)}
+  .card li::before{content:"";position:absolute;left:2px;top:8px;width:7px;height:7px;border-radius:50%;
+    background:var(--accent)}
+  .card.flag li::before{background:var(--pend)}
+  .card li b{font-weight:650}
+  .card li span{color:var(--muted)}
+
+  /* flow */
+  .flow{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;align-items:center}
+  .node{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:8px;padding:8px 11px;font-weight:600}
+  .node.gate{border-color:color-mix(in srgb,var(--pend) 50%,var(--border));color:var(--pend)}
+  .arrow{color:var(--faint);font-size:14px}
+
+  /* principles */
+  .princ{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:22px}
+  .p{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+  .p h3{font-size:14px;font-weight:650}
+  .p p{margin:6px 0 0;font-size:13px;color:var(--muted)}
+
+  .stack{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .chip{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--border);
+    border-radius:7px;padding:6px 10px;color:var(--muted)}
+
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+  .rule{height:1px;background:var(--border);border:0;margin:0}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Build progress · 22 Jul 2026</div>
+    <div class="title">EDOS — <span>Engineering Decision</span> Operating System</div>
+    <p class="sub">A persistent engineering-reasoning system for embedded projects. It captures every design
+      decision as a versioned, evidence-backed object — so knowledge compounds instead of getting lost in chat.</p>
+
+    <div class="metrics">
+      <div class="metric"><div class="n accent">10<small>/10</small></div><div class="l">Checkpoints code-complete</div></div>
+      <div class="metric"><div class="n">81</div><div class="l">Automated tests passing</div></div>
+      <div class="metric"><div class="n">Stub</div><div class="l">LLM mode — real model at go-live</div></div>
+      <div class="metric"><div class="n">OFF</div><div class="l">Autonomous freeze — safe by default</div></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="eyebrow">Where it stands</div>
+    <h2 style="font-size:clamp(21px,3.4vw,27px);font-weight:700;letter-spacing:-.01em;margin-top:10px">The full platform is built and green</h2>
+    <p class="lead">Every planned checkpoint (CP-0 → CP-9) is implemented, tested, and merged. The system runs
+      end-to-end today on a deterministic stub in place of the live LLM — so the whole structure is proven
+      before a single API call. Two deliberate, human-owned steps remain before it goes live.</p>
+
+    <div class="cps">
+      <div class="cp"><div class="id">CP-0</div><div class="body"><h3>Setup &amp; infrastructure</h3><p>Repo, CI, PostgreSQL + pgvector, Redis, green baseline gate.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-1</div><div class="body"><h3>Domain model &amp; persistence</h3><p>Locked schemas; decisions are immutable &amp; versioned; decision graph; vector chunks.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-2</div><div class="body"><h3>Model Router &amp; prompt layer</h3><p>Route by capability, not vendor; versioned prompt registry; validate → repair → reject.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-3</div><div class="body"><h3>Context Engine</h3><p>Deterministic assembly + weighted ranking. The LLM never searches the project — this does.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-4</div><div class="body"><h3>Decision Engine</h3><p>Reasons over the context package; caps status at "recommended"; asks instead of guessing.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-5</div><div class="body"><h3>Verification Engine</h3><p>The safety spine: critiques (never regenerates), can only lower confidence, gates promotion.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-6</div><div class="body"><h3>API &amp; pipelines</h3><p><code>/v1/ask</code>, <code>/v1/analyze</code>, <code>/v1/verify</code>; event-driven background jobs.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-7</div><div class="body"><h3>Knowledge Engine</h3><p>Turns decisions into reusable knowledge — with quality gates before anything persists.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-8</div><div class="body"><h3>Evaluation harness</h3><p>Scores benchmark runs against a rubric — the data that will <em>derive</em> the freeze threshold.</p></div><div class="st"><span class="pill done"><span class="dot"></span>Done</span></div></div>
+      <div class="cp"><div class="id">CP-9</div><div class="body"><h3>Freeze gate</h3><p>Mechanism built; freeze <b>disabled by default</b> until a threshold is derived from real scored runs.</p></div><div class="st"><span class="pill pend"><span class="dot"></span>Safe · off</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">What to expect</div>
+    <div class="cols">
+      <div class="card">
+        <h3><span class="pill done"><span class="dot"></span>Today</span> Works now, on the stub</h3>
+        <ul>
+          <li><b>End-to-end pipeline</b> <span>— context assembly → decision → verification → knowledge, callable over the API.</span></li>
+          <li><b>Structured, validated output</b> <span>— every decision conforms to a locked JSON contract; malformed output is never stored.</span></li>
+          <li><b>Safety behaviour proven</b> <span>— confidence only ever drops on review; nothing freezes automatically.</span></li>
+          <li><b>Swagger &amp; Postman</b> <span>— API is explorable and importable.</span></li>
+        </ul>
+      </div>
+      <div class="card flag">
+        <h3><span class="pill pend"><span class="dot"></span>Next</span> Two human-owned steps</h3>
+        <ul>
+          <li><b>Connect the real LLM</b> <span>— choose a provider + API key, swap the stub, author &amp; tune the prompt content (slots are ready).</span></li>
+          <li><b>Derive the freeze threshold</b> <span>— run real benchmarks, score them, and set the threshold from data. Until then, autonomous freeze stays off.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">How a request flows</div>
+    <div class="flow">
+      <span class="node">Context Engine</span><span class="arrow">→</span>
+      <span class="node">Model Router</span><span class="arrow">→</span>
+      <span class="node">Decision Engine</span><span class="arrow">→</span>
+      <span class="node">Verification</span><span class="arrow">→</span>
+      <span class="node gate">Freeze gate · off</span><span class="arrow">→</span>
+      <span class="node">Knowledge write-back</span>
+    </div>
+    <p class="muted" style="margin-top:14px;font-size:13.5px">Software orchestrates the flow and owns the
+      evidence; the LLM only reasons over what it's handed. That separation is the core design bet.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">How it's built</div>
+    <div class="princ">
+      <div class="p"><h3>Contract-first</h3><p>Locked schemas are the source of truth; every engine is built against them.</p></div>
+      <div class="p"><h3>Test-gated</h3><p>Every change ships with a test; the build is never left red. CI mirrors the local gate.</p></div>
+      <div class="p"><h3>Checkpoint-reviewed</h3><p>Work lands in reviewable slices; the risky calls stay with a human.</p></div>
+      <div class="p"><h3>Flag, don't guess</h3><p>Where the spec is silent, it's flagged for a decision — never filled with an invented value.</p></div>
+    </div>
+    <div class="stack">
+      <span class="chip">Python 3.12+</span><span class="chip">FastAPI</span><span class="chip">Pydantic v2</span>
+      <span class="chip">PostgreSQL + pgvector</span><span class="chip">Redis</span><span class="chip">SQLAlchemy</span>
+      <span class="chip">pytest · ruff</span><span class="chip">GitHub Actions CI</span>
+    </div>
+  </section>
+
+  <footer>
+    Status is honest by design: the platform is complete and tested on a stub; live reasoning and autonomous
+    freeze are gated behind the two steps above. No decision freezes itself until a human sets the threshold
+    from real data.
+  </footer>
+</div>
