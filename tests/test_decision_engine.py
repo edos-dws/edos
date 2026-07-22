@@ -28,7 +28,8 @@ def test_empty_context_asks_for_clarification_not_a_guess():
 class _FrozenProvider:
     """A provider that (wrongly) returns a frozen decision — the engine must downgrade it."""
 
-    def execute(self, capability: Capability, context: dict, schema: dict | None) -> dict:
+    def execute(self, capability: Capability, context: dict, schema: dict | None,
+                prompt: str | None = None) -> dict:
         return Decision(
             summary="s", recommendation="r", confidence=0.99, status="frozen",
             evidence=[{"claim": "c", "source": "x"}],

@@ -31,7 +31,8 @@ class _BadThenGoodProvider:
     def __init__(self) -> None:
         self.calls = 0
 
-    def execute(self, capability: Capability, context: dict, schema: dict | None) -> dict:
+    def execute(self, capability: Capability, context: dict, schema: dict | None,
+                prompt: str | None = None) -> dict:
         self.calls += 1
         if self.calls == 1:
             return {"not": "a decision"}
@@ -51,7 +52,7 @@ def test_router_repairs_malformed_provider_output():
 
 
 class _AlwaysBadProvider:
-    def execute(self, capability, context, schema):
+    def execute(self, capability, context, schema, prompt=None):
         return {"garbage": True}
 
 

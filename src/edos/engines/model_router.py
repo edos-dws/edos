@@ -13,6 +13,7 @@ from typing import Protocol
 
 from edos.engines.prompt import produce_valid
 from edos.models.decision import Decision
+from edos.prompts.render import render
 
 
 class Capability(str, Enum):
@@ -50,13 +51,18 @@ def tier_for(capability: Capability | str) -> Tier:
 
 
 class Provider(Protocol):
-    def execute(self, capability: Capability, context: dict, schema: dict | None) -> dict: ...
+    def execute(
+        self, capability: Capability, context: dict, schema: dict | None, prompt: str | None = None
+    ) -> dict: ...
 
 
 class StubProvider:
-    """Deterministic, schema-valid fixtures. No live model. Swapped for real providers at CP-4."""
+    """Deterministic, schema-valid fixtures. No live model. `prompt` is the fully-rendered prompt a real
+    provider would send; the stub ignores it (it exists so the wiring is proven before go-live)."""
 
-    def execute(self, capability: Capability, context: dict, schema: dict | None = None) -> dict:
+    def execute(
+        self, capability: Capability, context: dict, schema: dict | None = None, prompt: str | None = None
+    ) -> dict:
         cap = Capability(capability)
         if cap == Capability.decision:
             return Decision(
@@ -76,16 +82,17 @@ class ModelRouter:
 
     def execute(self, capability: Capability | str, context: dict, schema: dict | None = None) -> dict:
         cap = Capability(capability)
-        _ = tier_for(cap)  # tier selection (routing to a real model happens at CP-4)
+        _ = tier_for(cap)  # tier selection (routing to a real model happens at go-live)
         if schema is None:
-            return self.provider.execute(cap, context, None)
-        # generate → repair-retry (same provider, repair hint) → fallback provider (Ch 9). If none of these
-        # produce schema-valid JSON, produce_valid raises and nothing is persisted.
+            return self.provider.execute(cap, context, None, render(cap, context, None))
+        # generate → repair-retry (same provider, repair hint) → fallback provider (Ch 9). Each attempt gets
+        # its fully-rendered prompt. If none produce schema-valid JSON, produce_valid raises → nothing persists.
+        repair_ctx = {**context, "_repair": True}
         return produce_valid(
             schema,
             [
-                lambda: self.provider.execute(cap, context, schema),
-                lambda: self.provider.execute(cap, {**context, "_repair": True}, schema),
-                lambda: self.fallback.execute(cap, context, schema),
+                lambda: self.provider.execute(cap, context, schema, render(cap, context, schema)),
+                lambda: self.provider.execute(cap, repair_ctx, schema, render(cap, repair_ctx, schema)),
+                lambda: self.fallback.execute(cap, context, schema, render(cap, context, schema)),
             ],
         )
