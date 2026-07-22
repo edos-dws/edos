@@ -14,14 +14,14 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-1 — Domain model + persistence → 🔵 awaiting approval** |
-| Current ticket | none in-flight; CP-2 starts on approval |
-| Build gate | 🟢 GREEN — 26 tests (4 ran vs Postgres) + ruff |
+| Current checkpoint | **CP-2 — Model Router + Prompt layer (stubbed)** (🟡 on `cp-2`) |
+| Current ticket | `3.2 Prompt registry` |
+| Build gate | 🟢 GREEN — 30 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Blocked? | No |
-| Waiting on human? | **YES — review + merge `cp-1` PR (schema-lock, see `CP-1-REPORT.md`)** |
-| Repo | https://github.com/edos-dws/edos (`main` @ CP-0 ✅; `cp-1` pushed) |
-| Last updated | 2026-07-22 (CP-1 complete, awaiting gate) |
+| Waiting on human? | No — next gate at CP-2 completion |
+| Repo | https://github.com/edos-dws/edos (`main` @ CP-1 ✅; work on `cp-2`) |
+| Last updated | 2026-07-22 (CP-1 merged; CP-2 started) |
 
 ---
 
@@ -49,7 +49,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 |----|-----------|:------:|-------------|-----------------|:----------:|
 | CP-0 | Setup, repo, CI, infra | ✅ | `main` (see `CP-0-REPORT.md`) | repo on GH · CI green on a PR · Postgres+Redis reachable · runner can push | ☑ 2026-07-22 |
 | CP-1 | Domain model + persistence | ✅ | merged to `main` | schemas capture intent; decision versioning immutable; graph weights | ☑ 2026-07-22 |
-| CP-2 | Model router + prompt layer (stubbed) | ⬜ | — | abstraction clean; validate/repair; no live LLM | ☐ |
+| CP-2 | Model router + prompt layer (stubbed) | 🟡 | `cp-2` | abstraction clean; validate/repair; no live LLM | ☐ |
 | CP-3 | Context engine | ⬜ | — | ranking order correct; LLM doesn't search the project | ☐ |
 | CP-4 | Decision engine | ⬜ | — | real scenario → valid decision; **first prompt tuning** | ☐ |
 | CP-5 | Verification engine (safety spine) | ⬜ | — | critiques not regenerates; only lowers confidence | ☐ |
@@ -75,7 +75,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 2.1 SQLAlchemy models + migrations | ✅ | `cp-1` | DecisionRecord + new_decision_version(); immutable-version test (ran vs PG) |
 | 2.2 Decision Graph edges | ✅ | `cp-1` | GraphEdge + neighbors() + Ch15 weights |
 | 2.3 pgvector document_chunks | ✅ | `cp-1` | DocumentChunk(Vector) + nearest-k L2 |
-| 3.1 model_router (stubbed) | ⬜ | — | schema-valid fixtures |
+| 3.1 model_router (stubbed) | ✅ | `cp-2` | Capability/Tier table + StubProvider; 4 tests |
 | 3.2 Prompt registry | ⬜ | — | versioned entries |
 | 3.3 JSON validate + repair loop | ⬜ | — | never persist malformed |
 | 4.1 Context pipeline skeleton | ⬜ | — | emits valid context_package |
@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-1 merged to `main` (✅ signed off). Started CP-2 on `cp-2`. t3.1: Model Router (Capability/Tier Ch4 table, StubProvider, schema-validated output); 4 tests. 30 green.
 - 2026-07-22 — **CP-1 build complete → 🔵 awaiting approval.** E1 models + E2 persistence, 26 tests green. Report in `CP-1-REPORT.md`; branch `cp-1` ready to push.
 - 2026-07-22 — CP-1 t2.1/2.2/2.3: persistence layer (SQLAlchemy Base/engine, DecisionRecord immutable versioning, GraphEdge traversal+Ch15 weights, pgvector DocumentChunk nearest-k). 4 DB tests ran vs Postgres; CI got a pgvector service. 26 tests green. E2 complete.
 - 2026-07-22 — CP-1 t1.3: domain entities (Project/Requirement/Assumption/Component/Risk/Document/KnowledgeItem/Alert) + `RelationType` (11) + `Edge`; 5 tests green. Model layer (E1) complete.

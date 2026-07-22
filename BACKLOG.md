@@ -40,7 +40,7 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 3 — Model Router & Prompt layer (Ch 4, 9, 16)
 
-- [ ] **3.1 `model_router.execute(capability, context, schema)`** provider-abstract interface; **stubbed**
+- [x] **3.1 `model_router.execute(capability, context, schema)`** provider-abstract interface; **stubbed**
   to return schema-valid fixtures (no live LLM). Test: returns a `decision`-schema-valid object for the
   decision capability; tier selection table (Ch 4) maps task→tier.
 - [ ] **3.2 Prompt registry** (`src/edos/prompts/`) with versioned entries (`decision_prompt:vX`), each with
