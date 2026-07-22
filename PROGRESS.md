@@ -48,7 +48,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 | CP | Milestone | Status | Branch / PR | Human validates | Signed off |
 |----|-----------|:------:|-------------|-----------------|:----------:|
 | CP-0 | Setup, repo, CI, infra | ✅ | `main` (see `CP-0-REPORT.md`) | repo on GH · CI green on a PR · Postgres+Redis reachable · runner can push | ☑ 2026-07-22 |
-| CP-1 | Domain model + persistence | 🔵 | `cp-1` (see `CP-1-REPORT.md`) | schemas capture intent; decision versioning immutable; graph weights | ☐ |
+| CP-1 | Domain model + persistence | ✅ | merged to `main` | schemas capture intent; decision versioning immutable; graph weights | ☑ 2026-07-22 |
 | CP-2 | Model router + prompt layer (stubbed) | ⬜ | — | abstraction clean; validate/repair; no live LLM | ☐ |
 | CP-3 | Context engine | ⬜ | — | ranking order correct; LLM doesn't search the project | ☐ |
 | CP-4 | Decision engine | ⬜ | — | real scenario → valid decision; **first prompt tuning** | ☐ |
