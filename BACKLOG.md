@@ -75,9 +75,9 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 7 — API & pipelines (Ch 10, 14)
 
-- [ ] **7.1 FastAPI app** with `/v1/ask`, `/v1/analyze`, `/v1/verify` wired to the engines. Test: `/v1/analyze`
+- [x] **7.1 FastAPI app** with `/v1/ask`, `/v1/analyze`, `/v1/verify` wired to the engines. Test: `/v1/analyze`
   returns a `decision`-schema-valid body for a fixture project.
-- [ ] **7.2 Async passive pipeline** (DecisionAccepted → summary/embeddings/graph-update jobs) on a queue.
+- [x] **7.2 Async passive pipeline** (DecisionAccepted → summary/embeddings/graph-update jobs) on a queue.
   Test: emitting the event enqueues the expected jobs.
 
 ## EPIC 8 — Knowledge Engine (Ch 7)
