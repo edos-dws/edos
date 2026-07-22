@@ -20,8 +20,8 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
-| Waiting on human? | No (stub mode). Real LLM connect = separate go-live step (needs your API key) |
-| Repo | https://github.com/edos-dws/edos (`develop` @ CP-8 ✅) |
+| Waiting on human? | **YES — 2 items: (1) go-live real LLM (API key), (2) derive freeze threshold T from scored runs** |
+| Repo | https://github.com/edos-dws/edos (`develop` @ CP-9 mechanism; freeze OFF) |
 | Last updated | 2026-07-22 (base→develop; CP-2 merged; CP-3 started) |
 
 ---
@@ -33,10 +33,9 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 - [x] ~~Approve CP-0~~ — **locked in 2026-07-22.**
 - [x] ~~Git-as-gate flow~~ — **confirmed:** CP-branch → PR → human merge.
 - [x] ~~Runner location~~ — **confirmed:** this machine (Claude Code).
-- [ ] Nothing blocking right now — runner is in **self-merge mode** into `develop` for low-risk CPs.
-- [ ] **I will pause for your sign-off at CP-4** (first live LLM + prompt content). That's your next real gate.
-- [ ] (optional) run `! gh auth login` once so I open real GitHub PRs instead of direct merges.
-- [ ] (still open from CP-1) 3 flagged items: Alembic timing · 6 unweighted relation types · embedding dim (CP-3).
+- [ ] **GO-LIVE: connect the real LLM.** Choose provider (Claude recommended) + give an API key (secret). Then StubProvider → real provider + author/tune prompt content (registry has the slots).
+- [ ] **Derive freeze threshold T** from scored benchmark runs (CP-8 harness) once real runs exist. Until then freeze stays DISABLED (fail-safe). Do NOT guess T.
+- [ ] (optional) `! gh auth login` for real GitHub PRs; Alembic migrations; 6 unweighted relation weights; embedding dim.
 
 *(Runner: as gates are reached, replace this list with the specific thing the human must validate for that CP.)*
 
@@ -57,7 +56,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 | CP-6 | API + pipelines | ✅ | merged to `develop` | `/v1/analyze` end-to-end | ☑ 2026-07-22 (self) |
 | CP-7 | Knowledge engine | ✅ | merged to `develop` | quality gates before persist | ☑ 2026-07-22 (self) |
 | CP-8 | Evaluation harness | ✅ | merged to `develop` | scores dry-run scenarios vs Evaluation Keys | ☑ 2026-07-22 (self) |
-| CP-9 | Freeze gate | ⬜ | — | `T` derived from CP-8 scores; unsafe freezes refused | ☐ |
+| CP-9 | Freeze gate (mechanism; freeze OFF) | 🟡 | `develop` | **needs human: derive T from scored runs + go-live** | ☐ |
 
 ---
 
@@ -90,7 +89,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 7.2 Async passive pipeline | ✅ | `cp-6` | DecisionAccepted→jobs fan-out; in-memory queue |
 | 8.1 Knowledge extraction + gates | ✅ | `cp-7` | extract→normalize→hard-gate→dedupe→confidence-floor; 4 tests |
 | 9.1 Evaluation harness | ✅ | `cp-8` | score_run() + EDOS rubric (Scenario-02 key); critical/hard-fail; 5 tests |
-| 9.2 Freeze gate | ⬜ | — | **T blocked until CP-8 data** |
+| 9.2 Freeze gate | ✅ | `cp-9` | gate mechanism built; **freeze DISABLED (T unset)** until human derives T; 7 tests |
 
 ---
 
@@ -106,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — **CP-9 freeze-gate MECHANISM built (freeze DISABLED, T unset — fail-safe).** ALL backlog code CP-0…CP-9 done, 81 tests green. Loop STOPPED. Remaining = human/data-gated: go-live (API key) + derive T. Not guessing T.
 - 2026-07-22 — CP-8 (Evaluation harness) self-merged: score_run() + EDOS_BENCHMARK_RUBRIC (10 criteria from Scenario-02 key; critical traps + hallucination hard-fail; pass ≥16/20). 74 tests.
 - 2026-07-22 — CP-7 (Knowledge Engine) self-merged: extract→normalize(STM32 H743→STM32H743)→hard-gate(attribution/schema)→dedupe→confidence-floor. LLM extractor at go-live. 69 tests.
 - 2026-07-22 — CP-6 (API + pipelines) self-merged: FastAPI /v1/ask,/analyze,/verify wired to engines (TestClient); passive pipeline DecisionAccepted→jobs fan-out (in-memory queue; real broker at deploy). 65 tests.
