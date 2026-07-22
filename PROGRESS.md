@@ -14,14 +14,14 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-3 ✅ merged → next: CP-4 (Decision Engine)** |
-| Current ticket | none — ⛔ CP-4 needs human sign-off before starting |
-| Build gate | 🟢 GREEN — 50 tests + ruff |
+| Current checkpoint | **CP-4 ✅ (stub) merged → next: CP-5 (Verification)** |
+| Current ticket | none in-flight |
+| Build gate | 🟢 GREEN — 53 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
-| Waiting on human? | **YES — CP-4 is the live-LLM gate; sign off before I start it** |
-| Repo | https://github.com/edos-dws/edos (`develop` @ CP-3 ✅) |
+| Waiting on human? | No (stub mode). Real LLM connect = separate go-live step (needs your API key) |
+| Repo | https://github.com/edos-dws/edos (`develop` @ CP-4 ✅) |
 | Last updated | 2026-07-22 (base→develop; CP-2 merged; CP-3 started) |
 
 ---
@@ -52,7 +52,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 | CP-1 | Domain model + persistence | ✅ | merged to `main` | schemas capture intent; decision versioning immutable; graph weights | ☑ 2026-07-22 |
 | CP-2 | Model router + prompt layer (stubbed) | ✅ | merged to `develop` | abstraction clean; validate/repair; no live LLM | ☑ 2026-07-22 |
 | CP-3 | Context engine | ✅ | merged to `develop` | ranking order correct; LLM doesn't search the project | ☑ 2026-07-22 (self) |
-| CP-4 | Decision engine | ⬜ | — | real scenario → valid decision; **first prompt tuning** | ☐ |
+| CP-4 | Decision engine (stub LLM) | ✅ | merged to `develop` | valid decision; status capped; clarification not guess | ☑ 2026-07-22 (self) |
 | CP-5 | Verification engine (safety spine) | ⬜ | — | critiques not regenerates; only lowers confidence | ☐ |
 | CP-6 | API + pipelines | ⬜ | — | `/v1/analyze` end-to-end | ☐ |
 | CP-7 | Knowledge engine | ⬜ | — | quality gates before persist | ☐ |
@@ -82,8 +82,8 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 4.1 Context pipeline skeleton | ✅ | `cp-3` | ContextEngine.build(): score→sort→compress→assemble; valid pkg; 3 tests |
 | 4.2 Ranking formula | ✅ | `cp-3` | rank_score() Ch15; hand-computed tests |
 | 4.3 Rule expansion | ✅ | `cp-3` | expand() MCU/battery/protocol; dedup; no LLM |
-| 5.1 Decision pipeline | ⬜ | — | caps at `recommended` |
-| 5.2 Clarification policy | ⬜ | — | no guessing |
+| 5.1 Decision pipeline | ✅ | `cp-4` | DecisionEngine.analyze(); status capped at recommended |
+| 5.2 Clarification policy | ✅ | `cp-4` | empty context → ClarificationNeeded, not a guess |
 | 6.1 Verification pass | ⬜ | — | critique, lower-only |
 | 6.2 Status promotion | ⬜ | — | records freeze_blockers |
 | 7.1 FastAPI endpoints | ⬜ | — | /v1/analyze |
@@ -106,6 +106,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-4 (Decision Engine, on STUB LLM) built + self-merged into develop: analyze() emits contract-valid decision, status capped at recommended, empty context → clarification (no guessing). 53 tests. Real-LLM connect deferred to a go-live step (needs API key).
 - 2026-07-22 — **CP-3 self-merged into `develop` (✅).** Context Engine done, 50 tests. Next: **CP-4 pauses for human sign-off** (first live LLM + prompt content).
 - 2026-07-22 — CP-3 t4.1: ContextEngine deterministic pipeline (score→sort→compress→assemble) emitting a valid ContextPackage; LLM does not search the project. 50 tests green. CP-3 build complete.
 - 2026-07-22 — CP-3 t4.2/4.3: ranking formula (Ch15 weighted score) + deterministic rule expansion (MCU→drivers/bootloader/... , no LLM). 9 tests. Built before 4.1 (dependency order).

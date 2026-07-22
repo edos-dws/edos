@@ -59,10 +59,10 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 5 — Decision Engine (Ch 6)
 
-- [ ] **5.1 Decision pipeline**: consistency-check → reason (via model_router stub) → assemble a
+- [x] **5.1 Decision pipeline**: consistency-check → reason (via model_router stub) → assemble a
   `decision`-valid object; **status caps at `recommended`**. Test: consumes a `context_package`, emits valid
   decision; never sets `frozen`.
-- [ ] **5.2 Clarification policy**: if essential info missing, return a "needs_clarification" outcome instead
+- [x] **5.2 Clarification policy**: if essential info missing, return a "needs_clarification" outcome instead
   of guessing. Test: a context package missing a required field yields clarification, not a fabricated value.
 
 ## EPIC 6 — Verification Engine (Ch 6, 18) — the safety spine
