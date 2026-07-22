@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-23 — Overnight build (autonomous): **Step 1 production prompt suite** (generic embedded; erc_core + decision/verification/planner/knowledge templates, registry v1 + loader) and **Step 2 benchmark dataset** (benchmarks/scenario-02..06 + eval/benchmarks loader wired to CP-8 harness). 90 tests green. Self-merged to develop. Report: PROMPTS-AND-BENCHMARKS-REPORT.md. Go-live (real LLM + derive T) pending API key — to review together.
 - 2026-07-22 — Added: 4 cross-domain benchmark runs (edge-AI camera, PTZ/umbrella, LMFP BMS, home zone-gateway) in concept-dry-run/scenarios; API Swagger (docs/openapi.json) + Postman collection + docs/API.md; shareable status page (docs/status.html, published as Artifact).
 - 2026-07-22 — **CP-9 freeze-gate MECHANISM built (freeze DISABLED, T unset — fail-safe).** ALL backlog code CP-0…CP-9 done, 81 tests green. Loop STOPPED. Remaining = human/data-gated: go-live (API key) + derive T. Not guessing T.
 - 2026-07-22 — CP-8 (Evaluation harness) self-merged: score_run() + EDOS_BENCHMARK_RUBRIC (10 criteria from Scenario-02 key; critical traps + hallucination hard-fail; pass ≥16/20). 74 tests.

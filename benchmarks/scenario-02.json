@@ -1,0 +1,50 @@
+{
+  "id": "scenario-02",
+  "title": "Solar LoRaWAN Agri Node",
+  "domain": "agri-iot",
+  "intake": "Documents/concept-dry-run/scenarios/Scenario-02 — Solar LoRaWAN Agri Node (intake brief).md",
+  "pass_total": 16,
+  "criteria": [
+    {
+      "key": "factual_correctness",
+      "critical": true
+    },
+    {
+      "key": "contradiction_detection",
+      "critical": true
+    },
+    {
+      "key": "calculation_quality"
+    },
+    {
+      "key": "assumption_tracking"
+    },
+    {
+      "key": "no_hallucination",
+      "hard_fail_if_zero": true
+    },
+    {
+      "key": "cross_domain_awareness"
+    },
+    {
+      "key": "confidence_calibration"
+    },
+    {
+      "key": "freeze_discipline"
+    },
+    {
+      "key": "decision_support"
+    },
+    {
+      "key": "over_engineering_check"
+    }
+  ],
+  "traps": [
+    "nRF52840 has no sub-GHz LoRa radio",
+    "10 s cadence vs LoRaWAN duty-cycle/airtime limits",
+    "solar = 'unlimited power' energy-budget fallacy",
+    "on-device ML + Class C continuous-receive over-engineering",
+    "unbounded 'never lose a reading' buffer"
+  ],
+  "notes": "Generic embedded-reasoning rubric (0-2 per criterion). Traps map to the dimensions; at go-live an LLM-judge scores whether each trap was caught. factual_correctness + contradiction_detection are critical (must be maxed); no_hallucination hard-fails at 0."
+}

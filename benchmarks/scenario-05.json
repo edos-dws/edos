@@ -1,0 +1,50 @@
+{
+  "id": "scenario-05",
+  "title": "LMFP Cell BMS",
+  "domain": "battery-management",
+  "intake": "Documents/concept-dry-run/scenarios/Scenario-05-DEEP — LMFP BMS (EDOS session, 31 turns).md",
+  "pass_total": 16,
+  "criteria": [
+    {
+      "key": "factual_correctness",
+      "critical": true
+    },
+    {
+      "key": "contradiction_detection",
+      "critical": true
+    },
+    {
+      "key": "calculation_quality"
+    },
+    {
+      "key": "assumption_tracking"
+    },
+    {
+      "key": "no_hallucination",
+      "hard_fail_if_zero": true
+    },
+    {
+      "key": "cross_domain_awareness"
+    },
+    {
+      "key": "confidence_calibration"
+    },
+    {
+      "key": "freeze_discipline"
+    },
+    {
+      "key": "decision_support"
+    },
+    {
+      "key": "over_engineering_check"
+    }
+  ],
+  "traps": [
+    "copying LFP 3.65 V thresholds to LMFP (~4.2-4.3 V)",
+    "voltage-based SoC on a flat LMFP OCV curve",
+    "14S LMFP ~59-60 V vs '48 V' platform part ratings",
+    "cold-charge lithium plating (no sub-0C inhibit)",
+    "'same board' for a stationary-ESS variant vs cost/life/cert"
+  ],
+  "notes": "Generic embedded-reasoning rubric (0-2 per criterion). Traps map to the dimensions; at go-live an LLM-judge scores whether each trap was caught. factual_correctness + contradiction_detection are critical (must be maxed); no_hallucination hard-fails at 0."
+}

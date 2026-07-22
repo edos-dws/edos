@@ -1,0 +1,49 @@
+{
+  "id": "scenario-06",
+  "title": "Home Zone-Detection Gateway",
+  "domain": "smart-home",
+  "intake": "Documents/concept-dry-run/scenarios/Scenario-06-DEEP — Home Zone Gateway (EDOS session, 31 turns).md",
+  "pass_total": 16,
+  "criteria": [
+    {
+      "key": "factual_correctness",
+      "critical": true
+    },
+    {
+      "key": "contradiction_detection",
+      "critical": true
+    },
+    {
+      "key": "calculation_quality"
+    },
+    {
+      "key": "assumption_tracking"
+    },
+    {
+      "key": "no_hallucination",
+      "hard_fail_if_zero": true
+    },
+    {
+      "key": "cross_domain_awareness"
+    },
+    {
+      "key": "confidence_calibration"
+    },
+    {
+      "key": "freeze_discipline"
+    },
+    {
+      "key": "decision_support"
+    },
+    {
+      "key": "over_engineering_check"
+    }
+  ],
+  "traps": [
+    "2.4 GHz coexistence: Wi-Fi clobbers Zigbee/Thread",
+    "'Matter is a radio' -> it runs over Thread; border-router + cert",
+    "mmWave zone detection needs calibration/mounting; false positives",
+    "'one SoC does everything' vs radio load / coexistence"
+  ],
+  "notes": "Generic embedded-reasoning rubric (0-2 per criterion). Traps map to the dimensions; at go-live an LLM-judge scores whether each trap was caught. factual_correctness + contradiction_detection are critical (must be maxed); no_hallucination hard-fails at 0."
+}
