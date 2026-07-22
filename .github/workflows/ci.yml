@@ -9,6 +9,22 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: edos
+          POSTGRES_PASSWORD: edos
+          POSTGRES_DB: edos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U edos"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://edos:edos@localhost:5432/edos
     steps:
       - uses: actions/checkout@v4
 

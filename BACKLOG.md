@@ -32,11 +32,11 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 2 — Persistence (Ch 11, 13)
 
-- [ ] **2.1 SQLAlchemy models + migrations** for the entities above; immutable/versioned decisions
+- [x] **2.1 SQLAlchemy models + migrations** for the entities above; immutable/versioned decisions
   (parent_version, status, confidence). Test: insert a decision, create a new version, original unchanged.
-- [ ] **2.2 Decision Graph edges** (source_id, target_id, relation_type, confidence). Test: traverse
+- [x] **2.2 Decision Graph edges** (source_id, target_id, relation_type, confidence). Test: traverse
   depends_on from a node; weights match Ch 15 (depends_on=10 … related_to=3).
-- [ ] **2.3 pgvector document_chunks** (embedding column, 300–700 token chunks). Test: store + nearest-k stub.
+- [x] **2.3 pgvector document_chunks** (embedding column, 300–700 token chunks). Test: store + nearest-k stub.
 
 ## EPIC 3 — Model Router & Prompt layer (Ch 4, 9, 16)
 

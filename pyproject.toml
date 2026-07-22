@@ -10,6 +10,7 @@ dependencies = [
     "jsonschema>=4.22",
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
     "redis>=5.0",
 ]
 

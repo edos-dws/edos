@@ -15,7 +15,7 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 | Field | Value |
 |-------|-------|
 | Current checkpoint | **CP-1 — Domain model + persistence** (🟡 in progress on `cp-1`) |
-| Current ticket | `2.1 SQLAlchemy models + migrations` (persistence) |
+| Current ticket | CP-1 complete → building PR |
 | Build gate | 🟢 GREEN (`scripts/check.sh`: stdlib + pytest + ruff) |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 — both healthy |
 | Blocked? | No |
@@ -69,9 +69,9 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 | 1.1 Decision Pydantic model | ✅ | `cp-1` | bound to contract; 8 tests (enum/range/extra/missing) |
 | 1.2 ContextPackage model | ✅ | `cp-1` | bound to contract; ranked_items() + 6 tests |
 | 1.3 Core entities + graph edges | ✅ | `cp-1` | 8 entities + 11-type RelationType + Edge; 5 tests |
-| 2.1 SQLAlchemy models + migrations | ⬜ | — | immutable/versioned decisions |
-| 2.2 Decision Graph edges | ⬜ | — | traversal + weights |
-| 2.3 pgvector document_chunks | ⬜ | — | embeddings |
+| 2.1 SQLAlchemy models + migrations | ✅ | `cp-1` | DecisionRecord + new_decision_version(); immutable-version test (ran vs PG) |
+| 2.2 Decision Graph edges | ✅ | `cp-1` | GraphEdge + neighbors() + Ch15 weights |
+| 2.3 pgvector document_chunks | ✅ | `cp-1` | DocumentChunk(Vector) + nearest-k L2 |
 | 3.1 model_router (stubbed) | ⬜ | — | schema-valid fixtures |
 | 3.2 Prompt registry | ⬜ | — | versioned entries |
 | 3.3 JSON validate + repair loop | ⬜ | — | never persist malformed |
@@ -102,6 +102,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — CP-1 t2.1/2.2/2.3: persistence layer (SQLAlchemy Base/engine, DecisionRecord immutable versioning, GraphEdge traversal+Ch15 weights, pgvector DocumentChunk nearest-k). 4 DB tests ran vs Postgres; CI got a pgvector service. 26 tests green. E2 complete.
 - 2026-07-22 — CP-1 t1.3: domain entities (Project/Requirement/Assumption/Component/Risk/Document/KnowledgeItem/Alert) + `RelationType` (11) + `Edge`; 5 tests green. Model layer (E1) complete.
 - 2026-07-22 — CP-1 t1.2: `ContextPackage`/`ContextItem` bound to `context_package.schema.json`; `ranked_items()`; 6 tests green.
 - 2026-07-22 — CP-1 t1.1: `Decision` model + `validate_against_contract()` bound to `decision.schema.json`; 8 tests green.
