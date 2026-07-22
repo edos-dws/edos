@@ -14,14 +14,14 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-1 — Domain model + persistence** (🟡 in progress on `cp-1`) |
-| Current ticket | CP-1 complete → building PR |
-| Build gate | 🟢 GREEN (`scripts/check.sh`: stdlib + pytest + ruff) |
-| Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 — both healthy |
+| Current checkpoint | **CP-1 — Domain model + persistence → 🔵 awaiting approval** |
+| Current ticket | none in-flight; CP-2 starts on approval |
+| Build gate | 🟢 GREEN — 26 tests (4 ran vs Postgres) + ruff |
+| Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Blocked? | No |
-| Waiting on human? | No — next human gate at CP-1 completion (schema-lock review) |
-| Repo | https://github.com/edos-dws/edos (`main` @ CP-0 ✅; work on `cp-1`) |
-| Last updated | 2026-07-22 (CP-0 approved; CP-1 started) |
+| Waiting on human? | **YES — review + merge `cp-1` PR (schema-lock, see `CP-1-REPORT.md`)** |
+| Repo | https://github.com/edos-dws/edos (`main` @ CP-0 ✅; `cp-1` pushed) |
+| Last updated | 2026-07-22 (CP-1 complete, awaiting gate) |
 
 ---
 
@@ -32,7 +32,10 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 - [x] ~~Approve CP-0~~ — **locked in 2026-07-22.**
 - [x] ~~Git-as-gate flow~~ — **confirmed:** CP-branch → PR → human merge.
 - [x] ~~Runner location~~ — **confirmed:** this machine (Claude Code).
-- [ ] **Next gate — CP-1:** when the `cp-1` PR opens, review the locked schemas (`contracts/`) + decision versioning.
+- [ ] **Review + merge the `cp-1` PR** — the schema-lock gate. See `CP-1-REPORT.md`. Specifically:
+  - confirm `contracts/decision.schema.json` + `context_package.schema.json` capture what EDOS must store/freeze;
+  - confirm decision versioning (immutable) + graph weights;
+  - decide the 3 flagged items (Alembic timing, the 6 unweighted relation types, embedding dim later).
 
 *(Runner: as gates are reached, replace this list with the specific thing the human must validate for that CP.)*
 
@@ -45,7 +48,7 @@ Status: ⬜ not started · 🟡 in progress · 🔵 awaiting human review · ✅
 | CP | Milestone | Status | Branch / PR | Human validates | Signed off |
 |----|-----------|:------:|-------------|-----------------|:----------:|
 | CP-0 | Setup, repo, CI, infra | ✅ | `main` (see `CP-0-REPORT.md`) | repo on GH · CI green on a PR · Postgres+Redis reachable · runner can push | ☑ 2026-07-22 |
-| CP-1 | Domain model + persistence | 🟡 | `cp-1` | schemas capture intent; decision versioning immutable; graph weights | ☐ |
+| CP-1 | Domain model + persistence | 🔵 | `cp-1` (see `CP-1-REPORT.md`) | schemas capture intent; decision versioning immutable; graph weights | ☐ |
 | CP-2 | Model router + prompt layer (stubbed) | ⬜ | — | abstraction clean; validate/repair; no live LLM | ☐ |
 | CP-3 | Context engine | ⬜ | — | ranking order correct; LLM doesn't search the project | ☐ |
 | CP-4 | Decision engine | ⬜ | — | real scenario → valid decision; **first prompt tuning** | ☐ |
@@ -102,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-22 — **CP-1 build complete → 🔵 awaiting approval.** E1 models + E2 persistence, 26 tests green. Report in `CP-1-REPORT.md`; branch `cp-1` ready to push.
 - 2026-07-22 — CP-1 t2.1/2.2/2.3: persistence layer (SQLAlchemy Base/engine, DecisionRecord immutable versioning, GraphEdge traversal+Ch15 weights, pgvector DocumentChunk nearest-k). 4 DB tests ran vs Postgres; CI got a pgvector service. 26 tests green. E2 complete.
 - 2026-07-22 — CP-1 t1.3: domain entities (Project/Requirement/Assumption/Component/Risk/Document/KnowledgeItem/Alert) + `RelationType` (11) + `Edge`; 5 tests green. Model layer (E1) complete.
 - 2026-07-22 — CP-1 t1.2: `ContextPackage`/`ContextItem` bound to `context_package.schema.json`; `ranked_items()`; 6 tests green.
