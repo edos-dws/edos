@@ -22,21 +22,21 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 1 — Domain model & schema validation
 
-- [ ] **1.1 Pydantic `Decision` model bound to `decision.schema.json`**
+- [x] **1.1 Pydantic `Decision` model bound to `decision.schema.json`**
   Acceptance: `src/edos/models/decision.py` defines `Decision` (Pydantic v2) whose `.model_json_schema()`
   is a superset-compatible match of the locked contract; a helper validates dicts against the JSON Schema.
   Test: a valid decision passes; missing `evidence`/bad `confidence`/unknown `status` each fail.
-- [ ] **1.2 `ContextPackage` model bound to `context_package.schema.json`** — analogous. Test: round-trips + rejects malformed.
-- [ ] **1.3 Remaining core entities** (Project, Requirement, Assumption, Risk, Component, Document, Edge)
+- [x] **1.2 `ContextPackage` model bound to `context_package.schema.json`** — analogous. Test: round-trips + rejects malformed.
+- [x] **1.3 Remaining core entities** (Project, Requirement, Assumption, Risk, Component, Document, Edge)
   per roadmap Ch 3. Test: construct each; graph `Edge` enforces the 11 relation types.
 
 ## EPIC 2 — Persistence (Ch 11, 13)
 
-- [ ] **2.1 SQLAlchemy models + migrations** for the entities above; immutable/versioned decisions
+- [x] **2.1 SQLAlchemy models + migrations** for the entities above; immutable/versioned decisions
   (parent_version, status, confidence). Test: insert a decision, create a new version, original unchanged.
-- [ ] **2.2 Decision Graph edges** (source_id, target_id, relation_type, confidence). Test: traverse
+- [x] **2.2 Decision Graph edges** (source_id, target_id, relation_type, confidence). Test: traverse
   depends_on from a node; weights match Ch 15 (depends_on=10 … related_to=3).
-- [ ] **2.3 pgvector document_chunks** (embedding column, 300–700 token chunks). Test: store + nearest-k stub.
+- [x] **2.3 pgvector document_chunks** (embedding column, 300–700 token chunks). Test: store + nearest-k stub.
 
 ## EPIC 3 — Model Router & Prompt layer (Ch 4, 9, 16)
 
