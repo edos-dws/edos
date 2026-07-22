@@ -41,13 +41,21 @@ roadmap inconsistencies, e.g. the Ch 6 vs Ch 16 decision shape).
 4. Run the full test suite. It **must be green** (`python3 tests/test_contracts.py` always works with zero
    deps; `python3 -m pytest tests/` once the env ticket is done).
 5. Check the box in `BACKLOG.md` and add a one-line note of what changed.
-6. **Commit** with a message `feat(<area>): <ticket title>` (or `chore:`/`test:`/`fix:`).
-7. Move to the next ticket.
+6. **Update `PROGRESS.md`** — mark the ticket ✅ with its commit hash, refresh "Current State", prepend an
+   Activity Log line (follow the Update Protocol at the bottom of that file).
+7. **Commit** with a message `feat(<area>): <ticket title>` (or `chore:`/`test:`/`fix:`).
+8. Move to the next ticket.
 
 ## Definition of Done (every ticket)
 
-- Acceptance criteria met · tests added and **green** · no contract violated · committed · backlog box
-  checked. **Never leave the build red between commits.**
+- Acceptance criteria met · tests added and **green** · no contract violated · **`PROGRESS.md` updated** ·
+  committed · backlog box checked. **Never leave the build red between commits.**
+
+## At a checkpoint gate
+
+Do NOT roll into the next checkpoint. Instead: set the CP row in `PROGRESS.md` to 🔵 *awaiting human review*,
+rewrite the Human Action Queue to the exact thing to validate, write `CP-N-REPORT.md`, and **stop until the
+human merges the PR and marks the CP ✅**. This is the human-in-the-loop gate; there is no self-merge.
 
 ## Contract changes
 
