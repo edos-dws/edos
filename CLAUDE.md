@@ -64,6 +64,25 @@ roadmap inconsistencies, e.g. the Ch 6 vs Ch 16 decision shape).
 
 Set the CP row in `PROGRESS.md`, write `CP-N-REPORT.md` (what was built, test evidence, blockers), then per
 the mode above: **self-merge into `develop`** for low-risk CPs, or **stop for human sign-off** at CP-4/5/8/9.
+Then **send a phone notification** (see below).
+
+## Notifications (phone push via ntfy)
+
+The human runs this mostly in the background and wants a phone ping when something needs their eyes. Send an
+ntfy push at these moments (curl; failure is non-fatal — never block the build on it):
+
+- **Checkpoint done** (built + tests green + merged/awaiting): notify with the CP, commit, test count.
+- **Blocked (STOP condition)**: notify that you're blocked and what you need.
+- **Go-live / anything needing a key or a decision**: notify.
+
+```bash
+curl -s -H "Title: EDOS" -H "Tags: white_check_mark" \
+  -d "CP-N done · develop @ <hash> · <N> tests green" \
+  https://ntfy.sh/edos-dws-build-notify >/dev/null || true
+```
+
+Do NOT notify on every turn/ticket — only the moments above (checkpoint / blocked / needs-human). The topic
+`edos-dws-build-notify` is the agreed channel.
 
 ## Contract changes
 
