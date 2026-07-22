@@ -22,7 +22,7 @@ Legend: `[ ]` todo · `[x]` done · each ticket has **Acceptance** (what must be
 
 ## EPIC 1 — Domain model & schema validation
 
-- [ ] **1.1 Pydantic `Decision` model bound to `decision.schema.json`**
+- [x] **1.1 Pydantic `Decision` model bound to `decision.schema.json`**
   Acceptance: `src/edos/models/decision.py` defines `Decision` (Pydantic v2) whose `.model_json_schema()`
   is a superset-compatible match of the locked contract; a helper validates dicts against the JSON Schema.
   Test: a valid decision passes; missing `evidence`/bad `confidence`/unknown `status` each fail.
