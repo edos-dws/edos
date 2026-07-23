@@ -39,11 +39,13 @@ class Settings:
     gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")
     anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
 
-    # Model IDs per capability tier, env-overridable. Defaults are current-generation IDs; confirm the
-    # exact Gemini strings against your account (Google occasionally renames tiers).
-    gemini_frontier_model: str = os.environ.get("GEMINI_FRONTIER_MODEL", "gemini-2.5-pro")
-    gemini_standard_model: str = os.environ.get("GEMINI_STANDARD_MODEL", "gemini-2.5-flash")
-    gemini_lightweight_model: str = os.environ.get("GEMINI_LIGHTWEIGHT_MODEL", "gemini-2.5-flash")
+    # Model IDs per capability tier, env-overridable. Defaults are the current Flash family — verified working
+    # on a Google AI Studio FREE-tier key (Pro models return free-tier quota `limit: 0`). `gemini-3.6-flash`
+    # is the exact "Gemini Flash 3.6" the EDOS benchmark validated. On a PAID key, point the frontier tier at
+    # a Pro model for maximum reasoning: GEMINI_FRONTIER_MODEL=gemini-pro-latest (or gemini-3.1-pro-preview).
+    gemini_frontier_model: str = os.environ.get("GEMINI_FRONTIER_MODEL", "gemini-3.6-flash")
+    gemini_standard_model: str = os.environ.get("GEMINI_STANDARD_MODEL", "gemini-3.6-flash")
+    gemini_lightweight_model: str = os.environ.get("GEMINI_LIGHTWEIGHT_MODEL", "gemini-3.5-flash-lite")
 
     # Anthropic model IDs are the exact current-generation strings (do not append date suffixes).
     anthropic_frontier_model: str = os.environ.get("ANTHROPIC_FRONTIER_MODEL", "claude-opus-4-8")

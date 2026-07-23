@@ -14,7 +14,7 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 
 | Field | Value |
 |-------|-------|
-| Current checkpoint | **CP-7 ✅ (stub) merged → next: CP-8 (Evaluation harness)** |
+| Current checkpoint | **🟢 LIVE — real Gemini connected (free-tier, gemini-3.6-flash); smoke: contract-valid decision. Next: derive T from scored runs** |
 | Current ticket | none in-flight (loop self-pacing) |
 | Build gate | 🟢 GREEN — 119 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
@@ -33,7 +33,7 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 - [x] ~~Approve CP-0~~ — **locked in 2026-07-22.**
 - [x] ~~Git-as-gate flow~~ — **confirmed:** CP-branch → PR → human merge.
 - [x] ~~Runner location~~ — **confirmed:** this machine (Claude Code).
-- [ ] **GO-LIVE: add the API key to `.env`.** Dev is DONE — both providers (Gemini + Anthropic) are wired, config-selectable (`EDOS_PROVIDER`, default `gemini`), with cross-vendor fallback; prompts hardened from the real benchmark results (multi-domain). **Only remaining step: put `GEMINI_API_KEY=...` in `.env`** (StubProvider auto-swaps to the live provider). Confirm the exact Gemini model IDs against your account.
+- [x] ~~**GO-LIVE: connect the real LLM.**~~ **DONE 2026-07-23.** Free-tier `GEMINI_API_KEY` in `.env`; router live on Gemini; smoke test returned a **contract-valid decision** (did the math, status capped at `recommended`, 1 real freeze_blocker, no inflated risks). Model IDs updated to the current Flash family (`gemini-3.6-flash`) — **Gemini Pro is quota-locked at 0 on free tier**; switch frontier to `gemini-pro-latest` when billing is enabled (one env line).
 - [ ] **Derive freeze threshold T** from scored benchmark runs (CP-8 harness) once real runs exist. Until then freeze stays DISABLED (fail-safe). Do NOT guess T.
 - [ ] (optional) `! gh auth login` for real GitHub PRs; Alembic migrations; 6 unweighted relation weights; embedding dim.
 
@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-23 — **🟢 GO-LIVE: real Gemini connected.** Free-tier key in `.env`; router live on `GeminiProvider`. Smoke test (a real embedded scenario) returned a **contract-valid `edos.decision.v1`**: computed a ~285 µA current budget, `status=recommended`, 2 (non-inflated) risks, 1 genuine freeze_blocker, 4 next_actions. Found + fixed stale model IDs: `gemini-2.5-pro`/`-flash` no longer serve new free-tier users — updated defaults to the current Flash family (`gemini-3.6-flash`, the exact model the benchmark validated). **Gemini Pro is free-tier quota-locked (limit 0)** → use `gemini-pro-latest` on a paid key. 119 tests still green + ruff. Remaining: derive T from scored live runs.
 - 2026-07-23 — **Go-live prep (dual-provider + prompt hardening from real benchmarks).** (1) Wired real **Gemini + Anthropic** providers behind the vendor-agnostic `Provider` seam (`src/edos/engines/providers/`), config-selectable via `EDOS_PROVIDER` (default `gemini`) with automatic cross-vendor fallback; router auto-swaps StubProvider→live when a key is present; `.env` now auto-loads (python-dotenv), SDKs lazy + in a `[providers]` extra (installed). Only the API key in `.env` remains. (2) **Prompt suite hardened** from the edos-model-benchmark results (2 rounds, 3 models, 8 domains): added **false-positive resistance** (severity calibration — don't inflate a real fact into a fake Critical) and **hold-the-line-on-safety** (safety layers aren't fungible; don't downgrade accredited tests) to `erc_core.md`, mapped into decision + verification prompts — directly targeting Gemini's two known failure modes (07, 10). 119 tests green + ruff. Report: GO-LIVE-PROVIDERS-AND-PROMPT-HARDENING-REPORT.md.
 - 2026-07-23 — Overnight build 2 (autonomous): **prompt implementation** (render() wires templates→provider), **live connectivity** (WebSocket streaming analyze + project event stream + EventHub + CORS + health), **Alembic migrations** (CP-1 deferral resolved, reversible), integration test, docs/Swagger/Postman/architecture-live all updated, status page refreshed. 102 tests green. Merged to develop. Report: LIVE-CONNECTIVITY-AND-PROMPT-IMPL-REPORT.md.
 - 2026-07-23 — Overnight build (autonomous): **Step 1 production prompt suite** (generic embedded; erc_core + decision/verification/planner/knowledge templates, registry v1 + loader) and **Step 2 benchmark dataset** (benchmarks/scenario-02..06 + eval/benchmarks loader wired to CP-8 harness). 90 tests green. Self-merged to develop. Report: PROMPTS-AND-BENCHMARKS-REPORT.md. Go-live (real LLM + derive T) pending API key — to review together.
