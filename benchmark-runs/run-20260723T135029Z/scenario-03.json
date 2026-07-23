@@ -1,0 +1,169 @@
+{
+  "id": "scenario-03",
+  "title": "Edge AI Camera (InnoFusion)",
+  "domain": "vision-edge-ai",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "decision": {
+    "schema_version": "edos.decision.v1",
+    "summary": "Approve single AI-ISP SoC architecture with decoupled 640x640 inference, dual-stream recording, and metal thermal enclosure, subject to InnoFusion datasheet validation.",
+    "recommendation": "Proceed with the single AI-ISP SoC topology (InnoFusion with CV5 fallback) utilizing a decoupled 640x640 NPU branch, 1080p continuous record + 4K live/event streams, and a die-cast metal housing. Hold carrier-board layout lock and housing tooling freeze until the missing InnoFusion datasheet confirms MIPI CSI-2 lane count (>=4 lanes), sustained NPU YOLOv8 INT8 throughput (>=15 FPS), encoder multi-stream concurrency, TDP/Tj, and hardware secure boot.",
+    "confidence": 0.61,
+    "status": "recommended",
+    "assumptions": [
+      {
+        "statement": "InnoFusion SoC MIPI CSI-2 receiver supports >=4 lanes at >=1.5 Gbps/lane to carry raw 4K60 10-bit video (~5.0 Gbit/s raw payload).",
+        "confidence": 0.55,
+        "risk_if_wrong": "Cannot sustain 4K60 mode over sensor interface, forcing an immediate downgrade to 4K30 or lower bit-depth."
+      },
+      {
+        "statement": "InnoFusion NPU supports full YOLOv8 INT8 operator set without falling back to CPU execution, sustaining ~15 FPS at 640x640 input.",
+        "confidence": 0.5,
+        "risk_if_wrong": "Detection FPS collapses to 3-4 FPS due to CPU execution, failing target motion tracking requirements."
+      },
+      {
+        "statement": "InnoFusion integrated H.265 encoder supports concurrent encoding of 4K live stream, 1080p record stream, and 4K event clips without frame dropping.",
+        "confidence": 0.6,
+        "risk_if_wrong": "Live streaming will starve the continuous recording stream, causing dropped frames during active viewing."
+      },
+      {
+        "statement": "Die-cast metal housing with internal heat spreader provides sufficient thermal conductance to maintain SoC junction temperature below Tj limit under maximum ambient plus solar load.",
+        "confidence": 0.6,
+        "risk_if_wrong": "SoC thermally throttles under outdoor summer conditions, degrading NPU detection FPS and video framerate."
+      },
+      {
+        "statement": "InnoFusion SoC provides hardware secure boot, crypto engine, and secure key storage.",
+        "confidence": 0.55,
+        "risk_if_wrong": "Inability to implement signed dual-bank OTA updates or encrypted local storage at rest, exposing fielded devices to compromise."
+      }
+    ],
+    "risks": [
+      {
+        "description": "Unconfirmed InnoFusion NPU operator support and sustained throughput for YOLOv8 INT8 model.",
+        "severity": "critical",
+        "likelihood": "medium",
+        "mitigation": "Benchmark YOLOv8 INT8 model on InnoFusion SDK/emulator prior to freezing architecture or committing to carrier PCB."
+      },
+      {
+        "description": "CSI-2 bandwidth limitation between 4K60 sensor (~5 Gbps) and SoC receiver.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Cross-check lane counts on both sensor and SoC datasheets; fallback to 4K30 if CSI-2 interface is limited to 2 lanes."
+      },
+      {
+        "description": "Thermal throttling in outdoor ambient heat under continuous compute and encoding load.",
+        "severity": "high",
+        "likelihood": "high",
+        "mitigation": "Enforce die-cast aluminum enclosure with direct thermal interface pad to SoC; perform thermal chamber test with simulated solar load."
+      },
+      {
+        "description": "Flash media premature wear-out from 24x7 continuous video writing.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Record continuous footage on lower-bitrate 1080p substream (~40 GB/day) using high-endurance industrial eMMC/microSD specified in TBW."
+      }
+    ],
+    "tradeoffs": [
+      {
+        "option": "Single AI-ISP SoC (InnoFusion) vs. Host SoC + NPU Accelerator (e.g. Hailo-8)",
+        "benefit": "Lower overall BOM cost, smaller form factor, single primary heat source in sealed box.",
+        "drawback": "Tightly couples ISP, NPU, and video encoder capabilities; performance capped by single chip spec."
+      },
+      {
+        "option": "Decoupled 640x640 NPU Tap vs. 4K Native Inference",
+        "benefit": "Reduces NPU computational and memory bandwidth load by ~9x, making real-time 15 FPS detection feasible on embedded NPU.",
+        "drawback": "Reduces spatial resolution for detecting distant small objects (~30 m person) unless combined with optical zoom or tiling."
+      },
+      {
+        "option": "Dual-Stream Recording (1080p Continuous + 4K Event Clips) vs. 4K Continuous Recording",
+        "benefit": "Reduces daily write volume from ~130 GB/day to ~40 GB/day, extending flash storage lifespan and increasing retention days per GB.",
+        "drawback": "Non-event continuous background footage is recorded at 1080p instead of native 4K."
+      },
+      {
+        "option": "Die-Cast Metal Housing vs. Sealed Plastic Housing",
+        "benefit": "Provides necessary thermal path to dissipate ~5W+ internal heat via conduction, preventing thermal throttling.",
+        "drawback": "Increases housing unit cost, weight, and tooling expense."
+      }
+    ],
+    "affected_decisions": [
+      "D-SoC",
+      "D-InferRes",
+      "D-Model",
+      "D-SensorMode",
+      "D-Encoder",
+      "D-Storage",
+      "D-Housing",
+      "D-Security",
+      "D-Platform"
+    ],
+    "evidence": [
+      {
+        "claim": "4K60 10-bit raw sensor data requires ~5.0 Gbit/s raw bandwidth before CSI-2 packet overhead.",
+        "source": "MIPI CSI-2 Bandwidth Calculation (Q7)",
+        "kind": "inference"
+      },
+      {
+        "claim": "Native 4K frame (8.3 MP) has ~9x more pixels than a 720p/640x640 frame (~0.92 MP).",
+        "source": "NPU Resolution Analysis (Q4)",
+        "kind": "inference"
+      },
+      {
+        "claim": "Continuous 4K H.265 recording at 12 Mbps generates ~130 GB/day; 1080p at 4 Mbps generates ~40 GB/day.",
+        "source": "Storage Calculation (Q12, Q13)",
+        "kind": "inference"
+      },
+      {
+        "claim": "System uses InnoFusion AI-ISP SoC, 4K sensor, sealed weatherproof housing, mains/PoE power.",
+        "source": "Intake Brief (Q1, Q31)",
+        "kind": "fact"
+      },
+      {
+        "claim": "InnoFusion datasheet is missing; CSI-2 lanes, TOPS-to-FPS mapping, encoder concurrency, TDP, and Tj limits are unconfirmed.",
+        "source": "Context Package (Q2, Q3, Q25)",
+        "kind": "fact"
+      }
+    ],
+    "next_actions": [
+      "Supply the official InnoFusion SoC datasheet to confirm CSI-2 lane count, NPU sustained YOLOv8 INT8 FPS, H.265 encoder concurrency, TDP, Tj max, and secure boot capability.",
+      "Supply the selected 4K image sensor (e.g., IMX678) datasheet to confirm output mode and CSI-2 lane configuration.",
+      "Benchmark YOLOv8 INT8 at 640x640 on InnoFusion hardware/eval kit to verify sustained 15 FPS execution without CPU operator fallback.",
+      "Sum total power draw (SoC TDP + IR LEDs + PHY + heater) to select exact PoE power class (802.3af 13W vs 802.3at 25.5W).",
+      "Define camera scene geometry (mounting height and distance to far boundary) to select focal length and confirm pixels-on-target at 30 m.",
+      "Fix retention requirement (days) and select high-endurance storage media specified by TBW."
+    ],
+    "freeze_blockers": [
+      "Missing InnoFusion datasheet: cannot verify >=4 MIPI CSI-2 lanes required for 4K60 link.",
+      "Unconfirmed NPU sustained throughput: YOLOv8 INT8 640x640 execution must be benchmarked on InnoFusion hardware before freezing architecture.",
+      "Unconfirmed thermal parameters: SoC TDP and Tj max needed to complete thermal balance calculation before committing enclosure tooling and PCB copper layout.",
+      "Unverified hardware security features: secure boot and key storage confirmation required prior to locking firmware OTA and encryption architecture."
+    ]
+  },
+  "judge": {
+    "scores": {
+      "factual_correctness": 2,
+      "contradiction_detection": 2,
+      "calculation_quality": 2,
+      "assumption_tracking": 2,
+      "no_hallucination": 2,
+      "cross_domain_awareness": 2,
+      "confidence_calibration": 2,
+      "freeze_discipline": 2,
+      "decision_support": 2,
+      "over_engineering_check": 2
+    },
+    "traps_caught": [
+      "NPU TOPS is not real FPS; pin inference resolution separately",
+      "4K60 MIPI CSI-2 bandwidth (~5 Gbit/s) vs lane count",
+      "continuous-record storage (~130 GB/day) + SD wear",
+      "thermal throttling in a sealed plastic housing"
+    ],
+    "rationale": "The system successfully identified all four critical engineering traps with accurate calculations and domain awareness. It correctly flagged missing datasheet parameters as freeze blockers and decoupled high-resolution capture from lower-resolution inference to address real-world hardware constraints."
+  },
+  "evaluation": {
+    "total": 20,
+    "max_total": 20,
+    "passed": true,
+    "reasons": []
+  }
+}

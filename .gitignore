@@ -17,3 +17,6 @@ venv/
 # Data
 *.sqlite3
 /data/
+# Benchmark run logs (keep the JSON/MD results, drop noisy logs)
+benchmark-runs/**/*.log
+benchmark-runs/*.log

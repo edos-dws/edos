@@ -1,0 +1,162 @@
+{
+  "id": "scenario-06",
+  "title": "Home Zone-Detection Gateway",
+  "domain": "smart-home",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "decision": {
+    "schema_version": "edos.decision.v1",
+    "summary": "Mains gateway architecture using EFR32MG24 (802.15.4) + dual-band Wi-Fi (5 GHz primary) + BGT60TR13C radar/PIR fusion is conditionally sound, but gates on compute host selection, mmWave calibration spec, and DAC provisioning line setup.",
+    "recommendation": "Proceed with the decoupled architecture (EFR32MG24 for 802.15.4 mesh/TBR + separate 5 GHz-primary Wi-Fi/BLE + BGT60TR13C radar with PIR fusion for mains gateway; PIR-first Thread Sleepy End Device for battery satellite variant). Hold full architecture freeze until compute host class, mmWave mounting/calibration spec, and factory DAC provisioning are formally resolved.",
+    "confidence": 0.78,
+    "status": "recommended",
+    "assumptions": [
+      {
+        "statement": "Dual-band Wi-Fi operates primarily on 5 GHz during normal operation, avoiding heavy 2.4 GHz co-located TX interference with the 802.15.4 mesh.",
+        "confidence": 0.85,
+        "risk_if_wrong": "Sustained 2.4 GHz Wi-Fi uploads deafen the 802.15.4 receiver, causing periodic Thread/Zigbee packet drops and latency spikes."
+      },
+      {
+        "statement": "Concurrent Zigbee and Thread dynamic multiprotocol operation on a single EFR32MG24 radio can meet latency targets at expected device counts.",
+        "confidence": 0.55,
+        "risk_if_wrong": "Heavy multi-mesh traffic starves radio airtime, leading to dropped messages and degraded Thread Border Router responsiveness."
+      },
+      {
+        "statement": "Infineon BGT60TR13C (1TX/3RX) combined with PIR fusion can reliably distinguish 2\u20133 coarse zones per room after per-install calibration.",
+        "confidence": 0.55,
+        "risk_if_wrong": "Limited 3-RX angular resolution fails to separate close indoor zones, leading to false room/zone triggers."
+      },
+      {
+        "statement": "Manufacturing facility can support secure hardware key injection and per-device DAC provisioning required for Matter certification.",
+        "confidence": 0.5,
+        "risk_if_wrong": "Inability to inject Device Attestation Certificates at production scale blocks Matter certification and prevents product release."
+      },
+      {
+        "statement": "The overall compute workload (radar DSP, Thread Border Router, Wi-Fi stack, local automations) can be hosted on an MCU-class host without requiring a Linux application processor.",
+        "confidence": 0.45,
+        "risk_if_wrong": "Underestimating processing/memory needs forces a costly late-stage architecture redesign to a Linux host (e.g. i.MX series) with RCP radio topology."
+      }
+    ],
+    "risks": [
+      {
+        "description": "In-device 2.4 GHz Wi-Fi TX bursts overwhelm 802.15.4 receiver sensitivity during simultaneous transmission windows.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Enforce 5 GHz primary Wi-Fi, implement 3/4-wire hardware PTA coexistence signalling between radios, physically separate antennas, and restrict 802.15.4 to channels 15/20/25/26."
+      },
+      {
+        "description": "Radar false triggers caused by periodic environmental motion (ceiling fans, HVAC vents, moving curtains) trigger unintended automations.",
+        "severity": "medium",
+        "likelihood": "high",
+        "mitigation": "Apply Doppler notch filtering, configure presence persistence dwell timers, and require PIR motion-onset corroboration prior to firing actions."
+      },
+      {
+        "description": "Compute starvation on a single MCU core when concurrently processing FMCW range-Doppler FFTs, running Thread Border Router routing, and servicing local automation logic.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Formally evaluate MCU DSP/RAM capacity vs Linux Application Host + RCP architecture prior to board layout freeze."
+      },
+      {
+        "description": "Matter / Thread certification schedule slip due to unestablished PKI attestation supply chain (DAC injection) or test house compliance failures.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Set up manufacturing DAC injection early and run automated Matter test harness on pre-production engineering samples."
+      }
+    ],
+    "tradeoffs": [
+      {
+        "option": "Dedicated 802.15.4 SoC (EFR32MG24) + Separate Wi-Fi/BLE IC vs. Single 2.4GHz Combo SoC",
+        "benefit": "Eliminates single-die RF coupling, provides dedicated processing for Thread Border Router, and enables superior physical antenna isolation.",
+        "drawback": "Increases total BOM cost, component count, and board surface area."
+      },
+      {
+        "option": "Radar + PIR Multi-Sensor Fusion vs. Radar-Only Sensing",
+        "benefit": "PIR provides fast <100ms motion onset trigger and rejects static radar reflections; mmWave holds stationary presence via micro-motion without camera privacy concerns.",
+        "drawback": "Adds secondary sensor BOM cost, housing enclosure window requirements, and extra MCU IO/ADC channels."
+      },
+      {
+        "option": "Battery Satellite Variant: PIR-First Sleepy End Device vs. Continuous mmWave Radar",
+        "benefit": "Allows deep-sleep operation achieving multi-year battery life on AA/coin cells.",
+        "drawback": "Loses stationary micro-motion detection on the satellite variant unless periodic low-duty radar sampling is enabled."
+      }
+    ],
+    "affected_decisions": [
+      "D-Radio-Arch",
+      "D-WiFiBand",
+      "D-Protocols",
+      "D-Matter",
+      "D-Radar",
+      "D-Mount+Cal",
+      "D-Fusion",
+      "D-Compute",
+      "D-Platform"
+    ],
+    "evidence": [
+      {
+        "claim": "2.4 GHz Wi-Fi channels (20\u201340 MHz wide at ~+20 dBm) blind co-located 802.15.4 receivers (2 MHz wide at 0 to +8 dBm) without band separation or high isolation.",
+        "source": "intake_brief_Q4",
+        "kind": "fact"
+      },
+      {
+        "claim": "Infineon BGT60TR13C is a 60 GHz 1TX/3RX FMCW radar suitable for room-level micro-motion presence detection.",
+        "source": "intake_brief_Q9_Q10",
+        "kind": "fact"
+      },
+      {
+        "claim": "Operating as a Thread Border Router requires an always-on 802.15.4 radio receiver stack.",
+        "source": "intake_brief_Q7",
+        "kind": "fact"
+      },
+      {
+        "claim": "Continuous 60 GHz mmWave radar operation draws tens of mA, limiting battery life to days/weeks without duty-cycling or mains power.",
+        "source": "intake_brief_Q22",
+        "kind": "fact"
+      },
+      {
+        "claim": "EFR32MG24 supports dynamic multiprotocol concurrent Zigbee and Thread operations on a single 802.15.4 radio PHY.",
+        "source": "intake_brief_Q3_Q16",
+        "kind": "fact"
+      }
+    ],
+    "next_actions": [
+      "Resolve compute host architecture: choose between high-end MCU vs Linux Application Processor (e.g., i.MX 93) with EFR32 running as a Radio Co-Processor (RCP).",
+      "Define physical mounting specification (height, tilt) and write the setup calibration algorithm for room zone mapping.",
+      "Confirm Matter logo certification scope and finalize the manufacturing line hardware key injection process for Device Attestation Certificates (DACs).",
+      "Perform lab PER (Packet Error Rate) coexistence testing under heavy 2.4 GHz and 5 GHz Wi-Fi traffic with PTA active on early hardware prototypes.",
+      "Execute radar field testing across sample room layouts to validate 1TX/3RX zone separation and optimize fan/pet Doppler rejection filters."
+    ],
+    "freeze_blockers": [
+      "Compute host class is unpinned (MCU-only vs Linux host + RCP); selecting an under-resourced core risks complete system architecture rework late in design.",
+      "Radar mounting specification and room calibration flow are uncommitted; lack of calibrated boundaries causes wrong-room triggers and field returns.",
+      "Matter Device Attestation Certificate (DAC) factory provisioning line and PKI infrastructure are unconfirmed, gating regulatory and logo certification."
+    ]
+  },
+  "judge": {
+    "scores": {
+      "factual_correctness": 2,
+      "contradiction_detection": 2,
+      "calculation_quality": 2,
+      "assumption_tracking": 2,
+      "no_hallucination": 2,
+      "cross_domain_awareness": 2,
+      "confidence_calibration": 2,
+      "freeze_discipline": 2,
+      "decision_support": 2,
+      "over_engineering_check": 2
+    },
+    "traps_caught": [
+      "2.4 GHz coexistence: Wi-Fi clobbers Zigbee/Thread",
+      "'Matter is a radio' -> it runs over Thread; border-router + cert",
+      "mmWave zone detection needs calibration/mounting; false positives",
+      "'one SoC does everything' vs radio load / coexistence"
+    ],
+    "rationale": "The system flawlessly identified all four domain traps, highlighting RF coexistence (5 GHz primary + PTA), Matter certification/DAC injection over Thread, mmWave radar mounting/calibration requirements with PIR fusion, and compute/radio load constraints (MCU vs Linux RCP architecture). Confidence levels are realistically calibrated to genuine technical uncertainties, and freeze blockers appropriately prevent premature commitment."
+  },
+  "evaluation": {
+    "total": 20,
+    "max_total": 20,
+    "passed": true,
+    "reasons": []
+  }
+}

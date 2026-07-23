@@ -1,0 +1,177 @@
+{
+  "id": "scenario-04",
+  "title": "Outdoor PTZ Camera (umbrella)",
+  "domain": "surveillance",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "decision": {
+    "schema_version": "edos.decision.v1",
+    "summary": "Outdoor solar/battery PTZ umbrella camera architecture is conditionally sound as an event-driven system, but blocked from freeze by missing solar, battery, and optical zoom parameters.",
+    "recommendation": "Adopt the dual-chip architecture (Sigmastar SSC338Q + STM32G431) and event-driven duty cycle. Do not freeze the design or commit to the solar specification until panel wattage (Wp), site sun-hours, battery capacity (Wh), position feedback strategy, and optical zoom ratio are explicitly provided and verified.",
+    "confidence": 0.62,
+    "status": "recommended",
+    "assumptions": [
+      {
+        "statement": "Solar panel rated output (Wp) and site sun-hours will yield sufficient daily energy (>=8-12 Wh/day) to cover continuous standby and event-driven streaming.",
+        "confidence": 0.3,
+        "risk_if_wrong": "System experiences battery depletion and uncontrolled shutdown during typical operation or overcast periods."
+      },
+      {
+        "statement": "IMU-driven EIS combined with a rigid lower-pole mount can adequately stabilize video up to the target optical zoom ratio in light breeze.",
+        "confidence": 0.55,
+        "risk_if_wrong": "Zoomed view becomes unacceptably shaky, rendering the optical zoom feature unusable in real outdoor conditions."
+      },
+      {
+        "statement": "A self-locking gear mechanism (e.g., worm drive) or detent enables PTZ axes to hold position with zero unpowered holding current.",
+        "confidence": 0.6,
+        "risk_if_wrong": "Continuous stepper holding current burns ~3-4W, rapidly draining the battery and breaking the daily energy budget."
+      },
+      {
+        "statement": "Pan axis motion uses bounded rotation with flex cabling (+/-180\u00b0 or +/-270\u00b0) rather than an endless rotation slip ring.",
+        "confidence": 0.8,
+        "risk_if_wrong": "Requires a slip ring, introducing contact wear, voltage drops, higher BOM cost, and complex IP66 rotary sealing."
+      },
+      {
+        "statement": "System operation is strictly event-triggered with low-power standby rather than continuous 24x7 video streaming.",
+        "confidence": 0.85,
+        "risk_if_wrong": "Daily consumption exceeds harvest capacity by >10x, making solar/battery operation physically infeasible."
+      }
+    ],
+    "risks": [
+      {
+        "description": "Solar energy budget fails to close due to undersized panel Wp, poor sun exposure, shading from umbrella canopy, or winter conditions.",
+        "severity": "critical",
+        "likelihood": "high",
+        "mitigation": "Require concrete Wp, sun-hours, and autonomy inputs; enforce adaptive battery throttling and strict event-driven operation."
+      },
+      {
+        "description": "Optical zoom magnifies low-frequency umbrella sway, producing unusable, shaky video frames when zoomed in.",
+        "severity": "high",
+        "likelihood": "high",
+        "mitigation": "Clamp mount low on rigid pole section, minimize head mass/arm, implement IMU-assisted EIS on SoC, and cap maximum optical zoom ratio."
+      },
+      {
+        "description": "Charging Li-ion battery below 0\u00b0C in outdoor environment causes lithium plating, permanent capacity drop, and safety hazard.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Implement low-temp charge-inhibit protection in firmware/hardware, or switch to LiFePO4 chemistry."
+      },
+      {
+        "description": "Open-loop stepper motor skips steps under wind gusts or mechanical drag, causing PTZ preset locations to drift over time.",
+        "severity": "medium",
+        "likelihood": "high",
+        "mitigation": "Include a physical home/limit switch to re-zero on each cycle, or integrate a magnetic absolute position encoder (e.g., AS5048A)."
+      },
+      {
+        "description": "Rotary lip seal friction on pan/tilt axes creates excessive motor drag, increasing torque requirements and power consumption.",
+        "severity": "medium",
+        "likelihood": "medium",
+        "mitigation": "Design labyrinth/lip seal balance, measure drag torque on prototype, and factor seal drag directly into motor sizing calculations."
+      }
+    ],
+    "tradeoffs": [
+      {
+        "option": "Pan Limits (+/-180\u00b0 flex service loop) vs. Endless 360\u00b0 Slip Ring",
+        "benefit": "Eliminates wear-prone mechanical contacts, reduces cost, simplifies IP66 rotary sealing, and maintains clean power/signal delivery.",
+        "drawback": "Prevents continuous unconstrained 360\u00b0 rotation in one direction; requires software unwind maneuvers."
+      },
+      {
+        "option": "Event-Driven Streaming vs. Continuous 24x7 Streaming",
+        "benefit": "Reduces total daily consumption from >60 Wh/day to ~8-12 Wh/day, making solar/battery operation feasible.",
+        "drawback": "Cannot capture continuous full-time video recording; relies on motion/AI wake latency."
+      },
+      {
+        "option": "Self-Locking Worm Gear vs. Direct/Spur Gear Drive with Holding Current",
+        "benefit": "Zero electrical power draw when PTZ head is stationary, preserving battery life.",
+        "drawback": "Higher mechanical gear friction during active motion and potential backlash requiring single-direction preset approaches."
+      }
+    ],
+    "affected_decisions": [
+      "D-SoC",
+      "D-Arch",
+      "D-PanMotor",
+      "D-PanFeedback",
+      "D-PanScope",
+      "D-Zoom",
+      "D-Stabilization",
+      "D-Sealing",
+      "D-Solar",
+      "D-Battery",
+      "D-EnergyBudget",
+      "D-Streaming",
+      "D-Platform"
+    ],
+    "evidence": [
+      {
+        "claim": "Architecture splits vision/AI processing to Sigmastar SSC338Q and motion/safety control to STM32G431 MCU.",
+        "source": "CONTEXT PACKAGE Q2-Q3",
+        "kind": "fact"
+      },
+      {
+        "claim": "Continuous 24x7 streaming and continuous auto-pan tours are energy-infeasible on a small umbrella solar panel.",
+        "source": "CONTEXT PACKAGE Q17-Q18",
+        "kind": "inference"
+      },
+      {
+        "claim": "Estimated daily event-driven load is ~8-12 Wh/day, dominated by standby draw (~0.3W * 24h = 7.2 Wh/day).",
+        "source": "CONTEXT PACKAGE Q17",
+        "kind": "inference"
+      },
+      {
+        "claim": "Daily solar harvest calculation formula is Panel Wp * equivalent sun-hours * ~0.7 efficiency loss factor.",
+        "source": "CONTEXT PACKAGE Q14, Q17",
+        "kind": "inference"
+      },
+      {
+        "claim": "Charging Li-ion batteries below 0\u00b0C causes permanent capacity loss and lithium plating safety risks.",
+        "source": "CONTEXT PACKAGE Q15",
+        "kind": "fact"
+      },
+      {
+        "claim": "Fixed-pole PoE variant eliminates solar energy limits but introduces higher thermal dissipation and possible slip-ring requirements.",
+        "source": "CONTEXT PACKAGE Q23",
+        "kind": "inference"
+      }
+    ],
+    "next_actions": [
+      "Supply exact solar panel rated power (Wp) and deployment site geographical location / peak sun-hours.",
+      "Specify target battery capacity (Wh), preferred chemistry (Li-ion vs LiFePO4), and required days of autonomy without sun.",
+      "Define required optical zoom ratio (e.g. 3x vs 10x) and target wind speed capability for image stabilization.",
+      "Select position feedback mechanism: home switch re-zeroing vs. absolute magnetic shaft encoder (e.g., AS5048A).",
+      "Instrument bench power measurements for SSC338Q standby/wake states, STM32G431 sleep states, and motor seal drag."
+    ],
+    "freeze_blockers": [
+      "Missing solar panel rated wattage (Wp) and site sun-hours \u2014 energy harvest feasibility remains unproven.",
+      "Missing battery capacity (Wh), autonomy target (days), and low-temperature charge strategy.",
+      "Unspecified optical zoom ratio and mount stiffness specification \u2014 wind-induced image stability limits unquantified."
+    ]
+  },
+  "judge": {
+    "scores": {
+      "factual_correctness": 2,
+      "contradiction_detection": 2,
+      "calculation_quality": 2,
+      "assumption_tracking": 2,
+      "no_hallucination": 2,
+      "cross_domain_awareness": 2,
+      "confidence_calibration": 2,
+      "freeze_discipline": 2,
+      "decision_support": 2,
+      "over_engineering_check": 2
+    },
+    "traps_caught": [
+      "continuous 360 pan with wires -> cable twist (slip ring vs limits)",
+      "optical zoom on a wind-loaded umbrella -> shaky image",
+      "small-panel solar energy budget vs PTZ motors + streaming",
+      "IP66 on a rotating/tilting joint"
+    ],
+    "rationale": "The system successfully identified all four design traps, correctly addressing the trade-offs between slip rings versus cable flex limits, optical zoom instability on wind-loaded structures, solar energy budgeting vs PTZ duty cycles, and IP66 rotary seal friction. Freeze discipline is strictly maintained with clear, actionable blockers."
+  },
+  "evaluation": {
+    "total": 20,
+    "max_total": 20,
+    "passed": true,
+    "reasons": []
+  }
+}

@@ -1,0 +1,6 @@
+id,title,total,max,passed,notes
+scenario-02,Solar LoRaWAN Agri Node,20,20,True,
+scenario-03,Edge AI Camera (InnoFusion),,,ERROR,ConnectError: [Errno 101] Network is unreachable
+scenario-04,Outdoor PTZ Camera (umbrella),,,ERROR,ConnectError: [Errno 101] Network is unreachable
+scenario-05,LMFP Cell BMS,,,ERROR,ConnectError: [Errno 101] Network is unreachable
+scenario-06,Home Zone-Detection Gateway,20,20,True,

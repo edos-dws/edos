@@ -1,0 +1,158 @@
+{
+  "id": "scenario-02",
+  "title": "Solar LoRaWAN Agri Node",
+  "domain": "agri-iot",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "decision": {
+    "schema_version": "edos.decision.v1",
+    "summary": "Reject concept baseline due to nRF52840 hardware incompatibility (lacks LoRa), Class C / 10s uplink power and airtime violations, and unviable supercapacitor holdover assumptions.",
+    "recommendation": "Do not freeze schematic inputs until core architecture is restructured: (1) Replace nRF52840 with a sub-GHz LoRaWAN SoC (e.g., STM32WLE5) or add a companion LoRa transceiver (e.g., SX1262); (2) Change node operating mode from Class C to Class A with duty-cycled sleep; (3) Change reporting cadence from 10 seconds to 15\u201360 minutes (with local threshold alerts for instant reporting); (4) Evaluate LTO battery or realistic supercap sizing based on actual sleep power; (5) Replace unbounded offline buffering with a bounded circular buffer.",
+    "confidence": 0.2,
+    "status": "recommended",
+    "assumptions": [
+      {
+        "statement": "Nordic nRF52840 contains an integrated sub-GHz LoRaWAN transceiver.",
+        "confidence": 0.0,
+        "risk_if_wrong": "Board design fails completely as nRF52840 only supports 2.4 GHz protocols (BLE/802.15.4)."
+      },
+      {
+        "statement": "Solar energy harvest provides effectively unlimited energy allowing continuous 10s sampling and Class C receiver operation.",
+        "confidence": 0.0,
+        "risk_if_wrong": "Node undergoes rapid battery/cap depletion and permanently powers off at night or during overcast weather."
+      },
+      {
+        "statement": "LoRaWAN network capacity and regulatory duty cycle allow 10-second uplink intervals for thousands of nodes on a gateway.",
+        "confidence": 0.0,
+        "risk_if_wrong": "Severe network failure via 100% packet collisions, and violation of ETSI duty cycle (1%) or FCC dwell time rules."
+      },
+      {
+        "statement": "A supercapacitor bank can store enough energy for weeks of operation across -30\u00b0C to +80\u00b0C.",
+        "confidence": 0.1,
+        "risk_if_wrong": "Node resets nightly due to high supercapacitor self-discharge and low volumetric energy density."
+      },
+      {
+        "statement": "Local non-volatile storage can buffer 10-second reading intervals indefinitely during gateway outages.",
+        "confidence": 0.0,
+        "risk_if_wrong": "Flash memory exhaustion and physical impossibility of offloading backlogged data over LoRaWAN bandwidth."
+      }
+    ],
+    "risks": [
+      {
+        "description": "Decision D-1 relies on nRF52840 having an integrated LoRa radio, which is factually incorrect.",
+        "severity": "critical",
+        "likelihood": "high",
+        "mitigation": "Switch to an integrated LoRa SoC like STM32WLE5 series or add an external sub-GHz transceiver (e.g., Semtech SX1262) to the nRF52840."
+      },
+      {
+        "description": "Class C mode keeps the receiver active continuously (~5-10 mA / 16-33 mW), consuming ~400-800 mWh daily, which exceeds 5 cm x 5 cm solar harvest in winter.",
+        "severity": "critical",
+        "likelihood": "high",
+        "mitigation": "Switch to Class A operation, placing the MCU and radio into deep sleep (<10 \u00b5A) between scheduled sample periods."
+      },
+      {
+        "description": "10-second uplink reporting violates regulatory airtime rules (e.g., ETSI 1% duty cycle limit = 36s tx/hour maximum) and saturates gateway channels.",
+        "severity": "critical",
+        "likelihood": "high",
+        "mitigation": "Reduce uplink cadence to 15-60 minutes, using local processing to send immediate exception uplinks only when sensor thresholds are breached."
+      },
+      {
+        "description": "Supercapacitors lack the energy density and leak current rapidly at elevated temperatures (+80\u00b0C), making multi-day dark holdover unviable.",
+        "severity": "high",
+        "likelihood": "high",
+        "mitigation": "Evaluate LTO (Lithium Titanate) or wide-temperature LiFePO4 cells rated for outdoor temperature extremes (-30\u00b0C to +70\u00b0C/80\u00b0C)."
+      },
+      {
+        "description": "Unbounded data buffering at 10s intervals generates ~207 KB/day, filling small SPI flash chips and creating an un-dischargeable upload backlog.",
+        "severity": "high",
+        "likelihood": "high",
+        "mitigation": "Implement a bounded circular storage buffer (e.g., max 7 days of 15-minute averaged data) with data decimation."
+      }
+    ],
+    "tradeoffs": [
+      {
+        "option": "Switching from nRF52840 to STM32WLE5 SoC",
+        "benefit": "Achieves single-chip MCU + LoRa solution under the $12 BOM target with lower sleep power.",
+        "drawback": "Loses BLE provisioning capability and higher Cortex-M4F compute headroom for complex ML models."
+      },
+      {
+        "option": "Class A Duty-Cycled vs Class C Continuous Operation",
+        "benefit": "Reduces average power consumption by >99%, making solar/supercap power feasible.",
+        "drawback": "Downlink messages and OTA commands can only be received immediately following an uplink."
+      },
+      {
+        "option": "15-minute reporting cadence vs 10-second continuous streaming",
+        "benefit": "Ensures regulatory compliance, gateway scalability for 6,000 nodes, and low energy consumption.",
+        "drawback": "Loss of ultra-high time resolution microclimate curves at the cloud server."
+      }
+    ],
+    "affected_decisions": [
+      "D-1",
+      "D-2"
+    ],
+    "evidence": [
+      {
+        "claim": "nRF52840 supports 2.4 GHz multiprotocol (BLE/802.15.4) but does not feature an integrated sub-GHz LoRa transceiver.",
+        "source": "nRF52840 Product Specification / Context Intake Brief D-1",
+        "kind": "fact"
+      },
+      {
+        "claim": "The intake brief specifies continuous 10s sampling/reporting, Class C mode, solar/supercap power, and unbounded buffering.",
+        "source": "Context Intake Brief \u00a74, \u00a75, \u00a78, \u00a79",
+        "kind": "fact"
+      },
+      {
+        "claim": "ETSI EN 300 220 / EU868 regulations impose duty cycle restrictions (typically 1% or 0.1%) on sub-GHz ISM bands.",
+        "source": "ETSI EN 300 220 / LoRaWAN Regional Parameters",
+        "kind": "external"
+      },
+      {
+        "claim": "Supercapacitors exhibit high self-discharge rates and low volumetric energy density (~5-10 Wh/L vs >200 Wh/L for lithium chemistries).",
+        "source": "Standard Electrochemical Storage Reference Data",
+        "kind": "external"
+      }
+    ],
+    "next_actions": [
+      "Select target sub-GHz radio architecture (STM32WLE5 vs nRF52840 + SX1262) and update BOM cost estimate.",
+      "Define deployment geographic region and winter solar insolation profile (kWh/m\u00b2/day) to calculate real power budget.",
+      "Formally change operating profile to Class A with duty-cycled sleep and redefine transmission cadence (e.g. 15\u201360 min).",
+      "Specify explicit buffer size limit (e.g., 8 MB NOR flash for 14 days of 15-minute readings) and overflow policy.",
+      "Re-evaluate energy storage chemistry for -30\u00b0C to +80\u00b0C operating temperature requirement."
+    ],
+    "freeze_blockers": [
+      "D-1 part choice error: nRF52840 lacks integrated sub-GHz LoRaWAN transceiver; MCU/radio selection must be corrected.",
+      "Regulatory and network capacity violation: 10-second uplink cadence violates regional duty-cycle limits and saturates LoRaWAN gateways.",
+      "Power architecture contradiction: Class C continuous receive and continuous 10s active sampling exceed 5x5 cm solar and supercapacitor energy limits.",
+      "Unbounded data buffer requirement: Offline buffering capacity and backlog upload strategy must be bounded and physically specified."
+    ]
+  },
+  "judge": {
+    "scores": {
+      "factual_correctness": 2,
+      "contradiction_detection": 2,
+      "calculation_quality": 2,
+      "assumption_tracking": 2,
+      "no_hallucination": 2,
+      "cross_domain_awareness": 2,
+      "confidence_calibration": 2,
+      "freeze_discipline": 2,
+      "decision_support": 2,
+      "over_engineering_check": 2
+    },
+    "traps_caught": [
+      "nRF52840 has no sub-GHz LoRa radio",
+      "10 s cadence vs LoRaWAN duty-cycle/airtime limits",
+      "solar = 'unlimited power' energy-budget fallacy",
+      "on-device ML + Class C continuous-receive over-engineering",
+      "unbounded 'never lose a reading' buffer"
+    ],
+    "rationale": "The evaluation system identified all five critical architectural traps with precise quantitative calculations (energy consumption, duty cycle limits, and buffer sizing) and appropriately low confidence score. It correctly enforced freeze discipline by blocking schematic lock until core RF, power, and buffer design flaws are rectified."
+  },
+  "evaluation": {
+    "total": 20,
+    "max_total": 20,
+    "passed": true,
+    "reasons": []
+  }
+}

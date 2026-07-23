@@ -1,0 +1,154 @@
+{
+  "id": "scenario-04",
+  "title": "Outdoor PTZ Camera (umbrella)",
+  "domain": "surveillance",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "decision": {
+    "schema_version": "edos.decision.v1",
+    "summary": "Conditional approval of Outdoor Solar PTZ Camera concept pending quantification of solar energy budget inputs, pan-scope selection, and zoom-in-wind stability limits.",
+    "recommendation": "Proceed with the core dual-chip architecture (Sigmastar SSC338Q SoC for video/AI + STM32G431 MCU for motor control), event-triggered streaming, and pan-limits design. Do not commit or freeze the spec until the solar panel Wp, deployment sun-hours, battery Wh, and autonomy days are provided to close the energy budget, and maximum zoom ratio is capped via wind-resonance testing.",
+    "confidence": 0.62,
+    "status": "recommended",
+    "assumptions": [
+      {
+        "statement": "Daily consumption is standby-dominated (~7.2 Wh/day at ~0.3 W standby) and total daily energy consumption can be kept within ~8-12 Wh/day using event-triggered streaming.",
+        "confidence": 0.75,
+        "risk_if_wrong": "If standby or active duty power exceeds harvest, the system will experience battery depletion and shutdown."
+      },
+      {
+        "statement": "Pan limits (e.g. \u00b1180\u00b0 or \u00b1270\u00b0 with unwind) will be selected instead of true endless 360\u00b0 rotation.",
+        "confidence": 0.8,
+        "risk_if_wrong": "Selecting endless pan forces a slip ring, introducing electromechanical wear, contact resistance, and severe IP66 sealing complexity."
+      },
+      {
+        "statement": "IMU-driven EIS combined with a stiff low-clamp mount can stabilize optical zoom video under light to moderate wind.",
+        "confidence": 0.55,
+        "risk_if_wrong": "Unmitigated low-frequency umbrella sway will produce shaky, unusable zoomed video in outdoor breeze."
+      },
+      {
+        "statement": "Self-locking gearing (worm drive or detent) or balanced camera head geometry eliminates continuous stepper holding current when static.",
+        "confidence": 0.6,
+        "risk_if_wrong": "Continuous motor holding current will drain the battery rapidly, breaking the daily energy budget."
+      },
+      {
+        "statement": "Battery charging will be hardware-inhibited below 0 \u00b0C or chemistry will be switched to LiFePO4.",
+        "confidence": 0.7,
+        "risk_if_wrong": "Charging standard Li-ion cells below freezing causes lithium plating, severe capacity degradation, and safety risks."
+      }
+    ],
+    "risks": [
+      {
+        "description": "Solar energy budget fails to close due to unquantified panel Wp, umbrella shading, and low seasonal sun-hours.",
+        "severity": "critical",
+        "likelihood": "high",
+        "mitigation": "Require engineer to provide panel Wp, deployment latitude/sun-hours, battery Wh, and autonomy days; enforce strict event-driven streaming and adaptive duty cycle."
+      },
+      {
+        "description": "Optical zoom magnifies umbrella mount sway under wind loading, yielding unusable video.",
+        "severity": "high",
+        "likelihood": "high",
+        "mitigation": "Clamp mount low on rigid pole section, minimize head mass and moment arm, implement IMU-assisted EIS, and cap maximum optical zoom ratio."
+      },
+      {
+        "description": "Open-loop stepper skips steps under wind gusts or physical obstruction, causing PTZ preset position drift.",
+        "severity": "medium",
+        "likelihood": "high",
+        "mitigation": "Incorporate a physical home reference switch to re-zero position on each cycle, or add an absolute magnetic encoder on the output shaft."
+      },
+      {
+        "description": "IP66 ingress or internal condensation at rotating/tilting dynamic mechanical joints.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Use rotary lip/labyrinth seals with drip paths, avoid rotary electrical joints, and fit a Gore-Tex pressure breather vent."
+      },
+      {
+        "description": "Li-ion battery failure or hazard due to outdoor cold-temperature charging.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Implement hardware charge-inhibit below 0 \u00b0C with thermal monitoring or specify LiFePO4 cell chemistry."
+      }
+    ],
+    "tradeoffs": [
+      {
+        "option": "Pan Limits (Flex Wire Loop) vs. Endless Rotation (Slip Ring)",
+        "benefit": "Eliminates electromechanical wear part, reduces cost, simplifies IP66 sealing, preserves power/signal integrity.",
+        "drawback": "Cannot continuously track a target past 360\u00b0 without an unwind maneuver."
+      },
+      {
+        "option": "Event-Triggered Streaming vs. Continuous 24x7 Streaming",
+        "benefit": "Reduces daily energy consumption by >80%, enabling solar/battery feasibility on umbrella mount.",
+        "drawback": "Does not provide continuous unbroken video recording."
+      },
+      {
+        "option": "Open-Loop Stepper + Home Switch vs. Closed-Loop BLDC Servo",
+        "benefit": "Lower BOM cost and simpler motor control firmware.",
+        "drawback": "Susceptible to step skipping under wind gusts between home re-zeroing cycles."
+      },
+      {
+        "option": "Shared Core with Two Variants vs. Single Universal BOM for Umbrella & Fixed-Pole PoE",
+        "benefit": "Optimizes power, sealing, and cost for solar umbrella without restricting performance on fixed-pole mains/PoE version.",
+        "drawback": "Requires maintaining two distinct product variants and SKU configurations."
+      }
+    ],
+    "affected_decisions": [
+      "D-SoC",
+      "D-Arch",
+      "D-PanMotor",
+      "D-PanFeedback",
+      "D-TiltMotor",
+      "D-PanScope",
+      "D-Zoom",
+      "D-Stabilization",
+      "D-Mount",
+      "D-Sealing",
+      "D-Solar",
+      "D-Battery",
+      "D-Charge",
+      "D-EnergyBudget",
+      "D-Streaming",
+      "D-Platform"
+    ],
+    "evidence": [
+      {
+        "claim": "Standby power of ~0.3 W over 24 h equals ~7.2 Wh/day, dominating daily power consumption.",
+        "source": "Q17 Intake Brief",
+        "kind": "inference"
+      },
+      {
+        "claim": "Continuous 360\u00b0 pan with cabled camera causes cable fatigue and wire snapping unless bounded or passed through a slip ring.",
+        "source": "Q7 Intake Brief",
+        "kind": "fact"
+      },
+      {
+        "claim": "Charging standard Li-ion cells below 0 \u00b0C causes permanent lithium plating and capacity degradation.",
+        "source": "Q15 Intake Brief",
+        "kind": "fact"
+      },
+      {
+        "claim": "Patio umbrella mount is a flexible, wind-loaded structure that magnifies optical zoom motion.",
+        "source": "Q1, Q10 Intake Brief",
+        "kind": "assumption"
+      },
+      {
+        "claim": "Panel Wp, deployment sun-hours, battery capacity (Wh), and autonomy target days are unprovided project inputs.",
+        "source": "Q14, Q15, Q17 Intake Brief",
+        "kind": "fact"
+      }
+    ],
+    "next_actions": [
+      "Engineer to supply solar panel rated peak power (Wp), deployment latitude / solar irradiance profile, battery capacity (Wh), and target autonomy days.",
+      "Engineer to confirm pan coverage scope: true endless 360\u00b0 vs wide-coverage bounded pan limits (e.g. \u00b1180\u00b0 or \u00b1270\u00b0).",
+      "Engineer to specify target optical zoom ratio (e.g., 3x vs 10x) and maximum operating wind speed.",
+      "Engineer to decide battery chemistry (Li-ion with low-temp charge gate vs LiFePO4).",
+      "Perform physical mount resonance sweep and zoom-in-wind stability testing to establish capped zoom ratio limit."
+    ],
+    "freeze_blockers": [
+      "Unproven solar energy feasibility: solar panel Wp, deployment sun-hours, battery Wh, and target autonomy days are missing, preventing daily energy budget closure.",
+      "Unresolved pan scope decision (endless rotation vs pan limits) gating slip ring selection, cable routing, and dynamic IP66 seal design.",
+      "Unverified optical zoom usability on wind-loaded umbrella structure; maximum zoom ratio cap not yet defined through physical vibration and EIS testing."
+    ]
+  },
+  "error": "ConnectError: [Errno 101] Network is unreachable"
+}

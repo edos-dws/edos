@@ -1,0 +1,9 @@
+{
+  "id": "scenario-03",
+  "title": "Edge AI Camera (InnoFusion)",
+  "domain": "vision-edge-ai",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "error": "ConnectError: [Errno 101] Network is unreachable"
+}

@@ -1,0 +1,6 @@
+id,title,total,max,passed
+scenario-02,Solar LoRaWAN Agri Node,20,20,True
+scenario-03,Edge AI Camera (InnoFusion),20,20,True
+scenario-04,Outdoor PTZ Camera (umbrella),20,20,True
+scenario-05,LMFP Cell BMS,20,20,True
+scenario-06,Home Zone-Detection Gateway,20,20,True

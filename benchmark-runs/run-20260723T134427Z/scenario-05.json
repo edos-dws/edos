@@ -1,0 +1,137 @@
+{
+  "id": "scenario-05",
+  "title": "LMFP Cell BMS",
+  "domain": "battery-management",
+  "provider": "GeminiProvider",
+  "model": "gemini-3.6-flash",
+  "intake_found": true,
+  "decision": {
+    "schema_version": "edos.decision.v1",
+    "summary": "14S LMFP BMS Architecture Review: Proceed with shared-core architecture (STM32G474 + BQ79616-Q1 + shunt) pending cell datasheet and FuSa target resolution.",
+    "recommendation": "Adopt the BQ79616-Q1 AFE and STM32G474 MCU core paired with shunt-based coulomb counting and OCV-transition recalibration. Re-derive all voltage thresholds from the LMFP cell datasheet (discard LFP 3.65V limits), audit 48V legacy components for 60.2V max pack voltage, implement low-temperature charge inhibiting, and require a BMS-controlled charger handshake. Hold schematic freeze until cell datasheet, FuSa target, and peak current ratings are supplied.",
+    "confidence": 0.66,
+    "status": "recommended",
+    "assumptions": [
+      {
+        "statement": "LMFP cell max charge voltage is \u22644.2V (pack max 58.8V), maintaining SELV (<60V DC) low-voltage status.",
+        "confidence": 0.7,
+        "risk_if_wrong": "If cell max voltage is 4.3V, pack voltage reaches 60.2V, exceeding SELV limits and triggering strict galvanic isolation and creepage/clearance safety standards."
+      },
+      {
+        "statement": "Passive balancing via BQ79616 at ~40mA is sufficient for cell balance convergence across daily charge windows.",
+        "confidence": 0.6,
+        "risk_if_wrong": "Slow balance convergence (~12.5h for 0.5Ah delta) causes cumulative cell imbalance and reduced usable pack capacity if cells are loosely graded."
+      },
+      {
+        "statement": "Host MCU (STM32G474) will meet functional safety requirements without requiring a lockstep/ECC automotive safety MCU.",
+        "confidence": 0.55,
+        "risk_if_wrong": "Selection of ISO 26262 ASIL-B/C or strict AIS-156 compliance late in design will force an MCU architectural redesign (e.g., NXP S32K3)."
+      },
+      {
+        "statement": "Charger accepts dynamic BMS power commands via CAN bus.",
+        "confidence": 0.5,
+        "risk_if_wrong": "A BMS-unaware fixed CC-CV charger risks severe over-charging if an individual cell reaches OVP while total pack voltage remains nominal."
+      }
+    ],
+    "risks": [
+      {
+        "description": "Reusing LFP voltage thresholds (3.65V OVP) on LMFP chemistry limits pack usable capacity by 15-25% or risks cell overcharge.",
+        "severity": "critical",
+        "likelihood": "high",
+        "mitigation": "Re-derive OVP, UVP, and charge taper voltage thresholds directly from the manufacturer's LMFP cell datasheet."
+      },
+      {
+        "description": "Legacy 48V platform hardware (FET Vds, DC-DC Vin max, capacitors) degraded or destroyed by 14S LMFP top-of-charge voltage (58.8V\u201360.2V).",
+        "severity": "critical",
+        "likelihood": "medium",
+        "mitigation": "Perform a component-level voltage rating audit on all legacy 48V hardware for \u226565V operating margin."
+      },
+      {
+        "description": "SoC drift on flat OCV plateau using legacy LFP lookup method leads to \u00b120\u201330% estimation error.",
+        "severity": "high",
+        "likelihood": "high",
+        "mitigation": "Implement current-shunt coulomb counting with periodic reset using the Mn/Fe OCV transition step (~4.05V) as a recalibration landmark."
+      },
+      {
+        "description": "Charging below 0\u00b0C causes irreversible lithium plating and internal shorts.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Enforce autonomous low-temperature charge inhibition in firmware and AFE protection logic."
+      },
+      {
+        "description": "Inrush current during main contactor/FET switch-on into motor controller DC-link capacitance welds contacts or damages FETs.",
+        "severity": "high",
+        "likelihood": "medium",
+        "mitigation": "Implement dedicated pre-charge circuit and BMS-controlled sequencing based on load capacitance."
+      }
+    ],
+    "tradeoffs": [
+      {
+        "option": "Passive Balancing (BQ79616 Resistor Bleed) vs Active Balancing",
+        "benefit": "Significantly lower cost and complexity, fully integrated into BQ79616 AFE.",
+        "drawback": "Dissipates energy as heat and yields slow bleed rate (~40mA), requiring multi-session charge convergence for large mismatches."
+      },
+      {
+        "option": "Back-to-Back MOSFET Disconnect vs Mechanical Contactor",
+        "benefit": "Eliminates high continuous coil holding current (aiding sleep budget) and enables independent charge/discharge control.",
+        "drawback": "Requires robust thermal dissipation design for continuous current and mandatory pre-charge logic."
+      },
+      {
+        "option": "Platform Architecture Split (Shared Core MCU/AFE with Variant Comms) vs Universal Single Board",
+        "benefit": "Prevents industrial ESS requirement creep (20-yr life, Modbus) from inflating low-cost 3-wheeler EV BOM.",
+        "drawback": "Requires maintaining two separate PCB assembly variants."
+      }
+    ],
+    "affected_decisions": [
+      "D-MCU",
+      "D-AFE",
+      "D-CurrentSense",
+      "D-SoC",
+      "D-Thresholds",
+      "D-Balancing",
+      "D-Disconnect",
+      "D-Pre-charge",
+      "D-BLE",
+      "D-ChargeTempGate",
+      "D-Protection",
+      "D-Platform",
+      "D-OTA",
+      "D-PowerMode"
+    ],
+    "evidence": [
+      {
+        "claim": "14S LMFP voltage range spans 42.0V (14x3.0V empty) to 58.8V (14x4.2V nominal full) up to 60.2V (14x4.3V peak full).",
+        "source": "Q5 Pack voltage calculation",
+        "kind": "inference"
+      },
+      {
+        "claim": "LMFP OCV exhibits two distinct voltage plateaus (Fe region ~3.4V, Mn region ~4.05V) separated by a transition region.",
+        "source": "Q6 SoC algorithm analysis",
+        "kind": "fact"
+      },
+      {
+        "claim": "BQ79616-Q1 is a 16-channel AFE utilized in a 14S configuration, requiring unused channels to be tied off per manufacturer guidance.",
+        "source": "Q4 AFE selection",
+        "kind": "fact"
+      },
+      {
+        "claim": "STM32G474 lacks integrated BLE, requiring an external power-gated BLE transceiver module for diagnostic connectivity.",
+        "source": "Q16 Comms architecture",
+        "kind": "fact"
+      }
+    ],
+    "next_actions": [
+      "Supply the LMFP cell datasheet detailing cell OCV vs SoC curve, max/min voltage limits, continuous/peak current limits, and operating temperature charge/discharge windows.",
+      "Define the functional safety target and regulatory market (e.g., India AIS-156 vs ISO 26262 ASIL-B) to freeze MCU selection.",
+      "Audit all 48V legacy hardware (MOSFET Vds, DC-DC input range, capacitors, connectors) for safety margin at 60.2V max pack voltage.",
+      "Confirm charger communication protocol (CAN-bus dynamic control vs fixed CC-CV output).",
+      "Obtain continuous/peak pack current specifications and motor controller DC-link capacitance to size disconnect FETs/contactors and pre-charge resistor."
+    ],
+    "freeze_blockers": [
+      "Missing LMFP cell datasheet prevents deriving safety-critical OVP/UVP thresholds and confirming whether max pack voltage remains strictly <60V SELV limit.",
+      "Undefined Functional Safety target (AIS-156 / ISO 26262) leaves host MCU choice (STM32G474) unvalidated against system safety requirements.",
+      "Unverified voltage margin on legacy '48V' platform components under 58.8V\u201360.2V top-of-charge conditions."
+    ]
+  },
+  "error": "ConnectError: [Errno 101] Network is unreachable"
+}
