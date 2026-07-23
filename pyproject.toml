@@ -13,9 +13,16 @@ dependencies = [
     "pgvector>=0.3",
     "alembic>=1.13",
     "redis>=5.0",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
+# Live LLM SDKs — needed only at go-live. Providers import these lazily, so the core runs and tests pass
+# without them installed. Install with:  pip install -e '.[providers]'
+providers = [
+    "anthropic>=0.40",
+    "google-genai>=1.0",
+]
 dev = [
     "pytest>=8.0",
     "httpx>=0.27",

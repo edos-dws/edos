@@ -16,7 +16,7 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 |-------|-------|
 | Current checkpoint | **CP-7 ✅ (stub) merged → next: CP-8 (Evaluation harness)** |
 | Current ticket | none in-flight (loop self-pacing) |
-| Build gate | 🟢 GREEN — 74 tests + ruff |
+| Build gate | 🟢 GREEN — 119 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
@@ -33,7 +33,7 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 - [x] ~~Approve CP-0~~ — **locked in 2026-07-22.**
 - [x] ~~Git-as-gate flow~~ — **confirmed:** CP-branch → PR → human merge.
 - [x] ~~Runner location~~ — **confirmed:** this machine (Claude Code).
-- [ ] **GO-LIVE: connect the real LLM.** Choose provider (Claude recommended) + give an API key (secret). Then StubProvider → real provider + author/tune prompt content (registry has the slots).
+- [ ] **GO-LIVE: add the API key to `.env`.** Dev is DONE — both providers (Gemini + Anthropic) are wired, config-selectable (`EDOS_PROVIDER`, default `gemini`), with cross-vendor fallback; prompts hardened from the real benchmark results (multi-domain). **Only remaining step: put `GEMINI_API_KEY=...` in `.env`** (StubProvider auto-swaps to the live provider). Confirm the exact Gemini model IDs against your account.
 - [ ] **Derive freeze threshold T** from scored benchmark runs (CP-8 harness) once real runs exist. Until then freeze stays DISABLED (fail-safe). Do NOT guess T.
 - [ ] (optional) `! gh auth login` for real GitHub PRs; Alembic migrations; 6 unweighted relation weights; embedding dim.
 
@@ -105,6 +105,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 
 ## Activity Log  (append-only, newest at top — one line per event)
 
+- 2026-07-23 — **Go-live prep (dual-provider + prompt hardening from real benchmarks).** (1) Wired real **Gemini + Anthropic** providers behind the vendor-agnostic `Provider` seam (`src/edos/engines/providers/`), config-selectable via `EDOS_PROVIDER` (default `gemini`) with automatic cross-vendor fallback; router auto-swaps StubProvider→live when a key is present; `.env` now auto-loads (python-dotenv), SDKs lazy + in a `[providers]` extra (installed). Only the API key in `.env` remains. (2) **Prompt suite hardened** from the edos-model-benchmark results (2 rounds, 3 models, 8 domains): added **false-positive resistance** (severity calibration — don't inflate a real fact into a fake Critical) and **hold-the-line-on-safety** (safety layers aren't fungible; don't downgrade accredited tests) to `erc_core.md`, mapped into decision + verification prompts — directly targeting Gemini's two known failure modes (07, 10). 119 tests green + ruff. Report: GO-LIVE-PROVIDERS-AND-PROMPT-HARDENING-REPORT.md.
 - 2026-07-23 — Overnight build 2 (autonomous): **prompt implementation** (render() wires templates→provider), **live connectivity** (WebSocket streaming analyze + project event stream + EventHub + CORS + health), **Alembic migrations** (CP-1 deferral resolved, reversible), integration test, docs/Swagger/Postman/architecture-live all updated, status page refreshed. 102 tests green. Merged to develop. Report: LIVE-CONNECTIVITY-AND-PROMPT-IMPL-REPORT.md.
 - 2026-07-23 — Overnight build (autonomous): **Step 1 production prompt suite** (generic embedded; erc_core + decision/verification/planner/knowledge templates, registry v1 + loader) and **Step 2 benchmark dataset** (benchmarks/scenario-02..06 + eval/benchmarks loader wired to CP-8 harness). 90 tests green. Self-merged to develop. Report: PROMPTS-AND-BENCHMARKS-REPORT.md. Go-live (real LLM + derive T) pending API key — to review together.
 - 2026-07-22 — Added: 4 cross-domain benchmark runs (edge-AI camera, PTZ/umbrella, LMFP BMS, home zone-gateway) in concept-dry-run/scenarios; API Swagger (docs/openapi.json) + Postman collection + docs/API.md; shareable status page (docs/status.html, published as Artifact).

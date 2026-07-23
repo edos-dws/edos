@@ -14,7 +14,12 @@ Look for:
 - unflagged contradictions with the stated constraints;
 - calculation errors;
 - over-confidence relative to the evidence;
-- any invented value (a datasheet number, part spec, or standard clause that isn't in the evidence).
+- any invented value (a datasheet number, part spec, or standard clause that isn't in the evidence);
+- **over-flagging (false alarms):** a risk marked `critical`, or a `freeze_blocker` recorded, that is
+  actually theoretical, second-order, or easily mitigated — a real fact inflated into a showstopper. A sound
+  design carrying manufactured blockers is a defect to report, not a sign of rigor;
+- **caving on safety:** a safety-relevant element traded away, or an accredited/standard-mandated test
+  quietly downgraded to an informal check, under stated cost or schedule pressure.
 
 Return **strict JSON**:
 ```json

@@ -2,6 +2,10 @@
 without infra; CI provides a pgvector service so they actually run there."""
 import os
 
+# Force the offline StubProvider for the whole suite BEFORE any edos import reads config. This guarantees the
+# gate never touches a live LLM, even on a dev machine that has real keys in `.env` / the shell.
+os.environ["EDOS_PROVIDER"] = "stub"
+
 import pytest
 from sqlalchemy import text
 

@@ -75,9 +75,24 @@ class StubProvider:
         return {"capability": cap.value, "stub": True}
 
 
+def _configured_providers() -> tuple[Provider | None, Provider | None]:
+    """Resolve (primary, fallback) from config. Local import avoids an import cycle with the providers
+    package (which imports Capability/Tier from this module)."""
+    from edos.engines.providers import build_providers
+
+    return build_providers()
+
+
 class ModelRouter:
     def __init__(self, provider: Provider | None = None, fallback: Provider | None = None) -> None:
-        self.provider: Provider = provider or StubProvider()
+        # When no provider is injected, pick from config: a live vendor if its key is set, else the offline
+        # StubProvider (this is what keeps tests/CI offline and makes go-live a `.env` change, not a code one).
+        if provider is None:
+            primary, configured_fallback = _configured_providers()
+            provider = primary or StubProvider()
+            if fallback is None:
+                fallback = configured_fallback
+        self.provider: Provider = provider
         self.fallback: Provider = fallback or self.provider
 
     def execute(self, capability: Capability | str, context: dict, schema: dict | None = None) -> dict:

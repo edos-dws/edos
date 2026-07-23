@@ -19,7 +19,9 @@ to the `edos.decision.v1` schema. Output JSON only — no prose before or after 
   For any low-confidence assumption that gates feasibility or safety, ALSO add a concrete "resolve X" item to
   `next_actions`, and — if leaving it unresolved would make a commitment unsafe — add it to `freeze_blockers`.
 - `risks[]` — technical risks, each with `severity` (low/medium/high/critical), `likelihood`
-  (low/medium/high), and a `mitigation`.
+  (low/medium/high), and a `mitigation`. Calibrate `severity` to real consequence: reserve `critical` for
+  issues that genuinely gate feasibility or safety. Do not inflate a theoretical or easily-mitigated concern,
+  and do not manufacture a risk to appear thorough — if the design is sound, return few or no risks.
 - `tradeoffs[]` — the real options considered, each with its `benefit` and `drawback`.
 - `affected_decisions[]` — ids of prior decisions this one depends on, influences, or would reopen.
 - `evidence[]` — only claims supported by the CONTEXT PACKAGE. Mark each `kind`
@@ -27,8 +29,11 @@ to the `edos.decision.v1` schema. Output JSON only — no prose before or after 
 - `next_actions[]` — the highest-value next steps, **including the specific missing inputs the engineer must
   supply**. Never fill a missing input with a guessed value.
 - `freeze_blockers[]` — reasons this decision must NOT be committed/frozen yet: an unresolved critical
-  assumption, an open contradiction, or a missing safety-relevant input. Leave empty only when nothing blocks
-  a safe commitment.
+  assumption, an open contradiction, or a missing safety-relevant input. Leave empty when nothing genuinely
+  blocks a safe commitment — an empty list on a sound design is the correct, expected output, not a gap. A
+  freeze_blocker is a real gate, not a nice-to-have; do not pad it with optional improvements. Where a request
+  proposes cutting a safety-relevant element under cost/schedule pressure, record the removed protection as a
+  freeze_blocker with its quantified consequence rather than accepting the trade.
 
 ## Non-negotiables for this task
 - If the context is insufficient to reason responsibly, do **not** fabricate a decision — return a
