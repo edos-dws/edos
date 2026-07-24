@@ -27,11 +27,13 @@ from edos.db.models import GraphEdge, ProjectItem, new_decision_version
 from edos.engines import (
     auth,
     decision_store,
+    domain,
     faithfulness,
     feedback,
     ingestion,
     resolution,
     retrieval,
+    watchdog,
     writeback,
 )
 from edos.engines.context import ContextEngine
@@ -484,6 +486,28 @@ def list_items(project_id: str, session: Session = Depends(get_session)) -> list
         select(ProjectItem).where(ProjectItem.project_id == project_id).order_by(ProjectItem.created_at)
     ).all()
     return [_item_dict(r) for r in rows]
+
+
+# ---------- domain grounding + proactive watchdog (CP-20) ----------
+@app.get("/v1/projects/{project_id}/alerts")
+def project_alerts(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    """Proactive watchdog: open conflicts, stale/superseded items, invalidated dependencies."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return [{"type": a.type, "subject": a.subject, "message": a.message, "severity": a.severity}
+            for a in watchdog.scan(session, project_id)]
+
+
+@app.get("/v1/projects/{project_id}/rule-flags")
+def project_rule_flags(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    """Procedural-memory domain rules applied to the project's items."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    contents = session.scalars(
+        select(ProjectItem.content).where(ProjectItem.project_id == project_id)
+    ).all()
+    return [{"key": f.key, "flag": f.flag, "severity": f.severity, "matched": f.matched}
+            for f in domain.apply_rules(contents)]
 
 
 @app.post("/v1/projects/{project_id}/events")
