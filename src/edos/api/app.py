@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
 from edos.db.models import ProjectItem
-from edos.engines import decision_store, ingestion
+from edos.engines import decision_store, ingestion, retrieval
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.model_router import Capability, ModelRouter
@@ -97,9 +97,19 @@ def ask(req: AskRequest) -> dict:
     return {"project_id": req.project_id, "question": req.question, "intent": intent}
 
 
-def _build_decision(req: AnalyzeRequest):
+def _candidates(req: AnalyzeRequest, session: Session | None) -> list[dict]:
+    """Explicit `context_items` override the retriever; otherwise the Retriever (CP-13) assembles context
+    from the project. `session=None` (no DB) yields no candidates → clarification."""
+    if req.context_items:
+        return req.context_items
+    if session is None:
+        return []
+    return retrieval.retrieve(session, project_id=req.project_id, question=req.question)
+
+
+def _build_decision(req: AnalyzeRequest, candidates: list[dict]):
     package = ContextEngine().build(
-        project_id=req.project_id, intent=req.question, entities=[], candidates=req.context_items
+        project_id=req.project_id, intent=req.question, entities=[], candidates=candidates
     )
     return DecisionEngine().analyze(package)
 
@@ -117,15 +127,22 @@ def _record_turn(conversation_id: str, prompt: str, body: dict) -> None:
 
 
 @app.post("/v1/analyze")
-async def analyze(req: AnalyzeRequest) -> dict:
-    result = _build_decision(req)
-    if isinstance(result, ClarificationNeeded):
-        body = {"status": "needs_clarification", "reason": result.reason, "questions": result.questions}
+async def analyze(req: AnalyzeRequest, session: Session = Depends(get_session)) -> dict:
+    candidates = _candidates(req, session)
+    if candidates and not retrieval.coverage_ok(candidates):
+        # missing-context guard: relevant coverage too thin → clarify, don't reason blind
+        body = {"status": "needs_clarification", "reason": "insufficient relevant context",
+                "questions": [("Retrieved project context isn't relevant enough to reason confidently. "
+                               "Add or link the relevant requirements/decisions, or refine the question.")]}
     else:
-        body = result.to_contract_dict()
-        # push a live event to any project-event subscribers
-        await hub.publish(req.project_id, {"type": "decision.ready", "summary": result.summary,
-                                           "confidence": result.confidence})
+        result = _build_decision(req, candidates)
+        if isinstance(result, ClarificationNeeded):
+            body = {"status": "needs_clarification", "reason": result.reason,
+                    "questions": result.questions}
+        else:
+            body = result.to_contract_dict()
+            await hub.publish(req.project_id, {"type": "decision.ready", "summary": result.summary,
+                                               "confidence": result.confidence})
     if req.conversation_id:
         _record_turn(req.conversation_id, req.question, body)
     return body
@@ -331,7 +348,15 @@ async def ws_analyze(ws: WebSocket) -> None:
     try:
         req = AnalyzeRequest(**await ws.receive_json())
         await ws.send_json({"type": "stage", "stage": "assembling_context"})
-        result = _build_decision(req)
+        if req.context_items:
+            candidates = req.context_items
+        else:
+            _s = session_factory()()
+            try:
+                candidates = _candidates(req, _s)
+            finally:
+                _s.close()
+        result = _build_decision(req, candidates)
         await ws.send_json({"type": "stage", "stage": "reasoning"})
         if isinstance(result, ClarificationNeeded):
             await ws.send_json({"type": "clarification", "reason": result.reason,

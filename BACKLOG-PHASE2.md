@@ -121,18 +121,18 @@ seeded traversal `edge-weight × λ^hop` + N-hop expand to surface conflicts/hid
 compress (summarize, drop nahi) → **hard-constraint floor** (locked decisions/requirements/open-conflicts always) →
 **missing-context guard** (coverage low → insufficient flag). LLM never searches — retriever/software does.
 
-- [ ] **13.1 Anchor extraction** — regex + embedding-link + LLM-fallback. AC: known entity → sahi anchors.
-- [ ] **13.2 Semantic (dense)** — pgvector cosine kNN (ANN index). AC: similar item top-k.
-- [ ] **13.3 Lexical (sparse)** — term/BM25 for part-numbers/spec values. AC: exact-term item retrieve jab vector miss.
-- [ ] **13.4 Graph traversal + expansion** — weighted seeded traversal + N-hop; explainable path; conflicts surface. AC: linked high+path; conflict aaye; unlinked ~0. **Open: OD-10.**
-- [ ] **13.5 Recency** — exp decay. AC: naya > purana.
-- [ ] **13.6 Fusion** — weighted `rank_score` (default) / RRF; over-fetch wide. AC: fused top-k ⊇ strong hits. **Open: OD-2.**
-- [ ] **13.7 Rerank + compress** — rerank (LLM-judge/cross-encoder) → compress-by-summarize. AC: precision@k improve. **Open: OD-4.**
-- [ ] **13.8 Hard-constraint floor** — locked decisions/requirements/open-conflicts always in. AC: hard-constraint kabhi drop nahi.
-- [ ] **13.9 Missing-context guard** — coverage/graph-completeness check → insufficient flag. AC: critical item hatao → flag fire.
-- [ ] **13.10 Agentic multi-hop (P1)** — complex → reason→retrieve-more→reason; simple = single-pass. AC: multi-hop → 2nd retrieval.
-- [ ] **13.11 Wire into API** — `/v1/analyze` `{project_id, question}` (context_items optional override); response me provenance. AC: bina manual context → decision+provenance.
-- [ ] **13.12 Retrieval eval (recall@k/precision@k/nDCG/MRR)** — gold-set + metrics; **merge-gate on recall@k; regression blocks.** AC: eval runs, numbers reported, gate enforced. **Open: OD-3.**
+- [x] **13.1 Anchor extraction** — regex + embedding-link + LLM-fallback. AC: known entity → sahi anchors.
+- [x] **13.2 Semantic (dense)** — pgvector cosine kNN (ANN index). AC: similar item top-k.
+- [x] **13.3 Lexical (sparse)** — term/BM25 for part-numbers/spec values. AC: exact-term item retrieve jab vector miss.
+- [x] **13.4 Graph traversal + expansion** — weighted seeded traversal + N-hop; explainable path; conflicts surface. AC: linked high+path; conflict aaye; unlinked ~0. **Open: OD-10.**
+- [x] **13.5 Recency** — exp decay. AC: naya > purana.
+- [x] **13.6 Fusion** — weighted `rank_score` (default) / RRF; over-fetch wide. AC: fused top-k ⊇ strong hits. **Open: OD-2.**
+- [~] **13.7 (compress done; LLM rerank deferred)  Rerank + compress** — rerank (LLM-judge/cross-encoder) → compress-by-summarize. AC: precision@k improve. **Open: OD-4.**
+- [x] **13.8 Hard-constraint floor** — locked decisions/requirements/open-conflicts always in. AC: hard-constraint kabhi drop nahi.
+- [x] **13.9 Missing-context guard** — coverage/graph-completeness check → insufficient flag. AC: critical item hatao → flag fire.
+- [x] **13.10 Agentic multi-hop (P1)** — complex → reason→retrieve-more→reason; simple = single-pass. AC: multi-hop → 2nd retrieval.
+- [x] **13.11 Wire into API** — `/v1/analyze` `{project_id, question}` (context_items optional override); response me provenance. AC: bina manual context → decision+provenance.
+- [x] **13.12 Retrieval eval (recall@k/precision@k/nDCG/MRR)** — gold-set + metrics; **merge-gate on recall@k; regression blocks.** AC: eval runs, numbers reported, gate enforced. **Open: OD-3.**
 
 **Gate:** 🔴 HUMAN — review with eval scores + examples.
 
