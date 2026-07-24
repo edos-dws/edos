@@ -219,9 +219,9 @@ curve), (b) ranking/edge-weight **tuning** — **eval-gated** (recall regress na
 **Depends:** CP-10. **Touches:** `api/` (auth middleware), `db/models.py` (users), all endpoints (scoping).
 **Design:** Users + project ownership/team scoping + role-based memory (system-rule vs user-preference write perms). **Approach undecided — OD-8.**
 
-- [ ] **19.1 Users + auth** — signup/login/tokens. AC: authenticated access.
-- [ ] **19.2 Ownership + access** — project scoped; cross-tenant blocked. AC: cross-tenant → denied.
-- [ ] **19.3 Role-based memory** — system vs user memory write-perms. AC: user can't write system rules.
+- [x] **19.1 Users + auth** — signup/login/tokens. AC: authenticated access.
+- [x] **19.2 Ownership + access** — project scoped; cross-tenant blocked. AC: cross-tenant → denied.
+- [x] **19.3 Role-based memory** — system vs user memory write-perms. AC: user can't write system rules.
 **Open:** OD-8.
 
 **Gate:** self-merge.

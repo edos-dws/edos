@@ -104,6 +104,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 ---
 
 ## Activity Log  (append-only, newest at top — one line per event)
+- 2026-07-24 — ✅ CP-19 (Auth & Multi-tenancy) merged. Token signup, optional bearer auth, project ownership scoping, role-based-memory guard. Opt-in/non-breaking. [OD-8 prod OAuth + enforcement deferred]. 189 tests.
 - 2026-07-24 — ✅ CP-18 (Frontend/UX) merged. Single-file vanilla-JS SPA served at /app: projects, chat/analyze, decision cards (accept/challenge), items/decisions view, calibration, provenance. [OD-7 default stack, swappable]. 184 tests.
 - 2026-07-24 — ✅ CP-17 (Feedback/Learning loop) merged. Outcome capture (accepted/challenged/reversed + confidence snapshot); calibration report (gap); ranking tuning advisory/eval-gated. 183 tests.
 - 2026-07-24 — ✅ CP-16 (Verification Hardening + Freeze) merged. verify faithfulness-aware (context_refs); freeze endpoint gated (T unset → refuses, no autonomous freeze). 178 tests. [real critic LLM + T-derivation deferred/data]

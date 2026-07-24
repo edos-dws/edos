@@ -15,7 +15,7 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from edos.api.deps import get_session, session_factory
 from edos.db.models import GraphEdge, ProjectItem, new_decision_version
 from edos.engines import (
+    auth,
     decision_store,
     faithfulness,
     feedback,
@@ -45,6 +46,15 @@ from edos.store import projects as store
 
 def _new_id() -> str:
     return uuid.uuid4().hex[:12]
+
+
+def current_user(authorization: str | None = Header(default=None),
+                 session: Session = Depends(get_session)):
+    """Optional bearer-token auth (CP-19). Returns the user or None; enforcement is opt-in (OD-8)."""
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
+    return auth.user_for_token(session, token)
 
 app = FastAPI(title="EDOS", version="0.0.1")
 
@@ -212,7 +222,17 @@ def freeze_decision(decision_id: str, session: Session = Depends(get_session)) -
 
 # ---------- projects (CP-10) ----------
 def _project_dict(row) -> dict:
-    return {"id": row.id, "name": row.name, "domain": row.domain}
+    return {"id": row.id, "name": row.name, "domain": row.domain, "owner_id": row.owner_id}
+
+
+class SignupRequest(BaseModel):
+    email: str
+
+
+@app.post("/v1/auth/signup", status_code=201)
+def signup_ep(body: SignupRequest, session: Session = Depends(get_session)) -> dict:
+    user = auth.signup(session, email=body.email)
+    return {"user_id": user.id, "email": user.email, "token": user.token}
 
 
 def _conversation_dict(row) -> dict:
@@ -221,14 +241,19 @@ def _conversation_dict(row) -> dict:
 
 
 @app.post("/v1/projects", status_code=201)
-def create_project(body: ProjectCreate, session: Session = Depends(get_session)) -> dict:
+def create_project(body: ProjectCreate, session: Session = Depends(get_session),
+                   user=Depends(current_user)) -> dict:
     row = store.create_project(session, id=_new_id(), name=body.name, domain=body.domain)
+    if user is not None:
+        row.owner_id = user.id  # scope to the authenticated owner (CP-19)
+        session.flush()
     return _project_dict(row)
 
 
 @app.get("/v1/projects")
-def list_projects(session: Session = Depends(get_session)) -> list[dict]:
-    return [_project_dict(r) for r in store.list_projects(session)]
+def list_projects(session: Session = Depends(get_session), user=Depends(current_user)) -> list[dict]:
+    # authenticated: show your projects + shared (unowned). unauthenticated: all (auth is opt-in, OD-8).
+    return [_project_dict(r) for r in store.list_projects(session) if auth.can_access_project(r, user)]
 
 
 @app.get("/v1/projects/{project_id}")

@@ -33,6 +33,17 @@ class ProjectRow(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String)
     domain: Mapped[str | None] = mapped_column(String, nullable=True)
+    owner_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # CP-19; null = unowned
+
+
+class User(Base):
+    """Platform user (CP-19). Token-based auth by default; production auth (OAuth/OIDC, hashing) is OD-8."""
+
+    __tablename__ = "users"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    token: Mapped[str] = mapped_column(String, unique=True, index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
 class ConversationRow(Base):
