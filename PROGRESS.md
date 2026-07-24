@@ -104,6 +104,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 ---
 
 ## Activity Log  (append-only, newest at top — one line per event)
+- 2026-07-24 — ✅ CP-12 (Ingestion + Embeddings + Graph) merged. ProjectItem nodes, stub embeddings, explicit-ref edges, integrity (DAG/dangling/symmetric), temporal validity, conflict edges. 152 tests. [ProjectItem node model + LLM-gated extraction deferrals flagged]
 - 2026-07-24 — ✅ CP-11 (Persistence & Versioning) merged. Decision store: immutable versioned records, accept flow, history API. 138 tests green. [11.4 handled via envelope, flagged]
 - 2026-07-24 — ✅ CP-10 (Project & Conversation) merged to develop. Projects/conversations/turns store + REST CRUD + context-link hook. 130 tests green.
 

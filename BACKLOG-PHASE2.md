@@ -100,14 +100,14 @@ downstream retrieval ko milta hai. (`ProjectRow` already hai; conversations+turn
 "REQ-3"; then LLM for implicit) → validated `graph_edges` (11 RelationTypes), (c) conflict-check vs existing →
 `conflicts_with` edge if contradiction, (d) temporal state set. **No item accepted without ≥1 edge** (warna `needs_linking`).
 
-- [ ] **12.1 Item ingestion** — `POST /v1/projects/{pid}/items` (requirement/decision/assumption/document). AC: post→stored+queryable.
-- [ ] **12.2 Embedding provider** — `embed(text)->vector` behind interface; stub deterministic + real pluggable. AC: deterministic + dim match. **Open: OD-1.**
-- [ ] **12.3 Chunk + embed pipeline** — docs → `DocumentChunk`+embeddings. AC: N docs → chunks+vectors; count correct.
-- [ ] **12.4 Edge extraction** — explicit-ref heuristic + LLM implicit → relations detected+validated. AC: naya item ≥1 validated edge; wrong-type rejected.
-- [ ] **12.5 No-orphan guarantee** — bina edge store na ho; relation na mile → `needs_linking` flag. AC: orphan → reject/flag, silent nahi.
-- [ ] **12.6 Graph integrity** — `supersedes` DAG (no cycle), no dangling, `conflicts_with` symmetric. AC: cycle/dangling → blocked.
-- [ ] **12.7 Temporal validity (P0)** — node/edge validity enum (active/superseded/stale/conflicted) + timestamp; transitions on supersede/conflict. AC: superseded item → stale.
-- [ ] **12.8 Conflict-edge creation** — ingest pe contradiction check (heuristic + LLM) → `conflicts_with`. AC: contradictory pair → edge; unrelated → nahi.
+- [x] **12.1 Item ingestion** — `POST /v1/projects/{pid}/items` (requirement/decision/assumption/document). AC: post→stored+queryable.
+- [x] **12.2 Embedding provider** — `embed(text)->vector` behind interface; stub deterministic + real pluggable. AC: deterministic + dim match. **Open: OD-1.**
+- [x] **12.3 Chunk + embed pipeline** — docs → `DocumentChunk`+embeddings. AC: N docs → chunks+vectors; count correct.
+- [x] **12.4 Edge extraction** — explicit-ref heuristic + LLM implicit → relations detected+validated. AC: naya item ≥1 validated edge; wrong-type rejected.
+- [x] **12.5 No-orphan guarantee** — bina edge store na ho; relation na mile → `needs_linking` flag. AC: orphan → reject/flag, silent nahi.
+- [x] **12.6 Graph integrity** — `supersedes` DAG (no cycle), no dangling, `conflicts_with` symmetric. AC: cycle/dangling → blocked.
+- [x] **12.7 Temporal validity (P0)** — node/edge validity enum (active/superseded/stale/conflicted) + timestamp; transitions on supersede/conflict. AC: superseded item → stale.
+- [x] **12.8 Conflict-edge creation** — ingest pe contradiction check (heuristic + LLM) → `conflicts_with`. AC: contradictory pair → edge; unrelated → nahi.
 **Open:** OD-1.
 
 ---
