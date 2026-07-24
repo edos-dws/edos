@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import json
 import uuid
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -87,6 +89,15 @@ class ProjectUpdate(BaseModel):
 
 class ConversationCreate(BaseModel):
     title: str = ""
+
+
+_FRONTEND = Path(__file__).resolve().parents[3] / "frontend" / "index.html"
+
+
+@app.get("/app")
+def frontend() -> FileResponse:
+    """Serve the default single-file UI (CP-18). Stack is vanilla JS by default (OD-7) — swappable."""
+    return FileResponse(_FRONTEND)
 
 
 # ---------- health ----------
