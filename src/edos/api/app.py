@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
 from edos.db.models import ProjectItem
-from edos.engines import decision_store, faithfulness, ingestion, retrieval
+from edos.engines import decision_store, faithfulness, ingestion, resolution, retrieval, writeback
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.model_router import Capability, ModelRouter
@@ -294,7 +294,61 @@ def accept_decision(
     row = decision_store.accept(session, decision_id, edited=edited)
     if row is None:
         raise HTTPException(status_code=404, detail="decision not found")
+    # write-back (CP-15): fold the accepted decision's knowledge into the project graph + embeddings
+    writeback.process_accepted(session, decision_id=row.id, project_id=row.project_id,
+                               decision=decision_store.to_decision(row))
     return _decision_envelope(row)
+
+
+# ---------- interactive resolution (CP-15) ----------
+class AssumptionResolve(BaseModel):
+    statement: str
+    resolution: str
+    resolved_by: str | None = None
+
+
+class ConflictResolve(BaseModel):
+    node_a: str
+    node_b: str
+
+
+class ClarifyAnswer(BaseModel):
+    project_id: str
+    question: str
+    answers: list[str]
+    conversation_id: str | None = None
+
+
+@app.post("/v1/decisions/{decision_id}/assumptions/resolve")
+def resolve_assumption_ep(
+    decision_id: str, body: AssumptionResolve, session: Session = Depends(get_session)
+) -> dict:
+    row = resolution.resolve_assumption(
+        session, decision_id=decision_id, statement=body.statement,
+        resolution=body.resolution, resolved_by=body.resolved_by,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return _decision_envelope(row)
+
+
+@app.post("/v1/conflicts/resolve")
+def resolve_conflict_ep(body: ConflictResolve, session: Session = Depends(get_session)) -> dict:
+    closed = resolution.resolve_conflict(session, node_a=body.node_a, node_b=body.node_b)
+    return {"resolved_edges": closed, "node_a": body.node_a, "node_b": body.node_b}
+
+
+@app.post("/v1/analyze/answer")
+async def answer_clarification(body: ClarifyAnswer, session: Session = Depends(get_session)) -> dict:
+    """Clarification loop: fold the engineer's answers in as context and re-run the analysis."""
+    extra = [
+        {"type": "assumption", "ref_id": f"ans-{i}", "content": a,
+         "signals": {"graph": 0.5, "semantic": 0.8, "recency": 1.0, "confidence": 0.8, "focus": 1.0}}
+        for i, a in enumerate(body.answers)
+    ]
+    req = AnalyzeRequest(project_id=body.project_id, question=body.question, context_items=extra,
+                         conversation_id=body.conversation_id)
+    return await analyze(req, session)
 
 
 @app.get("/v1/projects/{project_id}/decisions")

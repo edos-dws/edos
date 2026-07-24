@@ -160,11 +160,11 @@ clarify / flag-for-review) — silently return NAHI (Self-RAG). Ye reasoning aur
 frontier decision. **Purana `_missing_essentials` (dumb "0 items") replace.** **Write-back (Ch6 §11):** accept →
 `DecisionAccepted` event → `emit()` → **real worker** runs jobs → KnowledgeEngine.process → graph edges + embeddings + summary + alerts.
 
-- [ ] **15.1 Assumption state** — `status`(open/resolved)+`resolution`+`resolved_by` (contract-change, same-commit consumers+tests). AC: state carry.
-- [ ] **15.2 Resolve assumption** — `POST /v1/decisions/{id}/assumptions/{aid}/resolve` → re-reason → new version. AC: resolve→v+1, confidence update, prev immutable.
-- [ ] **15.3 Resolve conflict** — `POST /v1/conflicts/{cid}/resolve` → edge closed + affected decisions re-evaluated. AC: resolve→closed, history kept.
-- [ ] **15.4 Clarification loop** — planner-detect + software ask/collect + re-reason; `_missing_essentials` replace. AC: incomplete → questions → answer → decision (no manual re-send).
-- [ ] **15.5 Write-back** — `emit()` wired + worker + KnowledgeEngine.process on accept (jobs: summary, embeddings, graph-update, discover-relationships, alerts). AC: accept → knowledge/graph measurably update.
+- [x] **15.1 Assumption state** — `status`(open/resolved)+`resolution`+`resolved_by` (contract-change, same-commit consumers+tests). AC: state carry.
+- [x] **15.2 Resolve assumption** — `POST /v1/decisions/{id}/assumptions/{aid}/resolve` → re-reason → new version. AC: resolve→v+1, confidence update, prev immutable.
+- [x] **15.3 Resolve conflict** — `POST /v1/conflicts/{cid}/resolve` → edge closed + affected decisions re-evaluated. AC: resolve→closed, history kept.
+- [x] **15.4 Clarification loop** — planner-detect + software ask/collect + re-reason; `_missing_essentials` replace. AC: incomplete → questions → answer → decision (no manual re-send).
+- [x] **15.5 Write-back** — `emit()` wired + worker + KnowledgeEngine.process on accept (jobs: summary, embeddings, graph-update, discover-relationships, alerts). AC: accept → knowledge/graph measurably update.
 **Open:** none.
 
 **Gate:** 🔴 HUMAN — state mutation + write-back.
