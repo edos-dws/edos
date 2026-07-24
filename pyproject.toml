@@ -46,3 +46,8 @@ filterwarnings = [
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+
+[tool.ruff.lint]
+# B008: FastAPI dependency injection puts Depends()/Query() calls in argument defaults by design —
+# idiomatic and required, so this bugbear rule is a false positive for our API layer.
+extend-ignore = ["B008"]

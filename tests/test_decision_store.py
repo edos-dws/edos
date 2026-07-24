@@ -2,13 +2,13 @@
 from edos.engines import decision_store as ds
 from edos.models.decision import Decision
 
-BASE = dict(
-    summary="Host MCU = ESP32-C6",
-    recommendation="Use ESP32-C6 for sub-$12 BOM",
-    confidence=0.82,
-    status="recommended",
-    evidence=[{"claim": "cheap + BLE", "source": "REQ-5", "kind": "fact"}],
-)
+BASE = {
+    "summary": "Host MCU = ESP32-C6",
+    "recommendation": "Use ESP32-C6 for sub-$12 BOM",
+    "confidence": 0.82,
+    "status": "recommended",
+    "evidence": [{"claim": "cheap + BLE", "source": "REQ-5", "kind": "fact"}],
+}
 
 
 def _decision(**over):

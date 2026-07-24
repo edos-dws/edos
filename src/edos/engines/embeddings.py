@@ -25,7 +25,7 @@ class StubEmbeddingProvider:
     def embed(self, text: str) -> list[float]:
         vec = [0.0] * self.dim
         for token in text.lower().split():
-            h = int(hashlib.md5(token.encode()).hexdigest(), 16)  # noqa: S324 — non-crypto, deterministic bucket
+            h = int(hashlib.md5(token.encode()).hexdigest(), 16)  # non-crypto, deterministic bucket
             vec[h % self.dim] += 1.0
         norm = sum(v * v for v in vec) ** 0.5
         if norm == 0.0:
