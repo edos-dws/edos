@@ -22,7 +22,15 @@ from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
 from edos.db.models import GraphEdge, ProjectItem, new_decision_version
-from edos.engines import decision_store, faithfulness, ingestion, resolution, retrieval, writeback
+from edos.engines import (
+    decision_store,
+    faithfulness,
+    feedback,
+    ingestion,
+    resolution,
+    retrieval,
+    writeback,
+)
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.freeze import FreezeGate
@@ -362,6 +370,31 @@ def resolve_assumption_ep(
 def resolve_conflict_ep(body: ConflictResolve, session: Session = Depends(get_session)) -> dict:
     closed = resolution.resolve_conflict(session, node_a=body.node_a, node_b=body.node_b)
     return {"resolved_edges": closed, "node_a": body.node_a, "node_b": body.node_b}
+
+
+class OutcomeRecord(BaseModel):
+    outcome: str  # accepted | challenged | reversed
+
+
+@app.post("/v1/decisions/{decision_id}/outcome")
+def record_outcome_ep(
+    decision_id: str, body: OutcomeRecord, session: Session = Depends(get_session)
+) -> dict:
+    try:
+        row = feedback.record_outcome(session, decision_id=decision_id, outcome=body.outcome)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return {"decision_id": decision_id, "outcome": row.outcome,
+            "confidence_at_outcome": row.confidence_at_outcome}
+
+
+@app.get("/v1/calibration")
+def calibration_ep(session: Session = Depends(get_session)) -> dict:
+    report = feedback.calibration_report(session)
+    report["ranking_suggestion"] = feedback.suggest_ranking_adjustment(report)
+    return report
 
 
 @app.post("/v1/analyze/answer")

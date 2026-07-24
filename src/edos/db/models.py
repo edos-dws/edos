@@ -93,6 +93,18 @@ class ProjectItem(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class DecisionOutcome(Base):
+    """Outcome signal for a decision (CP-17): accepted / challenged / reversed. `confidence_at_outcome`
+    snapshots the decision's confidence so calibration (predicted vs actual) can be measured over time."""
+
+    __tablename__ = "decision_outcomes"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    decision_id: Mapped[str] = mapped_column(String, index=True)
+    outcome: Mapped[str] = mapped_column(String)  # accepted | challenged | reversed
+    confidence_at_outcome: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class AssumptionResolution(Base):
     """Records an engineer resolving a decision's assumption (CP-15). Stored separately so the locked
     decision contract stays pure; the resolution triggers a new decision version."""
