@@ -72,6 +72,9 @@ class DecisionRecord(Base):
     status: Mapped[str] = mapped_column(String, default="proposed")
     version: Mapped[int] = mapped_column(Integer, default=1)
     parent_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Full decision contract (edos.decision.v1) as JSON. The projected columns above (title/rationale/
+    # confidence/status) are for querying; body_json is the source of truth for the rich decision.
+    body_json: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -104,6 +107,7 @@ def new_decision_version(session: Session, current: DecisionRecord, **changes) -
         status=changes.get("status", current.status),
         version=current.version + 1,
         parent_version=current.version,
+        body_json=changes.get("body_json", current.body_json),
     )
     session.add(nxt)
     session.flush()
