@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
 from edos.db.models import ProjectItem
-from edos.engines import decision_store, ingestion, retrieval
+from edos.engines import decision_store, faithfulness, ingestion, retrieval
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.model_router import Capability, ModelRouter
@@ -140,6 +140,10 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_session)) 
             body = {"status": "needs_clarification", "reason": result.reason,
                     "questions": result.questions}
         else:
+            # faithfulness / grounding gate (CP-14): trace claims to retrieved context; ungrounded →
+            # lower confidence + record as freeze_blockers (kept contract-valid).
+            fr = faithfulness.check(result, [c.get("ref_id") for c in candidates])
+            result = faithfulness.apply_gate(result, fr)
             body = result.to_contract_dict()
             await hub.publish(req.project_id, {"type": "decision.ready", "summary": result.summary,
                                                "confidence": result.confidence})

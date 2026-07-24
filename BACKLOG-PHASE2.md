@@ -144,9 +144,9 @@ compress (summarize, drop nahi) → **hard-constraint floor** (locked decisions/
 (already hai) ka source retrieved set me trace hona chahiye. Ungrounded claim → **gate acts** (downgrade confidence /
 clarify / flag-for-review) — silently return NAHI (Self-RAG). Ye reasoning aur verification ke beech ka trust-check hai.
 
-- [ ] **14.1 Grounding check** — per-claim retrieved-context verify + evidence traceability. AC: hallucinated claim (context me nahi) → detected.
-- [ ] **14.2 Gate action** — ungrounded → downgrade/clarify/flag; return nahi. AC: ungrounded decision blocked.
-- [ ] **14.3 Metrics** — faithfulness + citation-precision per decision. AC: scores computed + surfaced.
+- [x] **14.1 Grounding check** — per-claim retrieved-context verify + evidence traceability. AC: hallucinated claim (context me nahi) → detected.
+- [x] **14.2 Gate action** — ungrounded → downgrade/clarify/flag; return nahi. AC: ungrounded decision blocked.
+- [x] **14.3 Metrics** — faithfulness + citation-precision per decision. AC: scores computed + surfaced.
 **Open:** OD-5.
 
 **Gate:** 🔴 HUMAN — trust-critical.
