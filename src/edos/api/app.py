@@ -17,14 +17,15 @@ import uuid
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
-from edos.db.models import ProjectItem
+from edos.db.models import GraphEdge, ProjectItem, new_decision_version
 from edos.engines import decision_store, faithfulness, ingestion, resolution, retrieval, writeback
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
+from edos.engines.freeze import FreezeGate
 from edos.engines.model_router import Capability, ModelRouter
 from edos.engines.verification import VerificationEngine
 from edos.models.decision import Decision
@@ -63,6 +64,7 @@ class AnalyzeRequest(BaseModel):
 
 class VerifyRequest(BaseModel):
     decision: dict
+    context_refs: list[str] | None = None  # when given, verify runs the faithfulness pass (CP-16)
 
 
 class ProjectCreate(BaseModel):
@@ -156,13 +158,37 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_session)) 
 def verify(req: VerifyRequest) -> dict:
     decision = Decision(**req.decision)
     engine = VerificationEngine()
-    verdict = engine.verify(decision)
+    verdict = engine.verify(decision, context_refs=req.context_refs)
     promoted = engine.promote(decision, verdict)
     return {
         "verdict": {"agreement": verdict.agreement, "adjusted_confidence": verdict.adjusted_confidence,
-                    "issues": verdict.issues},
+                    "issues": verdict.issues, "faithfulness": verdict.faithfulness},
         "decision": promoted.to_contract_dict(),
     }
+
+
+@app.post("/v1/decisions/{decision_id}/freeze")
+def freeze_decision(decision_id: str, session: Session = Depends(get_session)) -> dict:
+    """Freeze gate (CP-16): freezes ONLY if the gate passes. Threshold T is unset (data-derived), so the
+    gate is disabled and refuses — no autonomous freeze. Returns the blocking reasons."""
+    row = decision_store.get_latest(session, decision_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    decision = decision_store.to_decision(row)
+    open_contradictions = session.scalar(
+        select(func.count()).select_from(GraphEdge).where(
+            GraphEdge.relation_type == "conflicts_with", GraphEdge.validity == "active",
+            or_(GraphEdge.source_id == decision_id, GraphEdge.target_id == decision_id),
+        )
+    ) or 0
+    gate = FreezeGate()  # threshold=None → disabled (fail-safe)
+    result = gate.evaluate(decision, open_contradictions=open_contradictions)
+    if not result.frozen:
+        return {"frozen": False, "reasons": result.reasons}
+    frozen = gate.apply(decision, open_contradictions)
+    new_row = new_decision_version(session, row, status="frozen",
+                                   body_json=json.dumps(frozen.to_contract_dict()))
+    return {"frozen": True, "decision": _decision_envelope(new_row)}
 
 
 # ---------- projects (CP-10) ----------

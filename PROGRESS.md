@@ -104,6 +104,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 ---
 
 ## Activity Log  (append-only, newest at top — one line per event)
+- 2026-07-24 — ✅ CP-16 (Verification Hardening + Freeze) merged. verify faithfulness-aware (context_refs); freeze endpoint gated (T unset → refuses, no autonomous freeze). 178 tests. [real critic LLM + T-derivation deferred/data]
 - 2026-07-24 — ✅ CP-15 (Interactive Resolution + Write-back) merged. accept→knowledge/graph write-back; resolve-assumption (new version+blocker clear); resolve-conflict; clarification loop. 174 tests. [LLM re-reason deferred]
 - 2026-07-24 — ✅ CP-14 (Faithfulness Gate) merged. Evidence-source traceability; ungrounded claim → confidence×faithfulness + freeze_blockers; wired into /v1/analyze. 167 tests. [semantic NLI/LLM-judge OD-5 deferred]
 - 2026-07-24 — ✅ CP-13 (Retriever) merged. Hybrid retrieval: anchor+dense(pgvector)+lexical+graph-expansion+recency → weighted rank_score; hard-constraint floor; missing-context guard; temporal-validity confidence; recall@k eval harness. /v1/analyze now project_id+question. 162 tests. [rerank/agentic/anchor-LLM deferred; OD-3 threshold unset]
