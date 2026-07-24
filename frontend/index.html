@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EDOS — Engineering Decision OS</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --fg:#e6e9ef;
+          --muted:#9aa4b2; --accent:#4f8cff; --good:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; }
+  h1,h2,h3 { margin:0 0 .4rem; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:.5rem .8rem; cursor:pointer; font-size:13px; }
+  button.ghost { background:var(--panel2); color:var(--fg); border:1px solid var(--line); }
+  button.bad { background:var(--bad); } button.good { background:var(--good); }
+  input,textarea { width:100%; background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:.5rem; font:inherit; }
+  .side { width:260px; background:var(--panel); border-right:1px solid var(--line); padding:1rem; overflow:auto; }
+  .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .topbar { padding:.8rem 1.2rem; border-bottom:1px solid var(--line); background:var(--panel); display:flex; gap:.6rem; align-items:center; }
+  .feed { flex:1; overflow:auto; padding:1.2rem; }
+  .composer { border-top:1px solid var(--line); padding:1rem 1.2rem; background:var(--panel); display:flex; gap:.6rem; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem; margin:0 0 1rem; }
+  .proj { padding:.5rem; border-radius:6px; cursor:pointer; }
+  .proj:hover, .proj.active { background:var(--panel2); }
+  .muted { color:var(--muted); } .row { display:flex; gap:.5rem; align-items:center; }
+  .pill { display:inline-block; padding:.1rem .5rem; border-radius:20px; font-size:12px; border:1px solid var(--line); }
+  .conf { font-weight:600; } .sec { margin-top:.7rem; }
+  .li { padding:.35rem .5rem; border-left:2px solid var(--line); margin:.25rem 0; }
+  .li.risk { border-color:var(--warn); } .li.block { border-color:var(--bad); } .li.assum { border-color:var(--accent); }
+  .qbubble { background:var(--panel2); border-radius:10px; padding:.6rem .9rem; margin:0 0 .8rem; max-width:80%; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+  <aside class="side">
+    <h1 style="font-size:18px">EDOS</h1>
+    <div class="muted" style="margin-bottom:1rem">Engineering Decision OS</div>
+    <div class="row" style="margin-bottom:.6rem">
+      <input id="newProj" placeholder="New project name"/>
+      <button onclick="createProject()">+</button>
+    </div>
+    <div id="projects"></div>
+    <hr style="border-color:var(--line);margin:1rem 0"/>
+    <button class="ghost" style="width:100%" onclick="openCalibration()">📊 Calibration</button>
+    <p class="muted" style="font-size:12px;margin-top:1rem">Default vanilla-JS UI (OD-7). Swap for your
+      preferred stack anytime.</p>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <strong id="projTitle">Select a project</strong>
+      <span class="muted" id="projMeta"></span>
+      <span style="flex:1"></span>
+      <button class="ghost" onclick="loadItems()">Items</button>
+      <button class="ghost" onclick="loadDecisions()">Decisions</button>
+    </div>
+    <div class="feed" id="feed">
+      <div class="card muted">Create or pick a project, then ask an engineering question. EDOS assembles
+        project context, reasons, and returns a decision you can accept or challenge.</div>
+    </div>
+    <div class="composer">
+      <textarea id="q" rows="2" placeholder="Ask an engineering question… (e.g. which MCU for a 4-sensor water quality device?)"></textarea>
+      <button onclick="ask()" id="askBtn">Ask</button>
+    </div>
+  </main>
+
+<script>
+const $ = s => document.querySelector(s);
+let PID = null, PROJECTS = [];
+
+async function api(path, opts={}) {
+  const r = await fetch(path, { headers:{'Content-Type':'application/json'}, ...opts });
+  if (!r.ok) { const t = await r.text(); throw new Error(r.status + ' ' + t); }
+  return r.status === 204 ? null : r.json();
+}
+function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function loadProjects() {
+  PROJECTS = await api('/v1/projects');
+  $('#projects').innerHTML = PROJECTS.map(p =>
+    `<div class="proj ${p.id===PID?'active':''}" onclick="selectProject('${p.id}')">${esc(p.name)}
+       <div class="muted" style="font-size:11px">${esc(p.domain||'')}</div></div>`).join('') ||
+    '<div class="muted">No projects yet</div>';
+}
+async function createProject() {
+  const name = $('#newProj').value.trim(); if (!name) return;
+  const p = await api('/v1/projects', {method:'POST', body:JSON.stringify({name})});
+  $('#newProj').value=''; await loadProjects(); selectProject(p.id);
+}
+function selectProject(id) {
+  PID = id; const p = PROJECTS.find(x=>x.id===id);
+  $('#projTitle').textContent = p ? p.name : 'Project';
+  $('#projMeta').textContent = id;
+  $('#feed').innerHTML = '<div class="card muted">Ask a question to start reasoning in this project.</div>';
+  loadProjects();
+}
+
+function decisionCard(d, did) {
+  if (d.status === 'needs_clarification') {
+    return `<div class="card"><h3>❓ Clarification needed</h3><div class="muted">${esc(d.reason||'')}</div>
+      ${(d.questions||[]).map(q=>`<div class="li assum">${esc(q)}</div>`).join('')}</div>`;
+  }
+  const list = (arr,cls,fmt) => (arr||[]).map(x=>`<div class="li ${cls}">${fmt(x)}</div>`).join('');
+  return `<div class="card">
+    <div class="row"><h3 style="flex:1">${esc(d.summary||'Decision')}</h3>
+      <span class="pill conf">conf ${(d.confidence??0).toFixed(2)}</span>
+      <span class="pill">${esc(d.status||'')}</span></div>
+    <p>${esc(d.recommendation||'')}</p>
+    ${d.assumptions?.length?`<div class="sec"><strong>Assumptions</strong>${list(d.assumptions,'assum',a=>esc(a.statement)+` <span class="muted">(risk if wrong: ${esc(a.risk_if_wrong||'—')})</span>`)}</div>`:''}
+    ${d.risks?.length?`<div class="sec"><strong>Risks</strong>${list(d.risks,'risk',r=>esc(r.description)+` <span class="muted">[${esc(r.severity)}/${esc(r.likelihood)}]</span>`)}</div>`:''}
+    ${d.tradeoffs?.length?`<div class="sec"><strong>Tradeoffs</strong>${list(d.tradeoffs,'',t=>`<strong>${esc(t.option)}</strong> — +${esc(t.benefit)} / −${esc(t.drawback)}`)}</div>`:''}
+    ${d.freeze_blockers?.length?`<div class="sec"><strong>🔒 Freeze blockers</strong>${list(d.freeze_blockers,'block',b=>esc(b))}</div>`:''}
+    ${d.evidence?.length?`<div class="sec"><strong>Provenance</strong>${list(d.evidence,'',e=>esc(e.claim)+` <span class="muted">← ${esc(e.source)}</span>`)}</div>`:''}
+    ${d.next_actions?.length?`<div class="sec"><strong>Next actions</strong>${list(d.next_actions,'',a=>esc(a))}</div>`:''}
+    <div class="sec row">
+      <button class="good" onclick='persistThenAccept(${JSON.stringify(JSON.stringify(d))})'>✓ Accept</button>
+      <button class="bad" onclick="challenge()">✗ Challenge</button>
+    </div></div>`;
+}
+
+async function ask() {
+  const q = $('#q').value.trim(); if (!q || !PID) { alert('Pick a project and type a question'); return; }
+  $('#askBtn').disabled = true;
+  $('#feed').insertAdjacentHTML('beforeend', `<div class="qbubble">🧑‍🔧 ${esc(q)}</div>`);
+  try {
+    const d = await api('/v1/analyze', {method:'POST', body:JSON.stringify({project_id:PID, question:q})});
+    $('#feed').insertAdjacentHTML('beforeend', decisionCard(d));
+  } catch(e) { $('#feed').insertAdjacentHTML('beforeend', `<div class="card" style="border-color:var(--bad)">${esc(e.message)}</div>`); }
+  $('#q').value=''; $('#askBtn').disabled=false; $('#feed').scrollTop = $('#feed').scrollHeight;
+}
+
+async function persistThenAccept(dStr) {
+  const decision = JSON.parse(dStr);
+  const env = await api('/v1/decisions', {method:'POST', body:JSON.stringify({project_id:PID, decision})});
+  await api(`/v1/decisions/${env.id}/accept`, {method:'POST', body:JSON.stringify({})});
+  $('#feed').insertAdjacentHTML('beforeend', `<div class="card" style="border-color:var(--good)">✓ Accepted &amp; written back to project knowledge (decision ${env.id})</div>`);
+}
+function challenge() {
+  const c = prompt('What should EDOS reconsider / what changes?'); if (!c) return;
+  $('#q').value = c; ask();
+}
+
+async function loadItems() {
+  if (!PID) return;
+  const items = await api(`/v1/projects/${PID}/items`);
+  $('#feed').innerHTML = `<div class="card"><h3>Project items (${items.length})</h3>` +
+    items.map(i=>`<div class="li ${i.validity!=='active'?'block':''}">${esc(i.item_type)}: ${esc(i.content)}
+      <span class="muted">[${esc(i.validity)}${i.needs_linking?' · needs-linking':''}]</span></div>`).join('') + '</div>';
+}
+async function loadDecisions() {
+  if (!PID) return;
+  const ds = await api(`/v1/projects/${PID}/decisions`);
+  $('#feed').innerHTML = `<div class="card"><h3>Decisions (${ds.length})</h3>` +
+    ds.map(e=>`<div class="li">v${e.version} · ${esc(e.status)} · conf ${(e.confidence??0).toFixed(2)} — ${esc(e.decision?.summary||'')}</div>`).join('') + '</div>';
+}
+async function openCalibration() {
+  const c = await api('/v1/calibration');
+  $('#feed').innerHTML = `<div class="card"><h3>📊 Calibration</h3>
+    <div class="li">outcomes: ${c.n} (accepted ${c.n_accepted}, reversed ${c.n_reversed})</div>
+    <div class="li">mean conf — accepted ${c.mean_confidence_accepted}, reversed ${c.mean_confidence_reversed}</div>
+    <div class="li assum">calibration gap: ${c.calibration_gap} <span class="muted">(higher = better)</span></div></div>`;
+}
+
+loadProjects();
+</script>
+</body>
+</html>

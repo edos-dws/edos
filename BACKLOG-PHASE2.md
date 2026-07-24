@@ -204,11 +204,11 @@ curve), (b) ranking/edge-weight **tuning** — **eval-gated** (recall regress na
 **Depends:** CP-10..15 APIs. **Touches:** new `frontend/` app; consumes REST + WS (backend ready).
 **Design:** Non-technical user bina API poore flow chala le. Streaming via existing WebSocket. **Stack undecided — OD-7.**
 
-- [ ] **18.1 Chat UI** — project-linked conversation, WS streaming. AC: chat → decision live.
-- [ ] **18.2 Decision cards** — recommendation/assumptions/risks/tradeoffs + **accept/challenge/recommend**. AC: actions backend hit.
-- [ ] **18.3 Project dashboard** — projects, decisions, versions/history. AC: browse + drill-down.
-- [ ] **18.4 Conflict & alert feed** — open conflicts + watchdog alerts (CP-20). AC: surfaced + clickable.
-- [ ] **18.5 Provenance view** — claim → source/path (audit). AC: claim → evidence trace visible.
+- [x] **18.1 Chat UI** — project-linked conversation, WS streaming. AC: chat → decision live.
+- [x] **18.2 Decision cards** — recommendation/assumptions/risks/tradeoffs + **accept/challenge/recommend**. AC: actions backend hit.
+- [x] **18.3 Project dashboard** — projects, decisions, versions/history. AC: browse + drill-down.
+- [x] **18.4 Conflict & alert feed** — open conflicts + watchdog alerts (CP-20). AC: surfaced + clickable.
+- [x] **18.5 Provenance view** — claim → source/path (audit). AC: claim → evidence trace visible.
 **Open:** OD-7.
 
 **Gate:** 🔴 HUMAN (UX review).
