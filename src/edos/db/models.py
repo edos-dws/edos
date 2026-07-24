@@ -35,6 +35,30 @@ class ProjectRow(Base):
     domain: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
+class ConversationRow(Base):
+    """A chat thread scoped to a project (CP-10). Every analyze runs within a conversation, whose
+    project_id anchors downstream retrieval to the right project state."""
+
+    __tablename__ = "conversations"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String, index=True)
+    title: Mapped[str] = mapped_column(String, default="")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class TurnRow(Base):
+    """One prompt+response exchange within a conversation (CP-10). `response_json` stores the raw
+    response body; `decision_id` links to a persisted decision once decisions are stored (CP-11)."""
+
+    __tablename__ = "turns"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[str] = mapped_column(String, index=True)
+    prompt: Mapped[str] = mapped_column(Text)
+    response_json: Mapped[str] = mapped_column(Text, default="")
+    decision_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class DecisionRecord(Base):
     """One row per decision *version*. `id` is the stable logical id shared across versions."""
 

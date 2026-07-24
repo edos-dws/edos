@@ -11,16 +11,26 @@ CP-6+ runs on the stub Model Router (no live LLM). CORS is open for local fronte
 """
 from __future__ import annotations
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import json
+import uuid
+
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from edos.api.deps import get_session, session_factory
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.model_router import Capability, ModelRouter
 from edos.engines.verification import VerificationEngine
 from edos.models.decision import Decision
 from edos.pipeline.hub import hub
+from edos.store import projects as store
+
+
+def _new_id() -> str:
+    return uuid.uuid4().hex[:12]
 
 app = FastAPI(title="EDOS", version="0.0.1")
 
@@ -45,10 +55,25 @@ class AnalyzeRequest(BaseModel):
     question: str
     context_items: list[dict] = Field(default_factory=list)
     use_external_intelligence: bool = False
+    conversation_id: str | None = None  # when set, the analyze turn is recorded on that conversation
 
 
 class VerifyRequest(BaseModel):
     decision: dict
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    domain: str | None = None
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = None
+    domain: str | None = None
+
+
+class ConversationCreate(BaseModel):
+    title: str = ""
 
 
 # ---------- health ----------
@@ -76,15 +101,30 @@ def _build_decision(req: AnalyzeRequest):
     return DecisionEngine().analyze(package)
 
 
+def _record_turn(conversation_id: str, prompt: str, body: dict) -> None:
+    """Persist an analyze exchange as a conversation turn (CP-10). Uses its own short-lived session so the
+    stateless reasoning path is unaffected when no conversation is linked."""
+    session = session_factory()()
+    try:
+        store.add_turn(session, conversation_id=conversation_id, prompt=prompt,
+                       response_json=json.dumps(body))
+        session.commit()
+    finally:
+        session.close()
+
+
 @app.post("/v1/analyze")
 async def analyze(req: AnalyzeRequest) -> dict:
     result = _build_decision(req)
     if isinstance(result, ClarificationNeeded):
-        return {"status": "needs_clarification", "reason": result.reason, "questions": result.questions}
-    body = result.to_contract_dict()
-    # push a live event to any project-event subscribers
-    await hub.publish(req.project_id, {"type": "decision.ready", "summary": result.summary,
-                                       "confidence": result.confidence})
+        body = {"status": "needs_clarification", "reason": result.reason, "questions": result.questions}
+    else:
+        body = result.to_contract_dict()
+        # push a live event to any project-event subscribers
+        await hub.publish(req.project_id, {"type": "decision.ready", "summary": result.summary,
+                                           "confidence": result.confidence})
+    if req.conversation_id:
+        _record_turn(req.conversation_id, req.question, body)
     return body
 
 
@@ -99,6 +139,82 @@ def verify(req: VerifyRequest) -> dict:
                     "issues": verdict.issues},
         "decision": promoted.to_contract_dict(),
     }
+
+
+# ---------- projects (CP-10) ----------
+def _project_dict(row) -> dict:
+    return {"id": row.id, "name": row.name, "domain": row.domain}
+
+
+def _conversation_dict(row) -> dict:
+    return {"id": row.id, "project_id": row.project_id, "title": row.title,
+            "created_at": row.created_at.isoformat() if row.created_at else None}
+
+
+@app.post("/v1/projects", status_code=201)
+def create_project(body: ProjectCreate, session: Session = Depends(get_session)) -> dict:
+    row = store.create_project(session, id=_new_id(), name=body.name, domain=body.domain)
+    return _project_dict(row)
+
+
+@app.get("/v1/projects")
+def list_projects(session: Session = Depends(get_session)) -> list[dict]:
+    return [_project_dict(r) for r in store.list_projects(session)]
+
+
+@app.get("/v1/projects/{project_id}")
+def get_project(project_id: str, session: Session = Depends(get_session)) -> dict:
+    row = store.get_project(session, project_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return _project_dict(row)
+
+
+@app.patch("/v1/projects/{project_id}")
+def update_project(project_id: str, body: ProjectUpdate, session: Session = Depends(get_session)) -> dict:
+    row = store.update_project(session, project_id, name=body.name, domain=body.domain)
+    if row is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return _project_dict(row)
+
+
+@app.delete("/v1/projects/{project_id}")
+def delete_project(project_id: str, session: Session = Depends(get_session)) -> dict:
+    if not store.delete_project(session, project_id):
+        raise HTTPException(status_code=404, detail="project not found")
+    return {"deleted": project_id}
+
+
+# ---------- conversations (CP-10) ----------
+@app.post("/v1/projects/{project_id}/conversations", status_code=201)
+def create_conversation(
+    project_id: str, body: ConversationCreate, session: Session = Depends(get_session)
+) -> dict:
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    row = store.create_conversation(session, id=_new_id(), project_id=project_id, title=body.title)
+    return _conversation_dict(row)
+
+
+@app.get("/v1/projects/{project_id}/conversations")
+def list_conversations(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return [_conversation_dict(c) for c in store.list_conversations(session, project_id)]
+
+
+@app.get("/v1/conversations/{conversation_id}")
+def get_conversation(conversation_id: str, session: Session = Depends(get_session)) -> dict:
+    conv = store.get_conversation(session, conversation_id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="conversation not found")
+    turns = [
+        {"prompt": t.prompt, "response": json.loads(t.response_json) if t.response_json else None,
+         "decision_id": t.decision_id,
+         "created_at": t.created_at.isoformat() if t.created_at else None}
+        for t in store.list_turns(session, conversation_id)
+    ]
+    return {**_conversation_dict(conv), "turns": turns}
 
 
 @app.post("/v1/projects/{project_id}/events")
