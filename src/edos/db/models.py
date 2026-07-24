@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime as dt
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from edos.db.base import Base
@@ -78,6 +78,21 @@ class DecisionRecord(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class ProjectItem(Base):
+    """A project knowledge node (CP-12): requirement/decision/assumption/document. These are the graph
+    nodes that edges connect and that retrieval scores. `validity` gives temporal "trust now" state;
+    `needs_linking` flags an item that entered with no relation (soft, not a silent orphan)."""
+
+    __tablename__ = "project_items"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String, index=True)
+    item_type: Mapped[str] = mapped_column(String)  # requirement|decision|assumption|document
+    content: Mapped[str] = mapped_column(Text)
+    validity: Mapped[str] = mapped_column(String, default="active")  # active|superseded|stale|conflicted
+    needs_linking: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class GraphEdge(Base):
     __tablename__ = "graph_edges"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -85,6 +100,7 @@ class GraphEdge(Base):
     target_id: Mapped[str] = mapped_column(String, index=True)
     relation_type: Mapped[str] = mapped_column(String, index=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    validity: Mapped[str] = mapped_column(String, default="active")  # active|superseded|stale|conflicted
 
 
 class DocumentChunk(Base):

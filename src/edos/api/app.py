@@ -17,10 +17,12 @@ import uuid
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
-from edos.engines import decision_store
+from edos.db.models import ProjectItem
+from edos.engines import decision_store, ingestion
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.model_router import Capability, ModelRouter
@@ -279,6 +281,39 @@ def list_project_decisions(project_id: str, session: Session = Depends(get_sessi
     if store.get_project(session, project_id) is None:
         raise HTTPException(status_code=404, detail="project not found")
     return [_decision_envelope(r) for r in decision_store.list_for_project(session, project_id)]
+
+
+# ---------- project items / graph ingestion (CP-12) ----------
+class ItemIngest(BaseModel):
+    item_type: str
+    content: str
+    id: str | None = None
+
+
+def _item_dict(item) -> dict:
+    return {"id": item.id, "project_id": item.project_id, "item_type": item.item_type,
+            "content": item.content, "validity": item.validity, "needs_linking": item.needs_linking}
+
+
+@app.post("/v1/projects/{project_id}/items", status_code=201)
+def ingest_item(project_id: str, body: ItemIngest, session: Session = Depends(get_session)) -> dict:
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    item = ingestion.ingest_item(
+        session, id=body.id or _new_id(), project_id=project_id,
+        item_type=body.item_type, content=body.content,
+    )
+    return _item_dict(item)
+
+
+@app.get("/v1/projects/{project_id}/items")
+def list_items(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    rows = session.scalars(
+        select(ProjectItem).where(ProjectItem.project_id == project_id).order_by(ProjectItem.created_at)
+    ).all()
+    return [_item_dict(r) for r in rows]
 
 
 @app.post("/v1/projects/{project_id}/events")
