@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
+from edos.engines import decision_store
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.model_router import Capability, ModelRouter
@@ -215,6 +216,69 @@ def get_conversation(conversation_id: str, session: Session = Depends(get_sessio
         for t in store.list_turns(session, conversation_id)
     ]
     return {**_conversation_dict(conv), "turns": turns}
+
+
+# ---------- decisions (CP-11) ----------
+class DecisionPersist(BaseModel):
+    project_id: str
+    decision: dict
+    status: str | None = None
+
+
+class DecisionAccept(BaseModel):
+    edited: dict | None = None
+
+
+def _decision_envelope(row) -> dict:
+    return {
+        "id": row.id, "project_id": row.project_id, "version": row.version,
+        "parent_version": row.parent_version, "status": row.status, "confidence": row.confidence,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "decision": json.loads(row.body_json) if row.body_json else None,
+    }
+
+
+@app.post("/v1/decisions", status_code=201)
+def persist_decision(body: DecisionPersist, session: Session = Depends(get_session)) -> dict:
+    decision = Decision(**body.decision)
+    row = decision_store.save_new(
+        session, id=_new_id(), project_id=body.project_id, decision=decision, status=body.status
+    )
+    return _decision_envelope(row)
+
+
+@app.get("/v1/decisions/{decision_id}")
+def get_decision(decision_id: str, session: Session = Depends(get_session)) -> dict:
+    row = decision_store.get_latest(session, decision_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return _decision_envelope(row)
+
+
+@app.get("/v1/decisions/{decision_id}/history")
+def decision_history(decision_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    rows = decision_store.history(session, decision_id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return [_decision_envelope(r) for r in rows]
+
+
+@app.post("/v1/decisions/{decision_id}/accept")
+def accept_decision(
+    decision_id: str, body: DecisionAccept, session: Session = Depends(get_session)
+) -> dict:
+    edited = Decision(**body.edited) if body.edited else None
+    row = decision_store.accept(session, decision_id, edited=edited)
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return _decision_envelope(row)
+
+
+@app.get("/v1/projects/{project_id}/decisions")
+def list_project_decisions(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return [_decision_envelope(r) for r in decision_store.list_for_project(session, project_id)]
 
 
 @app.post("/v1/projects/{project_id}/events")

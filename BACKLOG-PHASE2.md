@@ -86,10 +86,10 @@ downstream retrieval ko milta hai. (`ProjectRow` already hai; conversations+turn
 **Design:** Accept = status `proposed/recommended` → `accepted`. Edit-then-accept = **new version** (immutable prev,
 `supersedes` link). Never in-place mutate (CLAUDE.md). `new_decision_version()` already hai — use it.
 
-- [ ] **11.1 DecisionStore** — save/get/list over `DecisionRecord`. AC: save→row; get→latest; list by project.
-- [ ] **11.2 Accept + versioning** — accept→`accepted` immutable; re-accept→`version=n+1`,`supersedes=prev`. AC: v1 immutable; edit→v2 linked; history chain.
-- [ ] **11.3 Decision API** — `POST /v1/decisions`, `GET /v1/decisions/{id}`, `.../history`, `GET /v1/projects/{pid}/decisions`. AC: round-trip + history.
-- [ ] **11.4 Contract change** — decision schema me `version`,`supersedes`,`project_id` (+ `conversation_id`?). **Same commit:** models+engines+DB+prompts+tests; `$id` bump if breaking. AC: contract+consumers+tests aligned.
+- [x] **11.1 DecisionStore** — save/get/list over `DecisionRecord`. AC: save→row; get→latest; list by project.
+- [x] **11.2 Accept + versioning** — accept→`accepted` immutable; re-accept→`version=n+1`,`supersedes=prev`. AC: v1 immutable; edit→v2 linked; history chain.
+- [x] **11.3 Decision API** — `POST /v1/decisions`, `GET /v1/decisions/{id}`, `.../history`, `GET /v1/projects/{pid}/decisions`. AC: round-trip + history.
+- [~] **11.4 (design deviation — flag)** decision schema NOT mutated; version/supersedes/project_id kept in persistence *envelope* (DecisionRecord), contract stays pure. Originally: decision schema me `version`,`supersedes`,`project_id` (+ `conversation_id`?). **Same commit:** models+engines+DB+prompts+tests; `$id` bump if breaking. AC: contract+consumers+tests aligned.
 **Open:** none (schema fields fixed above).
 
 ---

@@ -104,6 +104,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 ---
 
 ## Activity Log  (append-only, newest at top — one line per event)
+- 2026-07-24 — ✅ CP-11 (Persistence & Versioning) merged. Decision store: immutable versioned records, accept flow, history API. 138 tests green. [11.4 handled via envelope, flagged]
 - 2026-07-24 — ✅ CP-10 (Project & Conversation) merged to develop. Projects/conversations/turns store + REST CRUD + context-link hook. 130 tests green.
 
 - 2026-07-23 — **Live benchmark run (go-live evidence).** Ran all 5 EDOS scenarios (02–06) through the live free-tier Gemini (`gemini-3.6-flash`) via the real path: intake → decision → independent LLM-judge → CP-8 `score_run`. **Result: 5/5 scored 20/20, every planted trap caught with quantified math**; status capped at `recommended`, genuine freeze_blockers held (no self-freeze). Runner: `scripts/run_benchmarks_live.py` (paced + network/quota retry); artifacts in `benchmark-runs/` (raw per-run + `consolidated/`), review in `BENCHMARK-LIVE-RUN-REVIEW.md`. **Caveat:** judge is same-model (not blind) and these test trap-catching, not the temperament modes (07/10) — so this is directional, not the basis for `T`. Deriving `T` still wants blind judging + paid Pro frontier; **freeze stays DISABLED**.
