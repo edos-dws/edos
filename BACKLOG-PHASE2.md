@@ -234,9 +234,9 @@ curve), (b) ranking/edge-weight **tuning** — **eval-gated** (recall regress na
 (b) Procedural domain rules (electrical/thermal/cost/compliance) reasoning apply kare. (c) Watchdog: naya knowledge →
 affected (esp. frozen) decisions **re-check** (temporal + conflict) → **alert**. **Sources undecided — OD-9 (licensing!).**
 
-- [ ] **20.1 Domain grounding** — sources ingest → retrievable + cited. AC: domain fact retrievable + cited.
-- [ ] **20.2 Domain rules (procedural memory)** — rules applied in reasoning. AC: rule violation flagged.
-- [ ] **20.3 Proactive watchdog** — new knowledge → re-check affected → alert. AC: new conflicting item → alert on affected decision.
+- [x] **20.1 Domain grounding** — sources ingest → retrievable + cited. AC: domain fact retrievable + cited.
+- [x] **20.2 Domain rules (procedural memory)** — rules applied in reasoning. AC: rule violation flagged.
+- [x] **20.3 Proactive watchdog** — new knowledge → re-check affected → alert. AC: new conflicting item → alert on affected decision.
 **Open:** OD-9.
 
 **Gate:** 🔴 HUMAN.
