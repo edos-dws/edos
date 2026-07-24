@@ -73,10 +73,10 @@ Ye values/choices abhi decided NAHI hain. Jab uska CP aaye, **pehle ye decide ka
 (analyze) us conversation ke andar. Har analyze **kisi conversation ke context me** chalta hai → uska project_id
 downstream retrieval ko milta hai. (`ProjectRow` already hai; conversations+turns naye tables.)
 
-- [ ] **10.1 Project CRUD** — `POST/GET/PATCH/DELETE /v1/projects`. AC: create→list→get→delete round-trip; delete cascades safely.
-- [ ] **10.2 Conversation model** — `conversations` table (id, project_id, title, created_at); `POST /v1/projects/{pid}/conversations`, list/get. AC: conversation project se linked banti.
-- [ ] **10.3 Turn model** — `turns` table (id, conversation_id, prompt, response_json, decision_id?, created_at). AC: analyze → turn stored + linked.
-- [ ] **10.4 Context-link hook** — conversation → project_id resolve; downstream (CP-13) ke liye available. AC: turn me project reference available.
+- [x] **10.1 Project CRUD** — `POST/GET/PATCH/DELETE /v1/projects`. AC: create→list→get→delete round-trip; delete cascades safely.
+- [x] **10.2 Conversation model** — `conversations` table (id, project_id, title, created_at); `POST /v1/projects/{pid}/conversations`, list/get. AC: conversation project se linked banti.
+- [x] **10.3 Turn model** — `turns` table (id, conversation_id, prompt, response_json, decision_id?, created_at). AC: analyze → turn stored + linked.
+- [x] **10.4 Context-link hook** — conversation → project_id resolve; downstream (CP-13) ke liye available. AC: turn me project reference available.
 **Open:** none.
 
 ---
