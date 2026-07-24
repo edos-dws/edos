@@ -6,9 +6,13 @@ resolution + trust hardening (2026 market-standard) + full product (UI/auth/doma
 
 **Ground rules (CLAUDE.md, unchanged):** contracts = highest authority · one responsibility per engine ·
 LLM never searches (Context/Retriever assemble) · decisions immutable + versioned · every ticket test-green ·
-**no autonomous freeze** · stop for human sign-off at gated checkpoints.
+**no autonomous freeze** · **STOP, don't fabricate values** (see Open Decisions Register) · human sign-off at gated CPs.
 
-**Flow:** har CP ek branch (`cp-N`) → develop merge → `CP-N-REPORT.md` → phone notify. Top-to-bottom order.
+**Flow per CP:** branch `cp-N` → implement smallest-correct ticket → tests green → `PROGRESS.md` + backlog box →
+commit → `CP-N-REPORT.md` → phone notify → next. Top-to-bottom.
+
+**Ticket key:** `Depends` = prerequisite CPs · `Touches` = files/modules · `Design` = the agreed approach (follow
+exactly, don't improvise) · `AC` = acceptance criteria · `Open` = a decision a human must make first (STOP, don't guess).
 
 ---
 
@@ -19,213 +23,241 @@ LLM never searches (Context/Retriever assemble) · decisions immutable + version
 
 1. **Decision Graph = core engine.** Har decision connected — **koi orphan node nahi**.
 2. **Retrieval accuracy = existential.** Jo retrieve nahi hua wo exist nahi karta → measured (recall@k), recall-gate pass bina merge nahi.
-3. **Trust > confidence.** Faithfulness gate — grounded na ho to return nahi (silently confident-galat mana hai).
-4. **"Trust now".** Temporal validity — stale/superseded decisions reasoning me nahi ghusni chahiye.
+3. **Trust > confidence.** Faithfulness gate — grounded na ho to return nahi.
+4. **"Trust now".** Temporal validity — stale/superseded decisions reasoning me nahi.
 5. **Hard constraints kabhi na chhoote.** Locked decisions/requirements/open-conflicts hamesha in-context.
 6. **Insufficient > guess.** Coverage kamzor → clarify/flag, blind reason nahi.
 
 ---
 
-## 🗺️ MASTER CHECKPOINT SEQUENCE (canonical — yahi follow karo)
+## 🗺️ MASTER CHECKPOINT SEQUENCE (canonical)
 
 | CP | Naam | Ek line | Gate |
 |---|---|---|---|
-| **CP-10** | Project & Conversation | project CRUD + conversation model (project-linked chat); analyze = ek turn | self |
-| **CP-11** | Persistence & Versioning | decision store, accept flow, immutable versions, history API | self |
-| **CP-12** | Ingestion + Embeddings + Graph | item ingest, embeddings, edge-extraction, **no-orphan**, integrity, **temporal validity**, **conflict-edge creation** | self |
-| **CP-13** ⭐ | Retriever | anchor → hybrid (vector+sparse+graph-expansion+recency) → fuse → rerank → floor → missing-context guard → **recall@k gate** | 🔴 human |
-| **CP-14** | Faithfulness / Grounding Gate | har claim retrieved-context me trace ho warna reject/downgrade | 🔴 human |
-| **CP-15** | Interactive Resolution + Write-back | assumption/conflict resolve, clarification loop, **knowledge/graph write-back on accept** | 🔴 human |
+| **CP-10** | Project & Conversation | project CRUD + conversation model; analyze = ek turn | self |
+| **CP-11** | Persistence & Versioning | decision store, accept flow, immutable versions, history | self |
+| **CP-12** | Ingestion + Embeddings + Graph | ingest, embeddings, edge-extraction, no-orphan, integrity, temporal validity, conflict-edge | self |
+| **CP-13** ⭐ | Retriever | anchor → hybrid(vector+sparse+graph+recency) → fuse → rerank → floor → guard → recall@k gate | 🔴 human |
+| **CP-14** | Faithfulness / Grounding Gate | claim retrieved-context me trace ho warna reject/downgrade | 🔴 human |
+| **CP-15** | Interactive Resolution + Write-back | assumption/conflict resolve, clarification loop, write-back on accept | 🔴 human |
 | **CP-16** | Verification Hardening + Freeze | Self-RAG faithfulness critic, freeze threshold T, freeze flow | 🔴 human |
-| **CP-17** | Feedback / Learning loop | accept/challenge/reverse → confidence calibration + ranking tuning | self |
-| **CP-18** | Frontend / UX | chat UI, decision cards, project dashboard, conflict/alert feed, provenance, WS streaming | 🔴 human |
-| **CP-19** | Auth & Multi-tenancy | users, project ownership, access control, role-based memory | self |
-| **CP-20** | Domain Grounding + Proactive Watchdog | standards/datasheets/part-DB ingest; new knowledge → re-check decisions → alerts | 🔴 human |
+| **CP-17** | Feedback / Learning loop | outcomes → confidence calibration + ranking tuning | self |
+| **CP-18** | Frontend / UX | chat UI, decision cards, dashboard, alert feed, provenance | 🔴 human |
+| **CP-19** | Auth & Multi-tenancy | users, ownership, access control, role-based memory | self |
+| **CP-20** | Domain Grounding + Watchdog | standards/datasheets ingest; new knowledge → re-check → alerts | 🔴 human |
 
-**Dependency order:** project+conversation → persist → data+graph → retrieve → faithfulness → interactive+write-back
-→ verify+freeze → learn → UI → auth → domain+watchdog. Har step pichle par depend.
+---
+
+## ⚠️ OPEN DECISIONS REGISTER (human must decide — build agent STOPs here, no fabrication)
+
+Ye values/choices abhi decided NAHI hain. Jab uska CP aaye, **pehle ye decide karo** (warna guess = misalignment):
+
+| ID | Decision | Kahan chahiye | Default/lean (confirm karo) |
+|---|---|---|---|
+| **OD-1** | Embedding model (dimension + provider) | CP-12 | stub deterministic ab; real model go-live pe (pgvector dim fix karna) |
+| **OD-2** | Fusion method: weighted `rank_score` vs RRF | CP-13.6 | weighted `rank_score` se start (already hai), RRF baad me A/B |
+| **OD-3** | **recall@k target + k** (merge-gate threshold) | CP-13.12 | **data se derive** — fabricate mat karo; gold-set banne ke baad set |
+| **OD-4** | Rerank model (cross-encoder vs LLM-judge) | CP-13.7 | LLM-judge (existing router) start; cross-encoder agar latency ok |
+| **OD-5** | Faithfulness method (NLI model vs LLM-judge) + targets | CP-14 | LLM-judge start; targets 0.8/0.9 = starting, calibrate on data |
+| **OD-6** | **Freeze threshold T** | CP-16.2 | **benchmark data se derive** — STOP, fabricate mat karo |
+| **OD-7** | Frontend stack (React/Next? component lib?) | CP-18 | **undecided — human pick** before CP-18 |
+| **OD-8** | Auth approach (JWT/session/OAuth provider?) | CP-19 | **undecided — human pick** before CP-19 |
+| **OD-9** | Domain sources + licensing (which standards/datasheets/part-DB) | CP-20 | **undecided — human pick** (licensing matters) |
+| **OD-10** | Edge-type weights (traversal) + hop-limit + decay-λ | CP-13.4 | start sane defaults, calibrate on gold-set (OD-3 ke saath) |
 
 ---
 
 ## CP-10 — Project & Conversation model
-*Foundation. Bina project+conversation ke "project se chat" aur context-linking possible hi nahi.*
+**Depends:** — (Phase-1 DB infra). **Touches:** `db/models.py` (new tables), `api/app.py`, new `api/projects.py`, alembic migration.
+**Design:** Project = top container. Conversation = project se linked chat thread. Turn = ek prompt+response
+(analyze) us conversation ke andar. Har analyze **kisi conversation ke context me** chalta hai → uska project_id
+downstream retrieval ko milta hai. (`ProjectRow` already hai; conversations+turns naye tables.)
 
-- [ ] **10.1 Project CRUD** — `POST/GET/PATCH/DELETE /v1/projects` (`ProjectRow` already hai). AC: create→list→get→delete round-trip.
-- [ ] **10.2 Conversation model** — conversation project se linked; `POST /v1/projects/{pid}/conversations`,
-  list/get. AC: project ke andar conversation banti + linked.
-- [ ] **10.3 Turn model** — har `analyze` ek conversation-turn (prompt+response) store ho. AC: turn stored + conversation se linked.
-- [ ] **10.4 Context auto-link hook** — jab conversation project se linked ho, uska project_id downstream
-  retrieval ko available ho (CP-13 use karega). AC: turn me project context reference available.
-
-**Gate:** self-merge. Report + notify.
+- [ ] **10.1 Project CRUD** — `POST/GET/PATCH/DELETE /v1/projects`. AC: create→list→get→delete round-trip; delete cascades safely.
+- [ ] **10.2 Conversation model** — `conversations` table (id, project_id, title, created_at); `POST /v1/projects/{pid}/conversations`, list/get. AC: conversation project se linked banti.
+- [ ] **10.3 Turn model** — `turns` table (id, conversation_id, prompt, response_json, decision_id?, created_at). AC: analyze → turn stored + linked.
+- [ ] **10.4 Context-link hook** — conversation → project_id resolve; downstream (CP-13) ke liye available. AC: turn me project reference available.
+**Open:** none.
 
 ---
 
 ## CP-11 — Persistence & Versioning (decision store)
-*Accepted decisions immutable + versioned.*
+**Depends:** CP-10. **Touches:** `db/models.py` (`DecisionRecord` exists), new `engines/decision_store.py`, `api/app.py`, contract `contracts/decision.schema.json`.
+**Design:** Accept = status `proposed/recommended` → `accepted`. Edit-then-accept = **new version** (immutable prev,
+`supersedes` link). Never in-place mutate (CLAUDE.md). `new_decision_version()` already hai — use it.
 
-- [ ] **11.1 DecisionStore** — `DecisionRecord` (+ `new_decision_version()`) pe save/get/list. AC: save→row; get→latest; list by project.
-- [ ] **11.2 Accept flow + versioning** — accept → `status=accepted`, immutable; re-accept(edited) → `version=n+1`,
-  `supersedes=<prev>`, prev untouched. AC: v1 immutable; edit→v2 linked; history chain retrievable.
-- [ ] **11.3 Decision API** — `POST /v1/decisions`, `GET /v1/decisions/{id}`, `.../history`, `GET /v1/projects/{pid}/decisions`. AC: round-trip + history chain.
-- [ ] **11.4 Contract** — decision schema me `version`/`supersedes`/`project_id` add karo agar missing
-  (contract-change: consumers+tests same commit, `$id` bump if breaking).
-
-**Gate:** self-merge. Report + notify.
+- [ ] **11.1 DecisionStore** — save/get/list over `DecisionRecord`. AC: save→row; get→latest; list by project.
+- [ ] **11.2 Accept + versioning** — accept→`accepted` immutable; re-accept→`version=n+1`,`supersedes=prev`. AC: v1 immutable; edit→v2 linked; history chain.
+- [ ] **11.3 Decision API** — `POST /v1/decisions`, `GET /v1/decisions/{id}`, `.../history`, `GET /v1/projects/{pid}/decisions`. AC: round-trip + history.
+- [ ] **11.4 Contract change** — decision schema me `version`,`supersedes`,`project_id` (+ `conversation_id`?). **Same commit:** models+engines+DB+prompts+tests; `$id` bump if breaking. AC: contract+consumers+tests aligned.
+**Open:** none (schema fields fixed above).
 
 ---
 
 ## CP-12 — Ingestion + Embeddings + Graph (+ temporal validity + conflict edges)
-*Retriever ko fetch karne ke liye data + strong connected graph chahiye. Graph = core → connectivity yahin enforce.*
+**Depends:** CP-10, CP-11. **Touches:** `engines/knowledge.py`, new `engines/graph_builder.py`, `db/graph.py`, `db/models.py` (`GraphEdge`,`DocumentChunk`), `engines/providers/` (embeddings). **Graph = core → connectivity yahin enforce.**
+**Design:** Ingest pe har item → (a) embed → DocumentChunk, (b) edge-extract (heuristic first: explicit refs like
+"REQ-3"; then LLM for implicit) → validated `graph_edges` (11 RelationTypes), (c) conflict-check vs existing →
+`conflicts_with` edge if contradiction, (d) temporal state set. **No item accepted without ≥1 edge** (warna `needs_linking`).
 
 - [ ] **12.1 Item ingestion** — `POST /v1/projects/{pid}/items` (requirement/decision/assumption/document). AC: post→stored+queryable.
-- [ ] **12.2 Embedding provider** — `embed(text)->vector`, stub deterministic + real pluggable (interface, jaise model_router). AC: deterministic + dim match.
-- [ ] **12.3 Chunk + embed pipeline** — docs → `DocumentChunk` + embeddings. AC: N docs → chunks+vectors; count correct.
-- [ ] **12.4 Edge extraction (connectivity)** — naya item pe relations (depends_on/affects/constrains/supersedes/references)
-  detect (heuristic+LLM) → `graph_edges`. AC: naya item ≥1 validated edge.
-- [ ] **12.5 No-orphan guarantee** — bina edge decision store na ho; relation na mile → `needs_linking` flag (silent orphan nahi). AC: orphan → reject/flag.
+- [ ] **12.2 Embedding provider** — `embed(text)->vector` behind interface; stub deterministic + real pluggable. AC: deterministic + dim match. **Open: OD-1.**
+- [ ] **12.3 Chunk + embed pipeline** — docs → `DocumentChunk`+embeddings. AC: N docs → chunks+vectors; count correct.
+- [ ] **12.4 Edge extraction** — explicit-ref heuristic + LLM implicit → relations detected+validated. AC: naya item ≥1 validated edge; wrong-type rejected.
+- [ ] **12.5 No-orphan guarantee** — bina edge store na ho; relation na mile → `needs_linking` flag. AC: orphan → reject/flag, silent nahi.
 - [ ] **12.6 Graph integrity** — `supersedes` DAG (no cycle), no dangling, `conflicts_with` symmetric. AC: cycle/dangling → blocked.
-- [ ] **12.7 Temporal validity (P0)** — har node/edge pe validity state (active/superseded/stale/conflicted) + timestamp. AC: superseded item marked stale.
-- [ ] **12.8 Conflict-edge creation** — ingest pe naya item existing state se contradiction check → `conflicts_with` edge.
-  (Detection yahan graph-time; surfacing/resolution CP-13/CP-15.) AC: contradictory pair → edge; unrelated → nahi.
-
-**Gate:** self-merge. Report + notify.
+- [ ] **12.7 Temporal validity (P0)** — node/edge validity enum (active/superseded/stale/conflicted) + timestamp; transitions on supersede/conflict. AC: superseded item → stale.
+- [ ] **12.8 Conflict-edge creation** — ingest pe contradiction check (heuristic + LLM) → `conflicts_with`. AC: contradictory pair → edge; unrelated → nahi.
+**Open:** OD-1.
 
 ---
 
 ## CP-13 — Retriever ⭐ (core, accuracy-critical)
-*project_id + question → poore project ka relevant context KHUD assemble. `retrieval.py` stub implement.*
-*Sabse critical CP — retrieval galti = reasoning fail. Har ticket measurable.*
+**Depends:** CP-12. **Touches:** `engines/retrieval.py` (stub→impl), `engines/ranking.py` (reuse), `engines/context.py` (feed), `api/app.py`, new `eval/retrieval_eval.py`.
+**Design (follow exactly):** `{project_id, question}` → **anchor extraction** (regex explicit → embedding kNN →
+LLM fallback jab <2 anchors) → **3 signals**: dense (pgvector cosine kNN), sparse (BM25/term), graph (weighted
+seeded traversal `edge-weight × λ^hop` + N-hop expand to surface conflicts/hidden deps), recency (exp decay) →
+**fuse** (start: existing `rank_score` weighted; RRF optional) → **over-fetch → rerank** → `ContextEngine.build()`
+compress (summarize, drop nahi) → **hard-constraint floor** (locked decisions/requirements/open-conflicts always) →
+**missing-context guard** (coverage low → insufficient flag). LLM never searches — retriever/software does.
 
-- [ ] **13.1 Anchor extraction** — question se entities/refs → graph seed nodes (regex + embedding-link + LLM-fallback). AC: known entity → sahi anchors.
-- [ ] **13.2 Semantic (dense)** — question embed → pgvector cosine kNN (HNSW/IVFFlat). AC: similar item top-k.
-- [ ] **13.3 Lexical (sparse)** — keyword/BM25 for exact terms/part-numbers/spec values. AC: exact-term item retrieve jab vector miss kare.
-- [ ] **13.4 Graph traversal + expansion** — anchors se weighted seeded traversal (edge-weight × hop-decay `λ^hop`);
-  N-hop expand → connected decisions **+ conflicts surface** (core purpose). Explainable path. AC: linked item high+path; conflict aaye; unlinked ~0.
-- [ ] **13.5 Recency** — exponential time decay. AC: naya > purana.
-- [ ] **13.6 Fusion** — dense+sparse+graph+recency → RRF / calibrated `rank_score`; over-fetch wide. AC: fused top-k ⊇ strong hits.
-- [ ] **13.7 Rerank + compress** — cross-encoder/LLM rerank → `ContextEngine.build()` compress (drop nahi to **summarize**). AC: precision@k improve.
-- [ ] **13.8 Hard-constraint floor** — locked decisions/requirements/open-conflicts hamesha include. AC: hard-constraint kabhi drop na ho.
-- [ ] **13.9 Missing-context guard** — coverage/graph-completeness check; low → "insufficient context" flag. AC: critical item hatao → flag fire.
-- [ ] **13.10 Agentic multi-hop (P1)** — complex question pe reason→"X missing"→retrieve-more→reason again; simple = single-pass. AC: multi-hop → 2nd retrieval.
-- [ ] **13.11 Wire into API** — `/v1/analyze` `{project_id, question}` le (context_items optional override); Retriever→ContextEngine→DecisionEngine; response me **provenance**. AC: bina manual context → decision+provenance.
-- [ ] **13.12 Retrieval eval (recall@k, precision@k, nDCG, MRR)** — gold set + metrics; **merge-gate: recall@k < target → block; regression → block.** AC: eval runs; numbers reported; gate enforced.
+- [ ] **13.1 Anchor extraction** — regex + embedding-link + LLM-fallback. AC: known entity → sahi anchors.
+- [ ] **13.2 Semantic (dense)** — pgvector cosine kNN (ANN index). AC: similar item top-k.
+- [ ] **13.3 Lexical (sparse)** — term/BM25 for part-numbers/spec values. AC: exact-term item retrieve jab vector miss.
+- [ ] **13.4 Graph traversal + expansion** — weighted seeded traversal + N-hop; explainable path; conflicts surface. AC: linked high+path; conflict aaye; unlinked ~0. **Open: OD-10.**
+- [ ] **13.5 Recency** — exp decay. AC: naya > purana.
+- [ ] **13.6 Fusion** — weighted `rank_score` (default) / RRF; over-fetch wide. AC: fused top-k ⊇ strong hits. **Open: OD-2.**
+- [ ] **13.7 Rerank + compress** — rerank (LLM-judge/cross-encoder) → compress-by-summarize. AC: precision@k improve. **Open: OD-4.**
+- [ ] **13.8 Hard-constraint floor** — locked decisions/requirements/open-conflicts always in. AC: hard-constraint kabhi drop nahi.
+- [ ] **13.9 Missing-context guard** — coverage/graph-completeness check → insufficient flag. AC: critical item hatao → flag fire.
+- [ ] **13.10 Agentic multi-hop (P1)** — complex → reason→retrieve-more→reason; simple = single-pass. AC: multi-hop → 2nd retrieval.
+- [ ] **13.11 Wire into API** — `/v1/analyze` `{project_id, question}` (context_items optional override); response me provenance. AC: bina manual context → decision+provenance.
+- [ ] **13.12 Retrieval eval (recall@k/precision@k/nDCG/MRR)** — gold-set + metrics; **merge-gate on recall@k; regression blocks.** AC: eval runs, numbers reported, gate enforced. **Open: OD-3.**
 
-**Gate:** 🔴 **HUMAN** — retrieval quality sab par asar. Review with eval scores + examples. Report + notify.
+**Gate:** 🔴 HUMAN — review with eval scores + examples.
 
 ---
 
 ## CP-14 — Faithfulness / Grounding Gate (P0)
-*Decision return karne se pehle: har material claim retrieved-context se grounded ho, hallucinate nahi.*
+**Depends:** CP-13. **Touches:** new `engines/faithfulness.py`, `engines/decision.py` (post-reason hook), `api/app.py`.
+**Design:** Decision LLM output → **har material claim ko retrieved-context se verify** (LLM-judge/NLI). `evidence[]`
+(already hai) ka source retrieved set me trace hona chahiye. Ungrounded claim → **gate acts** (downgrade confidence /
+clarify / flag-for-review) — silently return NAHI (Self-RAG). Ye reasoning aur verification ke beech ka trust-check hai.
 
-- [ ] **14.1 Grounding check** — decision ke har material claim ko retrieved context se verify (LLM-judge/NLI);
-  `evidence[]` source retrieved set me trace ho. AC: hallucinated claim (context me nahi) → detected.
-- [ ] **14.2 Gate action** — grounded na ho → **return mat karo** → downgrade confidence / clarify / flag-for-review (Self-RAG). AC: ungrounded decision blocked, silently pass nahi.
-- [ ] **14.3 Metrics** — faithfulness score + citation-precision per decision; targets (≥0.8 / ≥0.9) tracked. AC: scores computed + surfaced.
+- [ ] **14.1 Grounding check** — per-claim retrieved-context verify + evidence traceability. AC: hallucinated claim (context me nahi) → detected.
+- [ ] **14.2 Gate action** — ungrounded → downgrade/clarify/flag; return nahi. AC: ungrounded decision blocked.
+- [ ] **14.3 Metrics** — faithfulness + citation-precision per decision. AC: scores computed + surfaced.
+**Open:** OD-5.
 
-**Gate:** 🔴 **HUMAN** — trust-critical. Report + notify.
+**Gate:** 🔴 HUMAN — trust-critical.
 
 ---
 
 ## CP-15 — Interactive Resolution + Write-back
-*Engineer resolve kare → re-reason → naya version. Accept → project knowledge update (roadmap Ch6 §11).*
+**Depends:** CP-11, CP-12, CP-14. **Touches:** `models/entities.py` (`Assumption`), `engines/decision.py` (clarification), `engines/knowledge.py`, `pipeline/passive.py` (`emit`+worker), `api/app.py`, contract (assumption).
+**Design:** Resolve assumption/conflict → **re-reason → new version** (CP-11 flow). **Clarification:** cheap **planner
+(lightweight tier)** detect kare `needs_clarification`+questions → **software** poochhe/collect (LLM nahi) → merge →
+frontier decision. **Purana `_missing_essentials` (dumb "0 items") replace.** **Write-back (Ch6 §11):** accept →
+`DecisionAccepted` event → `emit()` → **real worker** runs jobs → KnowledgeEngine.process → graph edges + embeddings + summary + alerts.
 
-- [ ] **15.1 Assumption state** — `Assumption` me `status`(open/resolved)+`resolution`+`resolved_by` (contract-change). AC: state carry.
-- [ ] **15.2 Resolve assumption** — `POST /v1/decisions/{id}/assumptions/{aid}/resolve` → record → re-reason → new version. AC: resolve→v+1, confidence update, prev immutable.
+- [ ] **15.1 Assumption state** — `status`(open/resolved)+`resolution`+`resolved_by` (contract-change, same-commit consumers+tests). AC: state carry.
+- [ ] **15.2 Resolve assumption** — `POST /v1/decisions/{id}/assumptions/{aid}/resolve` → re-reason → new version. AC: resolve→v+1, confidence update, prev immutable.
 - [ ] **15.3 Resolve conflict** — `POST /v1/conflicts/{cid}/resolve` → edge closed + affected decisions re-evaluated. AC: resolve→closed, history kept.
-- [ ] **15.4 Clarification loop** — **planner (cheap tier) detect** kare `needs_clarification`+questions → **software** user se poochhe/collect → merge → decision. (Alag heavy LLM call nahi; dumb `_missing_essentials` replace.) AC: incomplete prompt → questions → answer → decision (no manual re-send).
-- [ ] **15.5 Write-back (Ch6 §11)** — accept → `DecisionAccepted` event → KnowledgeEngine.process → graph edges +
-  embeddings + summary update + alerts enqueue (`emit()` + real worker). AC: accept → knowledge/graph measurably update.
+- [ ] **15.4 Clarification loop** — planner-detect + software ask/collect + re-reason; `_missing_essentials` replace. AC: incomplete → questions → answer → decision (no manual re-send).
+- [ ] **15.5 Write-back** — `emit()` wired + worker + KnowledgeEngine.process on accept (jobs: summary, embeddings, graph-update, discover-relationships, alerts). AC: accept → knowledge/graph measurably update.
+**Open:** none.
 
-**Gate:** 🔴 **HUMAN** — state mutation + write-back semantics. Report + notify.
+**Gate:** 🔴 HUMAN — state mutation + write-back.
 
 ---
 
 ## CP-16 — Verification Hardening + Freeze
-*Structural-only critic → real independent + faithfulness-aware. Freeze = consequential.*
+**Depends:** CP-14, benchmark data. **Touches:** `engines/verification.py`, `engines/freeze.py`, `eval/harness.py`, `api/app.py`.
+**Design:** Verify `_find_issues` = structural placeholder → **independent critic LLM** (challenge assumptions/claims)
++ **faithfulness scoring** (CP-14). Still **lower-only confidence, freeze_blockers preserved** (Phase-1 fix). Freeze
+gate DISABLED until `T` **derived from scored benchmark** (STOP: fabricate mat karo). Freeze = human-approved only.
 
-- [ ] **16.1 Self-RAG critic** — verify `_find_issues` upgrade: independent critic LLM jo assumptions/claims challenge kare
-  + **faithfulness scoring** (CP-14 se). Still lower-only confidence, freeze_blockers preserve. AC: weak assumption → issue + drop.
-- [ ] **16.2 Freeze threshold T** — scored benchmark runs se `T` derive (STOP: fabricate mat karo — data se). Freeze gate `T` ke peeche enable. AC: below-T → blocked; at/above + no freeze_blockers → eligible.
-- [ ] **16.3 Freeze flow** — `verified`+eligible → human-approved freeze → `status=frozen` (immutable final). AC: freeze sirf gate+human; autonomous nahi.
+- [ ] **16.1 Self-RAG critic** — independent critic + faithfulness scoring; lower-only; preserve blockers. AC: weak assumption → issue + drop.
+- [ ] **16.2 Freeze threshold T** — benchmark se derive; gate `T` ke peeche enable. AC: below-T→blocked; at/above + no blockers→eligible. **Open: OD-6 (STOP, no fabricate).**
+- [ ] **16.3 Freeze flow** — `verified`+eligible → human-approved → `status=frozen` immutable. AC: freeze sirf gate+human.
+**Open:** OD-6.
 
-**Gate:** 🔴 **HUMAN** (freeze). Report + notify.
+**Gate:** 🔴 HUMAN (freeze — CLAUDE.md CP-8/9 rule).
 
 ---
 
 ## CP-17 — Feedback / Learning loop
-*accept/challenge/reverse outcomes → system smart bane. Trace→Reason→Learn→Replay.*
+**Depends:** CP-11, CP-15. **Touches:** new `engines/feedback.py`, `db/models.py` (outcomes), `engines/ranking.py`, `eval/`.
+**Design:** accept/challenge/later-reverse signals store → (a) confidence **calibration** (predicted vs actual reliability
+curve), (b) ranking/edge-weight **tuning** — **eval-gated** (recall regress na ho). No silent overfit.
 
-- [ ] **17.1 Outcome capture** — accept/challenge/later-reverse signals per decision store. AC: signals recorded.
-- [ ] **17.2 Confidence calibration** — outcomes se confidence calibrate (predicted vs actual-correct). AC: calibration curve improves.
-- [ ] **17.3 Ranking tuning** — accepted decisions ke context patterns se rank-weights/edge-weights tune. AC: retrieval recall improves on eval over rounds.
+- [ ] **17.1 Outcome capture** — signals per decision stored. AC: recorded.
+- [ ] **17.2 Confidence calibration** — reliability curve from outcomes. AC: calibration improves, monotonic-ish.
+- [ ] **17.3 Ranking tuning** — weights tuned, **behind CP-13 eval gate**. AC: recall improves or unchanged (never worse).
+**Open:** none.
 
-**Gate:** self-merge (behind eval gate). Report + notify.
+**Gate:** self-merge (behind eval gate).
 
 ---
 
 ## CP-18 — Frontend / UX (accessibility)
-*"Sabke liye" = UI. Non-technical user bina API poore flow chala le.*
+**Depends:** CP-10..15 APIs. **Touches:** new `frontend/` app; consumes REST + WS (backend ready).
+**Design:** Non-technical user bina API poore flow chala le. Streaming via existing WebSocket. **Stack undecided — OD-7.**
 
-- [ ] **18.1 Chat UI** — project-linked conversation, streaming (WS backend ready). AC: chat → decision live.
-- [ ] **18.2 Decision cards** — recommendation + assumptions/risks/tradeoffs + **accept / challenge / recommend** actions. AC: actions backend hit karein.
+- [ ] **18.1 Chat UI** — project-linked conversation, WS streaming. AC: chat → decision live.
+- [ ] **18.2 Decision cards** — recommendation/assumptions/risks/tradeoffs + **accept/challenge/recommend**. AC: actions backend hit.
 - [ ] **18.3 Project dashboard** — projects, decisions, versions/history. AC: browse + drill-down.
-- [ ] **18.4 Conflict & alert feed** — open conflicts + proactive alerts (CP-20). AC: surfaced + clickable.
-- [ ] **18.5 Provenance view** — har claim → source/path (audit). AC: claim → evidence trace visible.
+- [ ] **18.4 Conflict & alert feed** — open conflicts + watchdog alerts (CP-20). AC: surfaced + clickable.
+- [ ] **18.5 Provenance view** — claim → source/path (audit). AC: claim → evidence trace visible.
+**Open:** OD-7.
 
-**Gate:** 🔴 **HUMAN** (UX review). Report + notify.
+**Gate:** 🔴 HUMAN (UX review).
 
 ---
 
 ## CP-19 — Auth & Multi-tenancy
-*Multi-user platform.*
+**Depends:** CP-10. **Touches:** `api/` (auth middleware), `db/models.py` (users), all endpoints (scoping).
+**Design:** Users + project ownership/team scoping + role-based memory (system-rule vs user-preference write perms). **Approach undecided — OD-8.**
 
-- [ ] **19.1 Users + auth** — signup/login, tokens. AC: authenticated access.
-- [ ] **19.2 Project ownership + access** — project scoped to owner/team; access control. AC: cross-tenant access blocked.
-- [ ] **19.3 Role-based memory** — system-rule memory vs user-preference memory, write-permission segregation. AC: user can't write system rules.
+- [ ] **19.1 Users + auth** — signup/login/tokens. AC: authenticated access.
+- [ ] **19.2 Ownership + access** — project scoped; cross-tenant blocked. AC: cross-tenant → denied.
+- [ ] **19.3 Role-based memory** — system vs user memory write-perms. AC: user can't write system rules.
+**Open:** OD-8.
 
-**Gate:** self-merge. Report + notify.
+**Gate:** self-merge.
 
 ---
 
 ## CP-20 — Domain Grounding + Proactive Watchdog
-*Vertical depth + "jo tumne poocha nahi wo bhi batao" — differentiators.*
+**Depends:** CP-12 (temporal), CP-15 (alerts). **Touches:** new `engines/domain/`, `engines/watchdog.py`, `pipeline/passive.py`.
+**Design:** (a) External authoritative sources (standards/datasheets/part-DB) ingest → retrieval + citation.
+(b) Procedural domain rules (electrical/thermal/cost/compliance) reasoning apply kare. (c) Watchdog: naya knowledge →
+affected (esp. frozen) decisions **re-check** (temporal + conflict) → **alert**. **Sources undecided — OD-9 (licensing!).**
 
-- [ ] **20.1 Domain grounding** — standards (AEC-Q100 etc.)/datasheets/part-DB ingest → retrieval over authoritative external sources. AC: domain fact retrievable + cited.
-- [ ] **20.2 Domain rules (procedural memory)** — electrical/thermal/cost/compliance rules that reasoning applies. AC: rule violation flagged.
-- [ ] **20.3 Proactive watchdog** — naya knowledge → affected (esp. frozen) decisions re-check (temporal validity + conflict) → **alert**. AC: new conflicting item → alert on affected decision.
+- [ ] **20.1 Domain grounding** — sources ingest → retrievable + cited. AC: domain fact retrievable + cited.
+- [ ] **20.2 Domain rules (procedural memory)** — rules applied in reasoning. AC: rule violation flagged.
+- [ ] **20.3 Proactive watchdog** — new knowledge → re-check affected → alert. AC: new conflicting item → alert on affected decision.
+**Open:** OD-9.
 
-**Gate:** 🔴 **HUMAN**. Report + notify.
+**Gate:** 🔴 HUMAN.
 
 ---
 
-## 🎯 Graph & Retrieval Strength Checklist (rigor bar — "ganit")
-
-**Graph strength**
-- [ ] No orphans (orphan-rate=0) · auto edge-extraction (avg-degree tracked) · integrity (DAG, no dangling, symmetric conflicts) · explainable paths · health metrics (orphan-rate/degree/components/cycles) · **temporal validity enforced**.
-
-**Retrieval strength**
-- [ ] Hybrid (dense+sparse+graph-expansion+recency, fused) · over-fetch→rerank→compress(summarize) · hard-constraint floor · missing-context guard · **measured (recall@k/precision@k/nDCG/MRR), recall gate blocks merge** · regression-proof · tunable+calibrated · agentic multi-hop for complex.
-
-**Trust**
-- [ ] **Faithfulness gate** (grounded-or-reject) · citation-precision target · Self-RAG verify · provenance-chain per decision · confidence calibrated from outcomes.
-
-**The math (reference):** cosine + ANN (HNSW/IVFFlat); BM25; exponential recency decay; edge-weight × hop-decay
-traversal (+ optional Personalized PageRank; shortest-path for conflict chains); RRF / calibrated linear fusion;
-cross-encoder rerank; NLI/LLM-judge faithfulness. Metrics: recall@k, precision@k, nDCG, MRR; RAGAS faithfulness.
-
-**Phase-2 exit bar:** orphan-rate 0 · integrity green · temporal validity enforced · recall@k ≥ target ·
-missing-context guard fires when critical item removed · faithfulness gate blocks ungrounded · every claim traceable.
+## 🎯 Graph & Retrieval Strength Checklist (rigor bar)
+**Graph:** no orphans (rate=0) · auto edge-extraction (degree tracked) · integrity (DAG/no-dangling/symmetric) · explainable paths · temporal validity enforced · health metrics.
+**Retrieval:** hybrid(dense+sparse+graph+recency, fused) · over-fetch→rerank→summarize · hard-constraint floor · missing-context guard · **measured (recall@k etc.), recall gate blocks merge** · regression-proof · tunable+calibrated · agentic multi-hop.
+**Trust:** faithfulness gate (grounded-or-reject) · citation-precision target · Self-RAG verify · provenance-chain per decision · outcome-calibrated confidence.
+**Math ref:** cosine+ANN(HNSW/IVFFlat); BM25; exp recency decay; edge-weight×hop-decay traversal (+optional PPR; shortest-path conflict chains); RRF/weighted fusion; cross-encoder/LLM rerank; NLI/LLM-judge faithfulness. Metrics: recall@k, precision@k, nDCG, MRR, RAGAS-faithfulness.
+**Exit bar:** orphan-rate 0 · integrity green · temporal enforced · recall@k ≥ target · guard fires on removed critical item · faithfulness blocks ungrounded · every claim traceable.
 
 ---
 
 ## Cross-cutting (har CP me)
-- New engines single-responsibility: Retriever ≠ Context Engine (retriever fetch+signals; context rank+compress);
-  Faithfulness gate, Conflict detector, Feedback/calibration — alag concerns.
-- Sab LLM output schema-validated **+ grounded** (repair/reject; malformed ya ungrounded persist nahi).
-- Har ticket: test added + full suite green + `PROGRESS.md` update + backlog box check + commit.
-- Contract change = same-commit consumers+tests, `$id` bump if breaking. (Touches: decision version/supersedes/temporal,
-  assumption status, provenance/faithsfulness fields.)
+- New engines single-responsibility: Retriever ≠ Context Engine; Faithfulness/Conflict/Feedback/Watchdog alag.
+- LLM output schema-validated **+ grounded** (malformed ya ungrounded persist nahi).
+- Har ticket: test + full suite green + `PROGRESS.md` + backlog box + commit. **CI: ruff pinned, recall-gate + faithfulness-gate part of the gate once built.**
+- Contract change = same-commit consumers+tests, `$id` bump if breaking. (Touches: decision version/supersedes/project_id/temporal; assumption status; provenance/faithfulness fields.)
+- **STOP conditions (BLOCKED.md):** koi Open-Decision (OD-*) unresolved ho to us ticket pe ruko — fabricate mat karo.
 
 ## Sequence (why this order)
 ```
