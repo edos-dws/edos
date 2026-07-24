@@ -104,6 +104,7 @@ Mirrors [`BACKLOG.md`](./BACKLOG.md). Runner updates status + commit hash per ti
 ---
 
 ## Activity Log  (append-only, newest at top — one line per event)
+- 2026-07-24 — ✅ CP-14 (Faithfulness Gate) merged. Evidence-source traceability; ungrounded claim → confidence×faithfulness + freeze_blockers; wired into /v1/analyze. 167 tests. [semantic NLI/LLM-judge OD-5 deferred]
 - 2026-07-24 — ✅ CP-13 (Retriever) merged. Hybrid retrieval: anchor+dense(pgvector)+lexical+graph-expansion+recency → weighted rank_score; hard-constraint floor; missing-context guard; temporal-validity confidence; recall@k eval harness. /v1/analyze now project_id+question. 162 tests. [rerank/agentic/anchor-LLM deferred; OD-3 threshold unset]
 - 2026-07-24 — ✅ CP-12 (Ingestion + Embeddings + Graph) merged. ProjectItem nodes, stub embeddings, explicit-ref edges, integrity (DAG/dangling/symmetric), temporal validity, conflict edges. 152 tests. [ProjectItem node model + LLM-gated extraction deferrals flagged]
 - 2026-07-24 — ✅ CP-11 (Persistence & Versioning) merged. Decision store: immutable versioned records, accept flow, history API. 138 tests green. [11.4 handled via envelope, flagged]
