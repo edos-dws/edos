@@ -49,3 +49,33 @@ def test_disagreement_blocks_promotion_and_records_blockers():
 def test_verification_never_reaches_frozen():
     eng = VerificationEngine()
     assert eng.promote(GOOD, eng.verify(GOOD)).status != "frozen"
+
+
+# --- regression: verify must never wipe the author's declared freeze_blockers ---
+WITH_BLOCKERS = Decision(
+    summary="Use STM32WL", recommendation="Switch SoC", confidence=0.8, status="recommended",
+    evidence=[{"claim": "nRF52840 has no LoRa", "source": "datasheet", "kind": "fact"}],
+    freeze_blockers=["Time-multiplex scheme must be proven on test bench before freezing schematic"],
+)
+
+
+def test_promotion_preserves_author_freeze_blockers():
+    """Agreement promotes to verified but must carry the author's freeze_blockers forward, not wipe them.
+
+    A verified decision can still hold freeze_blockers; only the CP-9 freeze gate clears/enforces them.
+    """
+    eng = VerificationEngine()
+    promoted = eng.promote(WITH_BLOCKERS, eng.verify(WITH_BLOCKERS))
+    assert promoted.status == "verified"
+    assert promoted.freeze_blockers == WITH_BLOCKERS.freeze_blockers  # preserved, not []
+
+
+def test_disagreement_appends_without_dropping_existing_blockers():
+    eng = VerificationEngine()
+    unsupported_with_blocker = UNSUPPORTED.model_copy(update={
+        "freeze_blockers": ["Bench validation pending"],
+    })
+    result = eng.promote(unsupported_with_blocker, eng.verify(unsupported_with_blocker))
+    assert result.status == "recommended"
+    assert "Bench validation pending" in result.freeze_blockers  # original kept
+    assert len(result.freeze_blockers) > 1  # verify issues appended on top
