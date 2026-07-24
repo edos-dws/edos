@@ -191,9 +191,9 @@ gate DISABLED until `T` **derived from scored benchmark** (STOP: fabricate mat k
 **Design:** accept/challenge/later-reverse signals store → (a) confidence **calibration** (predicted vs actual reliability
 curve), (b) ranking/edge-weight **tuning** — **eval-gated** (recall regress na ho). No silent overfit.
 
-- [ ] **17.1 Outcome capture** — signals per decision stored. AC: recorded.
-- [ ] **17.2 Confidence calibration** — reliability curve from outcomes. AC: calibration improves, monotonic-ish.
-- [ ] **17.3 Ranking tuning** — weights tuned, **behind CP-13 eval gate**. AC: recall improves or unchanged (never worse).
+- [x] **17.1 Outcome capture** — signals per decision stored. AC: recorded.
+- [x] **17.2 Confidence calibration** — reliability curve from outcomes. AC: calibration improves, monotonic-ish.
+- [x] **17.3 Ranking tuning** — weights tuned, **behind CP-13 eval gate**. AC: recall improves or unchanged (never worse).
 **Open:** none.
 
 **Gate:** self-merge (behind eval gate).
