@@ -8,8 +8,8 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from edos.db.base import Base
 from edos.db import models  # noqa: F401 — ensure tables register on Base.metadata
+from edos.db.base import Base
 
 
 def ensure_pgvector(engine: Engine) -> None:

@@ -1,18 +1,19 @@
 """Ticket 1.2 — the ContextPackage model must agree with its locked contract."""
 import jsonschema
 import pytest
+from pydantic import ValidationError
 
 from edos.models.context import ContextPackage, validate_against_contract
 
-VALID = dict(
-    project_id="agrisense-n1",
-    intent="architecture_review",
-    entities=["LoRaWAN", "solar", "nRF52840"],
-    items=[
+VALID = {
+    "project_id": "agrisense-n1",
+    "intent": "architecture_review",
+    "entities": ["LoRaWAN", "solar", "nRF52840"],
+    "items": [
         {"type": "decision", "ref_id": "D-1", "content": "MCU=nRF52840", "score": 0.9},
         {"type": "requirement", "ref_id": "R-3", "content": "report every 10s", "score": 0.6},
     ],
-)
+}
 
 
 def test_valid_package_passes_model_and_contract():
@@ -29,17 +30,17 @@ def test_items_are_returned_highest_score_first():
 
 def test_missing_items_fails():
     payload = {k: v for k, v in VALID.items() if k != "items"}
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ContextPackage(**payload)
 
 
 def test_bad_item_type_fails():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ContextPackage(**{**VALID, "items": [{"type": "nonsense", "content": "x", "score": 0.5}]})
 
 
 def test_score_out_of_range_fails():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ContextPackage(**{**VALID, "items": [{"type": "project", "content": "x", "score": 2.0}]})
 
 

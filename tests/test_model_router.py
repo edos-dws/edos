@@ -2,6 +2,7 @@
 import pytest
 
 from edos.engines.model_router import Capability, ModelRouter, Tier, tier_for
+from edos.engines.prompt import MalformedOutputError
 from edos.models.decision import decision_contract, validate_against_contract
 
 
@@ -22,7 +23,7 @@ def test_decision_capability_returns_contract_valid_output():
 def test_schema_mismatch_raises():
     router = ModelRouter()
     # non-decision capability returns a stub dict that will NOT satisfy the decision schema
-    with pytest.raises(Exception):
+    with pytest.raises(MalformedOutputError):
         router.execute(Capability.intent, context={}, schema=decision_contract())
 
 

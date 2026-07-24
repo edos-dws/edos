@@ -1,5 +1,6 @@
 """Ticket 1.3 — core domain entities and the 11-type graph Edge."""
 import pytest
+from pydantic import ValidationError
 
 from edos.models.entities import (
     Alert,
@@ -37,15 +38,15 @@ def test_construct_each_entity():
 def test_edge_enforces_relation_type():
     e = Edge(source_id="D-1", target_id="R-3", relation_type=RelationType.conflicts_with, confidence=0.8)
     assert e.relation_type == RelationType.conflicts_with
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Edge(source_id="a", target_id="b", relation_type="teleports_to")
 
 
 def test_confidence_bounds_enforced():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Assumption(id="A2", project_id="p1", statement="x", confidence=1.4)
 
 
 def test_extra_fields_forbidden():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Project(id="p1", name="X", surprise=1)

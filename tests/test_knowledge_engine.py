@@ -4,11 +4,11 @@ from edos.models.decision import Decision
 
 
 def _decision(**over):
-    base = dict(
-        summary="Use STM32 H743", recommendation="Adopt STM32 H743 for headroom",
-        confidence=0.8, status="verified",
-        evidence=[{"claim": "STM32 H743 has more RAM", "source": "datasheet", "kind": "fact"}],
-    )
+    base = {
+        "summary": "Use STM32 H743", "recommendation": "Adopt STM32 H743 for headroom",
+        "confidence": 0.8, "status": "verified",
+        "evidence": [{"claim": "STM32 H743 has more RAM", "source": "datasheet", "kind": "fact"}],
+    }
     base.update(over)
     return Decision(**base)
 
