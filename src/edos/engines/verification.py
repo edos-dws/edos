@@ -47,13 +47,17 @@ class VerificationEngine:
     def promote(self, decision: Decision, verdict: Verdict) -> Decision:
         """Promote `recommended → verified` only if verification agrees; else record freeze_blockers.
 
-        Never promotes to `frozen` — that is the CP-9 freeze gate's job alone.
+        Verification critiques the *reasoning*; it never resolves the author's declared
+        `freeze_blockers` (the preconditions that must be met before freeze). Those are always carried
+        forward — a `verified` decision can still hold freeze_blockers, and the CP-9 freeze gate is the
+        only stage allowed to clear/enforce them. Verification only *adds* its own disagreement issues as
+        blockers; it never wipes existing ones. Never promotes to `frozen`.
         """
         if verdict.agreement and decision.status == "recommended":
             return decision.model_copy(update={
                 "status": "verified",
                 "confidence": verdict.adjusted_confidence,
-                "freeze_blockers": [],
+                "freeze_blockers": list(decision.freeze_blockers),  # carry forward; never wipe
             })
         return decision.model_copy(update={
             "status": "recommended",
