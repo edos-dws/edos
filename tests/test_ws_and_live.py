@@ -32,7 +32,8 @@ def test_ws_analyze_streams_stages_then_decision():
         validate_against_contract(decision)
 
 
-def test_ws_analyze_streams_clarification_on_empty_context():
+def test_ws_analyze_streams_clarification_on_empty_context(session):
+    # `session` fixture creates the schema; the retriever finds no items for p1 → clarification (CP-13)
     with client.websocket_connect("/v1/ws/analyze") as ws:
         ws.send_json({"project_id": "p1", "question": "?", "context_items": []})
         seen = set()
