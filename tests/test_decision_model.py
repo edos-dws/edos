@@ -1,16 +1,17 @@
 """Ticket 1.1 — the Decision model must agree with the locked decision contract."""
 import jsonschema
 import pytest
+from pydantic import ValidationError
 
 from edos.models.decision import Decision, DecisionStatus, validate_against_contract
 
-VALID = dict(
-    summary="Use STM32WL, not nRF52840",
-    recommendation="Switch to an SoC with an integrated sub-GHz LoRa radio.",
-    confidence=0.88,
-    status="recommended",
-    evidence=[{"claim": "nRF52840 has no LoRa radio", "source": "proj:radio-note", "kind": "fact"}],
-)
+VALID = {
+    "summary": "Use STM32WL, not nRF52840",
+    "recommendation": "Switch to an SoC with an integrated sub-GHz LoRa radio.",
+    "confidence": 0.88,
+    "status": "recommended",
+    "evidence": [{"claim": "nRF52840 has no LoRa radio", "source": "proj:radio-note", "kind": "fact"}],
+}
 
 
 def test_valid_decision_passes_model_and_contract():
@@ -27,22 +28,22 @@ def test_status_is_constrained_enum():
 
 def test_missing_evidence_fails_model():
     payload = {k: v for k, v in VALID.items() if k != "evidence"}
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Decision(**payload)
 
 
 def test_confidence_out_of_range_fails():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Decision(**{**VALID, "confidence": 1.5})
 
 
 def test_unknown_status_fails():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Decision(**{**VALID, "status": "frozenish"})
 
 
 def test_extra_field_forbidden():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         Decision(**{**VALID, "surprise": 123})
 
 
