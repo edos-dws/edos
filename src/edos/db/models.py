@@ -93,6 +93,19 @@ class ProjectItem(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class AssumptionResolution(Base):
+    """Records an engineer resolving a decision's assumption (CP-15). Stored separately so the locked
+    decision contract stays pure; the resolution triggers a new decision version."""
+
+    __tablename__ = "assumption_resolutions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    decision_id: Mapped[str] = mapped_column(String, index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    resolution: Mapped[str] = mapped_column(Text)
+    resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class GraphEdge(Base):
     __tablename__ = "graph_edges"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
