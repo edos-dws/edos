@@ -177,9 +177,9 @@ frontier decision. **Purana `_missing_essentials` (dumb "0 items") replace.** **
 + **faithfulness scoring** (CP-14). Still **lower-only confidence, freeze_blockers preserved** (Phase-1 fix). Freeze
 gate DISABLED until `T` **derived from scored benchmark** (STOP: fabricate mat karo). Freeze = human-approved only.
 
-- [ ] **16.1 Self-RAG critic** — independent critic + faithfulness scoring; lower-only; preserve blockers. AC: weak assumption → issue + drop.
-- [ ] **16.2 Freeze threshold T** — benchmark se derive; gate `T` ke peeche enable. AC: below-T→blocked; at/above + no blockers→eligible. **Open: OD-6 (STOP, no fabricate).**
-- [ ] **16.3 Freeze flow** — `verified`+eligible → human-approved → `status=frozen` immutable. AC: freeze sirf gate+human.
+- [x] **16.1 Self-RAG critic** — independent critic + faithfulness scoring; lower-only; preserve blockers. AC: weak assumption → issue + drop.
+- [x] **16.2 Freeze threshold T** — benchmark se derive; gate `T` ke peeche enable. AC: below-T→blocked; at/above + no blockers→eligible. **Open: OD-6 (STOP, no fabricate).**
+- [x] **16.3 Freeze flow** — `verified`+eligible → human-approved → `status=frozen` immutable. AC: freeze sirf gate+human.
 **Open:** OD-6.
 
 **Gate:** 🔴 HUMAN (freeze — CLAUDE.md CP-8/9 rule).

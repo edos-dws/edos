@@ -9,8 +9,10 @@ go-live, augmenting `_find_issues` — the promotion/confidence contract here do
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from edos.engines import faithfulness
 from edos.models.decision import Decision
 
 _PENALTY_PER_ISSUE = 0.1
@@ -21,17 +23,25 @@ class Verdict:
     agreement: bool
     adjusted_confidence: float
     issues: list[str] = field(default_factory=list)
+    faithfulness: float | None = None
 
 
 class VerificationEngine:
-    def verify(self, decision: Decision) -> Verdict:
-        """Critique the decision. Confidence can only go down (or stay); never up."""
+    def verify(self, decision: Decision, context_refs: Iterable[str] | None = None) -> Verdict:
+        """Critique the decision. Confidence can only go down (or stay); never up. When `context_refs` are
+        given, a faithfulness pass (CP-14) adds ungrounded claims as issues (Self-RAG hardening, CP-16)."""
         issues = self._find_issues(decision)
+        faithfulness_score: float | None = None
+        if context_refs is not None:
+            fr = faithfulness.check(decision, context_refs)
+            faithfulness_score = fr.faithfulness_score
+            issues += [f"ungrounded claim (not traceable to context): {c}" for c in fr.ungrounded_claims]
         agreement = not issues
         penalty = min(_PENALTY_PER_ISSUE * len(issues), decision.confidence)
         adjusted = decision.confidence - penalty
         adjusted = max(0.0, min(adjusted, decision.confidence))  # clamp; never increase
-        return Verdict(agreement=agreement, adjusted_confidence=round(adjusted, 6), issues=issues)
+        return Verdict(agreement=agreement, adjusted_confidence=round(adjusted, 6), issues=issues,
+                       faithfulness=faithfulness_score)
 
     @staticmethod
     def _find_issues(decision: Decision) -> list[str]:
