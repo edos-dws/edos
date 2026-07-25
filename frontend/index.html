@@ -86,6 +86,13 @@
   .whybox{background:#f3f1fe;border:1px solid #e2ddfb;border-radius:8px;padding:.6rem .8rem;margin-bottom:.6rem}
   .whybox .h{color:#6d5efc;font-weight:700;font-size:10px;letter-spacing:.1em}
   .whybox .t{font-size:13px;color:#3a3560;margin-top:.2rem}
+  /* UI-CP-11: already-known (skipped) hint + adaptive follow-up */
+  .skipped{background:#eafaf1;border:1px solid #bfe8d2;border-radius:10px;padding:.7rem .9rem;margin-bottom:1rem}
+  .skipped .sh{color:#0d7a45;font-weight:700;font-size:12px}
+  .skipped ul{margin:.4rem 0 0;padding-left:1.1rem;font-size:13px;color:#2f4a3c}
+  .skipped li{margin:.15rem 0}
+  .fuhead{color:#6d5efc;font-weight:700;font-size:12px;letter-spacing:.04em;margin:.2rem 0 .5rem}
+  .qcard.followup{border-color:#c9bffb;background:#faf9ff}
 
   /* ---- UI-CP-4: Decision Card ---- */
   .deccard{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:1.1rem;background:var(--surface)}
@@ -562,17 +569,18 @@ async function saveReview(){
   }catch(e){ alert('save: '+e.message); }
 }
 
-/* ---- UI-CP-4: Deep Dive → Decision Card ---- */
-let DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]};
+/* ---- UI-CP-4 / UI-CP-11: Deep Dive → (context-grounded questions + adaptive follow-up) → Decision Card ---- */
+let DD={topic:'',questions:null,skipped:[],note:'',answers:{},followups:null,fuAnswers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]};
 
 function renderDeepDive(){
   // preserve any in-progress topic/answers typed into the DOM before re-render
   const tEl=$('#ddtopic'); if(tEl) DD.topic=tEl.value;
   if(DD.questions) DD.questions.forEach(q=>{const a=$('#a-'+q.id); if(a) DD.answers[q.id]=a.value;});
+  if(DD.followups) DD.followups.forEach(q=>{const a=$('#fa-'+q.id); if(a) DD.fuAnswers[q.id]=a.value;});
 
   let html=`
     <div class="card">
-      <div class="eyebrow">Deep Dive <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— targeted questions (each with a rationale), then a Decision Card</span></div>
+      <div class="eyebrow">Deep Dive <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— context-grounded questions (each with a rationale), then a Decision Card</span></div>
       <textarea id="ddtopic" rows="2" placeholder="What decision are you diving into? e.g. &quot;Cell balancing strategy — passive vs active for 14S LFP&quot;">${esc(DD.topic)}</textarea>
       <div class="row" style="margin-top:.6rem;justify-content:flex-end">
         <button ${DD.busy?'disabled':''} onclick="ddAsk()">${DD.busy?'Thinking…':(DD.questions?'New topic':'Ask targeted questions')}</button>
@@ -581,14 +589,39 @@ function renderDeepDive(){
 
   if(DD.questions){
     html+=`<div class="userinput"><div class="l">USER INPUT</div><div style="margin-top:.3rem">"${esc(DD.topic)}"</div></div>`;
-    html+=DD.questions.map((q,i)=>`
-      <div class="qcard">
-        <div class="qh">Q${i+1} · ${esc(q.q)}</div>
-        <div class="whybox"><div class="h">WHY AM I ASKING?</div><div class="t">${esc(q.why)}</div></div>
-        <textarea id="a-${q.id}" rows="2" placeholder="Your answer…">${esc(DD.answers[q.id]||'')}</textarea>
-      </div>`).join('');
-    html+=`<div class="row" style="justify-content:flex-end;margin-bottom:1.1rem">
-      <button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button></div>`;
+    // UI-CP-11: "already known" hint — concerns the project context already answers (not re-asked)
+    if(DD.skipped&&DD.skipped.length){
+      html+=`<div class="skipped"><div class="sh">✓ Already known (skipped ${DD.skipped.length}) — the project context already answers:</div>
+        <ul>${DD.skipped.map(s=>`<li><b>${esc(s.q)}</b> <span class="muted">— ${esc(s.reason)}</span></li>`).join('')}</ul></div>`;
+    }
+    if(!DD.questions.length){
+      html+=`<div class="qcard"><div class="muted">${esc(DD.note||'The project already has enough context — go straight to a decision.')}</div>
+        <div class="row" style="justify-content:flex-end;margin-top:.6rem"><button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button></div></div>`;
+    }else{
+      html+=DD.questions.map((q,i)=>`
+        <div class="qcard">
+          <div class="qh">Q${i+1} · ${esc(q.q)}</div>
+          <div class="whybox"><div class="h">WHY AM I ASKING?</div><div class="t">${esc(q.why)}</div></div>
+          <textarea id="a-${q.id}" rows="2" placeholder="Your answer…">${esc(DD.answers[q.id]||'')}</textarea>
+        </div>`).join('');
+      // adaptive follow-ups (0–2) — shown only after the batch answers reveal a gap/contradiction
+      if(DD.followups&&DD.followups.length){
+        html+=`<div class="fuhead">Based on your answers, one more:</div>`;
+        html+=DD.followups.map((q,i)=>`
+          <div class="qcard followup">
+            <div class="qh">Follow-up ${i+1} · ${esc(q.q)}</div>
+            <div class="whybox"><div class="h">WHY AM I ASKING?</div><div class="t">${esc(q.why)}</div></div>
+            <textarea id="fa-${q.id}" rows="2" placeholder="Your answer…">${esc(DD.fuAnswers[q.id]||'')}</textarea>
+          </div>`).join('');
+      }
+      // nothing mandatory: the engineer can always skip straight to a decision
+      const primary = DD.followups===null
+        ? `<button ${DD.busy?'disabled':''} onclick="ddFollowup()">${DD.busy?'Checking…':'Continue'}</button>`
+        : `<button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button>`;
+      html+=`<div class="row" style="justify-content:flex-end;margin-bottom:1.1rem;gap:.6rem">
+        <button class="ghost" ${DD.busy?'disabled':''} onclick="ddDecide()" title="Nothing is mandatory — decide with what you have">Skip to decision</button>
+        ${primary}</div>`;
+    }
   }
   if(DD.envelope) html+=renderDecisionCard(DD.envelope);
   $('#view').innerHTML=html;
@@ -598,17 +631,38 @@ function renderDeepDive(){
 async function ddAsk(){
   DD.topic=($('#ddtopic').value||'').trim();
   if(!DD.topic){ $('#ddtopic').focus(); return; }
-  DD.busy=true; DD.questions=null; DD.answers={}; DD.envelope=null; renderDeepDive();
+  DD.busy=true; DD.questions=null; DD.skipped=[]; DD.note=''; DD.answers={}; DD.followups=null; DD.fuAnswers={}; DD.envelope=null; renderDeepDive();
   try{
     const r=await api(`/v1/projects/${PID}/deepdive`,{method:'POST',body:JSON.stringify({topic:DD.topic})});
-    DD.questions=r.questions;
+    DD.questions=r.questions; DD.skipped=r.skipped||[]; DD.note=r.note||'';
   }catch(e){ alert('deep dive: '+e.message); }
   DD.busy=false; renderDeepDive();
 }
 
-async function ddDecide(){
+function ddCollectAnswers(){
   DD.questions.forEach(q=>{const a=$('#a-'+q.id); if(a) DD.answers[q.id]=a.value;});
-  const answers=DD.questions.map(q=>({id:q.id,answer:(DD.answers[q.id]||'').trim()})).filter(a=>a.answer);
+  if(DD.followups) DD.followups.forEach(q=>{const a=$('#fa-'+q.id); if(a) DD.fuAnswers[q.id]=a.value;});
+  const base=DD.questions.map(q=>({id:q.id,answer:(DD.answers[q.id]||'').trim()})).filter(a=>a.answer);
+  const fu=(DD.followups||[]).map(q=>({id:q.id,answer:(DD.fuAnswers[q.id]||'').trim()})).filter(a=>a.answer);
+  return base.concat(fu);
+}
+
+// UI-CP-11: after the batch, ask the backend for 0–2 targeted follow-ups. Empty → go straight to decide.
+async function ddFollowup(){
+  const answers=ddCollectAnswers();
+  DD.busy=true; renderDeepDive();
+  try{
+    const r=await api(`/v1/projects/${PID}/deepdive/followup`,{method:'POST',
+      body:JSON.stringify({topic:DD.topic,answers})});
+    DD.followups=r.questions||[];
+    DD.busy=false;
+    if(!DD.followups.length){ return ddDecide(); }  // nothing warranted → decide now
+    renderDeepDive();
+  }catch(e){ DD.busy=false; DD.followups=[]; alert('follow-up: '+e.message); renderDeepDive(); }
+}
+
+async function ddDecide(){
+  const answers=ddCollectAnswers();
   DD.busy=true; renderDeepDive();
   try{
     DD.envelope=await api(`/v1/projects/${PID}/deepdive/decide`,{method:'POST',
