@@ -56,7 +56,8 @@ def test_brain_empty_project(client):
     assert b["coverage"] == 0
     assert set(b["coverage_by_domain"]) == set(coverage.DOMAINS)
     assert all(v == 0 for v in b["coverage_by_domain"].values())
-    assert b["counts"] == {"decisions": 0, "assumptions": 0, "contradictions": 0, "open_risks": 0}
+    assert b["counts"] == {"decisions": 0, "assumptions": 0, "assumptions_open": 0,
+                           "assumptions_resolved": 0, "contradictions": 0, "open_risks": 0}
 
 
 def test_answer_raises_domain_coverage(client):

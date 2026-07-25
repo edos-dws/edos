@@ -129,6 +129,16 @@
   .exprow:first-of-type{border-top:0}
   .exprow .k{color:#8ea0c6}
   .chip.dark{background:#1e2947;border-color:#2c3a5f;color:#c9d5ef}
+  /* assumption lifecycle status chips (UI-CP-6): created=neutral, validated=green, challenged=amber, invalidated=red */
+  .achip{display:inline-block;font-size:12px;border-radius:6px;padding:.2rem .55rem;margin:.15rem .25rem .15rem 0;border:1px solid var(--line);font-weight:600}
+  .achip .aid{font-weight:800;opacity:.85;margin-right:.35rem}
+  .achip.created{background:#eef0f8;color:#2c3e66;border-color:#c3d2ec}
+  .achip.validated{background:#e3f6ec;color:#0f6b3d;border-color:#9bd8b6}
+  .achip.challenged{background:#fdf0d9;color:#8a5a00;border-color:#eccf86}
+  .achip.invalidated{background:#fde3e3;color:#a5231f;border-color:#f0b3b1}
+  .arow{border:1px solid var(--line);border-radius:10px;padding:.75rem .9rem;margin-bottom:.6rem}
+  .arow .asrc{font-size:12px;color:var(--ink2);margin-top:.25rem}
+  .achip.dark{border-color:#2c3a5f}
   .challenge{background:#ef8b2c;color:#fff;font-weight:700;margin-top:1rem}
   .challenge:hover{background:#e07d1d}
 
@@ -215,7 +225,7 @@ async function delProject(id,name){
   if(PID===id)PID=null;
   await loadProjects(); render();
 }
-async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false}; loadProjects(); tab('brain'); }
+async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]}; loadProjects(); tab('brain'); }
 
 /* ---- tab routing ---- */
 function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
@@ -247,7 +257,8 @@ async function renderBrain(){
       <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${cov}%"></div></div><div class="covpct">${cov}%</div></div>
       <div class="tiles">
         <div class="tile"><div class="n">${c.decisions}</div><div class="l">Decisions</div></div>
-        <div class="tile"><div class="n">${c.assumptions}</div><div class="l">Assumptions</div></div>
+        <div class="tile" style="cursor:pointer" onclick="openAssumptions()" title="View &amp; manage assumptions">
+          <div class="n">${c.assumptions}</div><div class="l">Assumptions ›</div></div>
         <div class="tile"><div class="n">${c.contradictions}</div><div class="l">Contradictions</div></div>
         <div class="tile"><div class="n">${c.open_risks}</div><div class="l">Open Risks</div></div>
       </div>
@@ -317,6 +328,48 @@ async function attachDoc(domain){
   openCoverage(domain);
 }
 
+/* ---- UI-CP-6: Assumptions panel (first-class chips + lifecycle) ---- */
+const ASTATUS=['created','validated','challenged','invalidated'];
+const ASLABEL={created:'Created',validated:'Validated',challenged:'Challenged',invalidated:'Invalidated'};
+
+async function openAssumptions(){
+  let rows=[];
+  try{ rows=await api(`/v1/projects/${PID}/assumptions`); }catch(e){ alert('assumptions: '+e.message); return; }
+  const p=PROJECTS.find(x=>x.id===PID)||{name:'Project'};
+  const counts=ASTATUS.map(s=>`${rows.filter(r=>r.status===s).length} ${ASLABEL[s].toLowerCase()}`).join(' · ');
+  const body = rows.length ? rows.map(a=>`
+    <div class="arow">
+      <div class="row wrap" style="align-items:center;gap:.5rem">
+        <span class="achip ${a.status}"><span class="aid">${esc(a.id)}</span>${esc(ASLABEL[a.status]||a.status)}</span>
+        <b style="flex:1;min-width:200px">${esc(a.statement)}</b>
+      </div>
+      ${a.risk_if_wrong?`<div class="asrc"><b>Risk if wrong:</b> ${esc(a.risk_if_wrong)}</div>`:''}
+      <div class="asrc">Source: ${a.source_decision_id?`decision <code>${esc(a.source_decision_id)}</code>`:'—'}</div>
+      <div class="row wrap" style="margin-top:.5rem;gap:.35rem">
+        ${ASTATUS.filter(s=>s!==a.status).map(s=>`
+          <button class="ghost sm" onclick="setAssumptionStatus('${esc(a.id)}','${s}')">→ ${ASLABEL[s]}</button>`).join('')}
+      </div>
+    </div>`).join('')
+    : '<div class="empty">No assumptions yet. They appear here once a decision is persisted (its inline assumptions become first-class A-ids), or add them via Deep Dive.</div>';
+  $('#view').innerHTML=`
+    <div class="brainbar"><span class="dot"></span> ASSUMPTIONS · ${esc(p.name)} <span class="grow"></span>
+      <button class="ghost sm" onclick="renderBrain()">← Project Brain</button></div>
+    <div class="brainbody">
+      <div class="eyebrow">Lifecycle <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— Created → Validated → Challenged → Invalidated</span></div>
+      <div class="muted" style="margin-bottom:1rem">${rows.length} assumption(s) · ${counts}</div>
+      ${body}
+    </div>`;
+}
+
+async function setAssumptionStatus(aid,status){
+  try{
+    await api(`/v1/assumptions/${aid}/status`,{method:'POST',body:JSON.stringify({status,project_id:PID})});
+  }catch(e){ alert('status: '+e.message); return; }
+  // refresh the assumptions panel; if a decision card is open its chips refresh on next render
+  if(DD&&DD.envelope){ try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{} }
+  openAssumptions();
+}
+
 /* ---- UI-CP-3: Engineering Review → Findings ---- */
 const CATLABEL={contradiction:'Contradiction',hidden_dependency:'Hidden Dependency',assumption:'Assumption',optimization:'Optimization',best_practice:'Best Practice'};
 let REVIEWTEXT='', REVIEWFINDINGS=null, REVIEWBUSY=false;
@@ -379,7 +432,7 @@ async function saveReview(){
 }
 
 /* ---- UI-CP-4: Deep Dive → Decision Card ---- */
-let DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false};
+let DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]};
 
 function renderDeepDive(){
   // preserve any in-progress topic/answers typed into the DOM before re-render
@@ -428,6 +481,7 @@ async function ddDecide(){
   try{
     DD.envelope=await api(`/v1/projects/${PID}/deepdive/decide`,{method:'POST',
       body:JSON.stringify({topic:DD.topic,answers})});
+    try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
   }catch(e){ alert('decide: '+e.message); }
   DD.busy=false; renderDeepDive();
   const card=$('#deccard'); if(card) card.scrollIntoView({behavior:'smooth'});
@@ -476,7 +530,14 @@ function renderDecisionCard(env){
   const risksBlock=risks?`<div class="eyebrow" style="margin-top:1.1rem">Risks &amp; Blind Spots</div>${risks}`:'';
 
   // decision explorer (dark)
-  const assumChips=(d.assumptions||[]).map(a=>`<span class="chip dark">${esc(a.statement)}</span>`).join('')||'<span class="muted">—</span>';
+  // UI-CP-6: render assumptions as first-class status chips (match by source decision or statement).
+  const fc=(DD.assumptions||[]).filter(a=>a.source_decision_id===env.id);
+  const byStmt={}; (DD.assumptions||[]).forEach(a=>{byStmt[(a.statement||'').trim().toLowerCase()]=a;});
+  const assumChips=(d.assumptions||[]).map(a=>{
+    const m=byStmt[(a.statement||'').trim().toLowerCase()];
+    const st=m?m.status:'created'; const aid=m?`<span class="aid">${esc(m.id)}</span>`:'';
+    return `<span class="achip dark ${st}" title="${esc(ASLABEL[st]||st)}">${aid}${esc(a.statement)}</span>`;
+  }).join('') || fc.map(a=>`<span class="achip dark ${a.status}"><span class="aid">${esc(a.id)}</span>${esc(a.statement)}</span>`).join('') || '<span class="muted">—</span>';
   const compChips=(det.impacted_components||[]).join(' · ')||'—';
   const related=(det.related_decisions||[]).filter(r=>r.id!==env.id).map(r=>`${esc(r.id)} (${esc(r.status)})`).join(', ')||'None';
   const deps=(det.dependencies||[]).length?det.dependencies.map(x=>esc(x)).join(' · '):'None (first decision)';
@@ -523,6 +584,7 @@ async function ddAccept(id){
     await api(`/v1/decisions/${id}/accept`,{method:'POST',body:JSON.stringify({})});
     await api(`/v1/decisions/${id}/outcome`,{method:'POST',body:JSON.stringify({outcome:'accepted'})});
     DD.envelope=await api(`/v1/decisions/${id}`);
+    try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
     renderDeepDive();
   }catch(e){ alert('accept: '+e.message); }
 }
@@ -571,6 +633,7 @@ async function ddMarkChallenged(id){
     DD.envelope=await api(`/v1/decisions/${id}/challenge/accept`,{method:'POST',
       body:JSON.stringify({statement:DD.challenge.assumption.statement,note:'challenged via decision card'})});
     DD.challenged=true;
+    try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
     renderDeepDive();
   }catch(e){ alert('mark challenged: '+e.message); }
 }
