@@ -131,6 +131,34 @@
   .chip.dark{background:#1e2947;border-color:#2c3a5f;color:#c9d5ef}
   .challenge{background:#ef8b2c;color:#fff;font-weight:700;margin-top:1rem}
   .challenge:hover{background:#e07d1d}
+
+  /* challenge panel (UI-CP-5) — EDOS argues against its own recommendation */
+  .challengecard{border:1px solid #f0c9a4;border-top:4px solid #ef8b2c;border-radius:12px;
+    background:#fffaf4;margin-top:1.1rem;overflow:hidden}
+  .challengecard .ch-head{padding:1rem 1.2rem;border-bottom:1px solid #f3ddc6}
+  .challengecard .ch-head .eye{color:#c96a12;font-size:11px;letter-spacing:.16em;font-weight:700}
+  .challengecard .ch-head h3{margin:.35rem 0 .1rem;font-size:17px;color:var(--ink)}
+  .challengecard .ch-head .asmp{background:#fff;border:1px solid #e7c7a6;border-radius:8px;
+    padding:.5rem .7rem;margin-top:.5rem;font-size:13px}
+  .challengecard .ch-head .asmp b{color:#c96a12}
+  .ch-cols{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .ch-col{padding:1rem 1.2rem}
+  .ch-col.cost{background:#fdf1ef;border-right:1px solid #f3ddc6}
+  .ch-col.offer{background:#eef8f1}
+  .ch-col h4{font-size:11px;letter-spacing:.1em;font-weight:700;margin:0 0 .6rem;text-transform:uppercase}
+  .ch-col.cost h4{color:#c23b30}
+  .ch-col.offer h4{color:#1f9d61}
+  .ch-col ul{margin:0;padding-left:1.1rem}
+  .ch-col li{font-size:13px;margin:.4rem 0;line-height:1.45}
+  .cost-callout{margin:0;padding:1rem 1.2rem;background:#fbe9e7;border-top:1px solid #f2c8c2;
+    color:#8f251c;font-weight:600;font-size:14px;line-height:1.5;display:flex;gap:.6rem;align-items:flex-start}
+  .cost-callout .ic{font-size:18px;line-height:1}
+  .ch-actions{padding:1rem 1.2rem;display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+  .ch-actions .markchg{background:#c23b30;color:#fff;font-weight:700}
+  .ch-actions .markchg:hover{background:#a82e25}
+  .monitored{padding:.9rem 1.2rem;background:#f4eefe;border-top:1px solid #ddd0f5;
+    color:#5a2ea6;font-size:13px;font-weight:600;display:flex;gap:.5rem;align-items:center}
+  @media(max-width:720px){.ch-cols{grid-template-columns:1fr}.ch-col.cost{border-right:0;border-bottom:1px solid #f3ddc6}}
 </style>
 </head>
 <body>
@@ -187,7 +215,7 @@ async function delProject(id,name){
   if(PID===id)PID=null;
   await loadProjects(); render();
 }
-async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false}; loadProjects(); tab('brain'); }
+async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false}; loadProjects(); tab('brain'); }
 
 /* ---- tab routing ---- */
 function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
@@ -351,7 +379,7 @@ async function saveReview(){
 }
 
 /* ---- UI-CP-4: Deep Dive → Decision Card ---- */
-let DD={topic:'',questions:null,answers:{},envelope:null,busy:false};
+let DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false};
 
 function renderDeepDive(){
   // preserve any in-progress topic/answers typed into the DOM before re-render
@@ -463,10 +491,12 @@ function renderDecisionCard(env){
     </div>`;
 
   const accepted=(st==='accepted');
+  const hasAssumptions=(d.assumptions||[]).length>0;
   const actions=`<div class="row" style="margin-top:1rem;gap:.6rem">
       <button ${accepted?'disabled':''} onclick="ddAccept('${env.id}')">${accepted?'✓ Accepted':'Accept Decision'}</button>
-      <button class="challenge" onclick="alert('Challenge This Decision arrives in UI-CP-5 — it will argue the counter-case against the load-bearing assumption with a cost callout.')">⚡ Challenge This Decision</button>
+      <button class="challenge" ${(!hasAssumptions||DD.challenging)?'disabled':''} onclick="ddChallenge('${env.id}')" title="${hasAssumptions?'':'This decision states no assumptions to challenge'}">${DD.challenging?'Challenging…':'⚡ Challenge This Decision'}</button>
     </div>
+    ${renderChallenge(env.id)}
     <div class="muted" style="font-size:12px;margin-top:.5rem">Share: edos.dev/d/${esc(env.id)}</div>`;
 
   return `<div class="deccard" id="deccard">
@@ -495,6 +525,54 @@ async function ddAccept(id){
     DD.envelope=await api(`/v1/decisions/${id}`);
     renderDeepDive();
   }catch(e){ alert('accept: '+e.message); }
+}
+
+/* ---- Challenge My Decision (UI-CP-5) ---- */
+function renderChallenge(id){
+  const c=DD.challenge; if(!c) return '';
+  const a=c.assumption||{};
+  const costs=(c.this_costs||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  const offers=(c.alternative_offers||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  const conf=(a.confidence!=null)?` · confidence ${Math.round(a.confidence*100)}%`:'';
+  const risk=a.risk_if_wrong?` · <span style="color:#c23b30">risk if wrong: ${esc(a.risk_if_wrong)}</span>`:'';
+  const footer=DD.challenged
+    ? `<div class="monitored">✓ Assumption marked <b>Challenged</b> — now a monitored risk on this decision, not a silent assumption.</div>`
+    : `<div class="ch-actions">
+         <button class="markchg" onclick="ddMarkChallenged('${id}')">Mark assumption as Challenged</button>
+         <span class="muted" style="font-size:12px">Flips it from a silent assumption to a tracked, monitored risk.</span>
+       </div>`;
+  return `<div class="challengecard">
+    <div class="ch-head">
+      <div class="eye">⚡ CHALLENGE — EDOS ARGUES AGAINST ITS OWN RECOMMENDATION</div>
+      <h3>The load-bearing assumption</h3>
+      <div class="asmp"><b>${esc(a.statement||'')}</b><span class="muted" style="font-size:12px">${conf}${risk}</span></div>
+    </div>
+    <div class="ch-cols">
+      <div class="ch-col cost"><h4>What this assumption is costing you</h4><ul>${costs}</ul></div>
+      <div class="ch-col offer"><h4>What ${esc(c.alternative||'the alternative')} offers</h4><ul>${offers}</ul></div>
+    </div>
+    <div class="cost-callout"><span class="ic">▲</span><span>${esc(c.cost_callout||'')}</span></div>
+    ${footer}
+  </div>`;
+}
+
+async function ddChallenge(id){
+  DD.challenging=true; DD.challenge=null; DD.challenged=false; renderDeepDive();
+  try{
+    DD.challenge=await api(`/v1/decisions/${id}/challenge`,{method:'POST',body:JSON.stringify({})});
+  }catch(e){ alert('challenge: '+e.message); }
+  DD.challenging=false; renderDeepDive();
+  const el=document.querySelector('.challengecard'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+async function ddMarkChallenged(id){
+  if(!DD.challenge||!DD.challenge.assumption) return;
+  try{
+    DD.envelope=await api(`/v1/decisions/${id}/challenge/accept`,{method:'POST',
+      body:JSON.stringify({statement:DD.challenge.assumption.statement,note:'challenged via decision card'})});
+    DD.challenged=true;
+    renderDeepDive();
+  }catch(e){ alert('mark challenged: '+e.message); }
 }
 
 loadProjects().then(render);

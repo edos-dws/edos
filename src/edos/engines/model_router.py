@@ -24,6 +24,7 @@ class Capability(str, Enum):
     knowledge_extraction = "knowledge_extraction"
     findings = "findings"
     deepdive = "deepdive"
+    challenge = "challenge"
     impact_triage = "impact_triage"
     decision = "decision"
     verification = "verification"
@@ -44,6 +45,7 @@ CAPABILITY_TIER: dict[Capability, Tier] = {
     Capability.knowledge_extraction: Tier.standard,
     Capability.findings: Tier.standard,
     Capability.deepdive: Tier.standard,
+    Capability.challenge: Tier.standard,
     Capability.impact_triage: Tier.standard,
     Capability.decision: Tier.frontier,
     Capability.verification: Tier.frontier,

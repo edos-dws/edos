@@ -40,6 +40,9 @@ from edos.engines import (
     writeback,
 )
 from edos.engines import (
+    challenge as challenge_engine,
+)
+from edos.engines import (
     findings as findings_engine,
 )
 from edos.engines.context import ContextEngine
@@ -377,6 +380,44 @@ def accept_decision(
     # write-back (CP-15): fold the accepted decision's knowledge into the project graph + embeddings
     writeback.process_accepted(session, decision_id=row.id, project_id=row.project_id,
                                decision=decision_store.to_decision(row))
+    return _decision_envelope(row)
+
+
+# ---------- Challenge My Decision (UI-CP-5) ----------
+class ChallengeAccept(BaseModel):
+    statement: str
+    note: str | None = None
+    challenged_by: str | None = None
+
+
+@app.post("/v1/decisions/{decision_id}/challenge")
+def challenge_decision(decision_id: str, session: Session = Depends(get_session)) -> dict:
+    """The iconic interaction (PDF p11): EDOS argues AGAINST its own recommendation. Loads the latest
+    decision, picks the single load-bearing assumption (lowest-confidence, biased by risk_if_wrong severity),
+    and returns the counter-case: what that assumption is costing you vs what the alternative offers, plus a
+    cost callout. Stub→heuristic like extraction.py — never fabricates dollar figures offline."""
+    row = decision_store.get_latest(session, decision_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    result = challenge_engine.challenge(decision_store.to_decision(row))
+    if result is None:
+        raise HTTPException(status_code=422,
+                            detail="decision states no assumptions — nothing load-bearing to challenge")
+    return {"decision_id": decision_id, **result}
+
+
+@app.post("/v1/decisions/{decision_id}/challenge/accept")
+def accept_challenge(
+    decision_id: str, body: ChallengeAccept, session: Session = Depends(get_session)
+) -> dict:
+    """Mark the load-bearing assumption CHALLENGED — it flips from a silent assumption to a monitored risk
+    (reuses resolution semantics). Returns the updated decision envelope."""
+    row = resolution.challenge_assumption(
+        session, decision_id=decision_id, statement=body.statement,
+        note=body.note, challenged_by=body.challenged_by,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="decision not found")
     return _decision_envelope(row)
 
 

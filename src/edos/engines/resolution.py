@@ -20,6 +20,7 @@ from edos.db.models import (
     new_decision_version,
 )
 from edos.engines import decision_store
+from edos.models.decision import Risk
 from edos.models.entities import RelationType
 
 
@@ -39,6 +40,35 @@ def resolve_assumption(
     return new_decision_version(
         session, current, status="accepted", body_json=_dump(revised), rationale=revised.recommendation,
     )
+
+
+def challenge_assumption(
+    session: Session, *, decision_id: str, statement: str, note: str | None = None,
+    challenged_by: str | None = None,
+) -> DecisionRecord | None:
+    """Mark an assumption **challenged** (UI-CP-5): it stops being a silent assumption and becomes a *monitored
+    risk*. Same audit-preserving shape as ``resolve_assumption`` — records the transition and appends a new
+    decision version — but instead of clearing a freeze_blocker it adds a monitored Risk that names the
+    assumption, so the (now-tracked) risk can't decay unnoticed. Idempotent on repeated challenges."""
+    current = decision_store.get_latest(session, decision_id)
+    if current is None:
+        return None
+    resolution = "challenged — monitored risk" + (f": {note}" if note else "")
+    session.add(AssumptionResolution(decision_id=decision_id, statement=statement, resolution=resolution,
+                                     resolved_by=challenged_by))
+    decision = decision_store.to_decision(current)
+    tag = f"Challenged assumption (monitored): {statement}"
+    already = any(r.description == tag for r in decision.risks)
+    risks = list(decision.risks)
+    if not already:
+        matched = next((a for a in decision.assumptions if a.statement.strip().lower() == statement.strip().lower()), None)
+        risk_if = (matched.risk_if_wrong if matched and matched.risk_if_wrong
+                   else "Was a silent assumption; now tracked so it cannot decay unnoticed.")
+        risks.append(Risk(description=tag, severity="medium", likelihood="medium",
+                          mitigation=f"Monitored risk — {risk_if} Revisit the decision if this assumption shifts."))
+    revised = decision.model_copy(update={"risks": risks})
+    # status is preserved (challenging an assumption does not itself accept/reject the decision)
+    return new_decision_version(session, current, body_json=_dump(revised))
 
 
 def _dump(decision) -> str:

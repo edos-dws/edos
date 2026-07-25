@@ -129,7 +129,10 @@ alternative_offers[], cost_callout}`. LLM-driven (stub→structured heuristic). 
 `challenged` reuses CP-15 resolution → assumption becomes a *monitored* risk.
 **UI:** ⚡ "Challenge This Decision" → side-by-side "what A-x is costing you" vs "what the alternative offers",
 red cost callout, "Mark assumption as Challenged".
-- [ ] 5.1 challenge engine. 5.2 `POST /challenge`. 5.3 UI challenge panel. 5.4 mark-challenged.
+- [x] 5.1 challenge engine (`engines/challenge.py`: load-bearing pick + stub→heuristic counter-case, no
+  fabricated $ offline). 5.2 `POST /v1/decisions/{id}/challenge` + `/challenge/accept`. 5.3 UI challenge
+  panel (two-column costing-you/alternative-offers + red cost callout). 5.4 mark-challenged →
+  `resolution.challenge_assumption` (assumption → monitored risk).
 **AC:** challenging DR surfaces the assumption + $ cost; marking it flips it to a tracked risk. **Resume:** challenge flow works.
 
 ---
