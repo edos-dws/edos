@@ -19,6 +19,7 @@ from edos.db.models import (
     ProjectItem,
     new_decision_version,
 )
+from edos.engines import assumptions as assumptions_engine
 from edos.engines import decision_store
 from edos.models.decision import Risk
 from edos.models.entities import RelationType
@@ -37,6 +38,8 @@ def resolve_assumption(
     # drop any freeze_blocker that referenced this assumption (now resolved) — legitimate, not fabricated
     kept = [b for b in decision.freeze_blockers if statement.lower() not in b.lower()]
     revised = decision.model_copy(update={"freeze_blockers": kept})
+    # keep the first-class assumption ledger in step: resolving validates the matching assumption (UI-CP-6)
+    assumptions_engine.set_status_by_statement(session, current.project_id, statement, "validated")
     return new_decision_version(
         session, current, status="accepted", body_json=_dump(revised), rationale=revised.recommendation,
     )
@@ -67,6 +70,8 @@ def challenge_assumption(
         risks.append(Risk(description=tag, severity="medium", likelihood="medium",
                           mitigation=f"Monitored risk — {risk_if} Revisit the decision if this assumption shifts."))
     revised = decision.model_copy(update={"risks": risks})
+    # keep the first-class assumption ledger in step: challenging flips the matching assumption (UI-CP-6)
+    assumptions_engine.set_status_by_statement(session, current.project_id, statement, "challenged")
     # status is preserved (challenging an assumption does not itself accept/reject the decision)
     return new_decision_version(session, current, body_json=_dump(revised))
 

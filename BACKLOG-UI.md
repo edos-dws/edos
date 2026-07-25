@@ -143,7 +143,11 @@ red cost callout, "Mark assumption as Challenged".
 status, source_decision, risk_if_wrong, created_at) so they persist, get IDs, cross-decision, and feed decay
 alerts. Endpoints: list, set-status (validate/challenge/invalidate). Extraction (CP smart-ask) also creates them.
 **UI:** assumptions panel (chips with status color), per-decision assumption chips, status transitions.
-- [ ] 6.1 Assumption table + migration. 6.2 CRUD/status endpoints. 6.3 wire decisions→assumptions. 6.4 UI panel.
+- [x] 6.1 Assumption table + migration. 6.2 CRUD/status endpoints. 6.3 wire decisions→assumptions. 6.4 UI panel.
+  Assumption table (`A{n}` per project, lifecycle status) + alembic `0010_assumptions`; `engines/assumptions.py`;
+  `GET /projects/{id}/assumptions` + `POST /assumptions/{aid}/status`; decisions (persist + deep-dive) mirror
+  inline assumptions into first-class rows; resolution challenge/resolve flips matching row status;
+  `/brain` assumptions count now live (open/resolved split); UI Assumptions panel + status chips on Decision Card.
 **AC:** assumptions have stable IDs + lifecycle; challenging/validating updates status + coverage. **Resume:** assumptions first-class.
 
 ---

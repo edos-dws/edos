@@ -14,7 +14,7 @@ from __future__ import annotations
 import datetime as dt
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from edos.db.base import Base
@@ -148,6 +148,35 @@ class AssumptionResolution(Base):
     resolution: Mapped[str] = mapped_column(Text)
     resolved_by: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Assumption(Base):
+    """First-class assumption (UI-CP-6). Assumptions are promoted from a decision's INLINE
+    ``assumptions[]`` (which stays pure — the locked contract is untouched) to a persistent row with:
+
+    * a **stable per-project id** ``A{n}`` (``id`` — first assumption in a project is ``A1``, next ``A2``…),
+      so an assumption can be referenced and can span decisions; and
+    * a **lifecycle status** (``created → validated → challenged → invalidated``) so the assumption can be
+      tracked, challenged, and fed to decay alerts instead of decaying silently.
+
+    The table MIRRORS the inline contract assumptions with ids + lifecycle; it does not replace them. The
+    per-project id is not globally unique (two projects both have an ``A1``), so the primary key is a
+    surrogate ``row_id`` and ``(project_id, id)`` is unique."""
+
+    __tablename__ = "assumptions"
+    row_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(String, index=True)  # A{n} — stable per project (see class docstring)
+    project_id: Mapped[str] = mapped_column(String, index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    # created | validated | challenged | invalidated
+    status: Mapped[str] = mapped_column(String, default="created")
+    source_decision_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    risk_if_wrong: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+    __table_args__ = (UniqueConstraint("project_id", "id", name="uq_assumption_project_aid"),)
 
 
 class GraphEdge(Base):

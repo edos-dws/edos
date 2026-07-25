@@ -25,6 +25,9 @@ from sqlalchemy.orm import Session
 from edos.api.deps import get_session, session_factory
 from edos.db.models import CoverageAnswer, GraphEdge, ProjectItem, new_decision_version
 from edos.engines import (
+    assumptions as assumptions_engine,
+)
+from edos.engines import (
     auth,
     coverage,
     decision_store,
@@ -350,6 +353,8 @@ def persist_decision(body: DecisionPersist, session: Session = Depends(get_sessi
     row = decision_store.save_new(
         session, id=_new_id(), project_id=body.project_id, decision=decision, status=body.status
     )
+    # UI-CP-6: mirror the decision's inline assumptions into first-class rows (ids + lifecycle).
+    assumptions_engine.upsert_from_decision(session, body.project_id, decision, row.id)
     return _decision_envelope(row)
 
 
@@ -653,7 +658,49 @@ def deepdive_decide(
         session, id=_new_id(), project_id=project_id, decision=decision,
         status="recommended", detail=detail,
     )
+    # UI-CP-6: mirror the decision's inline assumptions into first-class rows (ids + lifecycle).
+    assumptions_engine.upsert_from_decision(session, project_id, decision, row.id)
     return _decision_envelope(row)
+
+
+# ---------- Assumptions first-class + lifecycle (UI-CP-6) ----------
+def _assumption_dict(a) -> dict:
+    return {
+        "id": a.id, "project_id": a.project_id, "statement": a.statement, "status": a.status,
+        "source_decision_id": a.source_decision_id, "risk_if_wrong": a.risk_if_wrong,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+        "updated_at": a.updated_at.isoformat() if a.updated_at else None,
+    }
+
+
+@app.get("/v1/projects/{project_id}/assumptions")
+def list_assumptions(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    """List a project's first-class assumptions (stable A-ids + lifecycle status), oldest first."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return [_assumption_dict(a) for a in assumptions_engine.list_for_project(session, project_id)]
+
+
+class AssumptionStatusBody(BaseModel):
+    status: str  # created | validated | challenged | invalidated
+    # optional: disambiguate an A{n} that exists in more than one project (per-project ids aren't global)
+    project_id: str | None = None
+
+
+@app.post("/v1/assumptions/{aid}/status")
+def set_assumption_status(
+    aid: str, body: AssumptionStatusBody, session: Session = Depends(get_session)
+) -> dict:
+    """Transition an assumption through its lifecycle (validate / challenge / invalidate / reopen)."""
+    if body.status not in assumptions_engine.STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"invalid status: {body.status!r} (expected one of {list(assumptions_engine.STATUSES)})",
+        )
+    row = assumptions_engine.set_status(session, aid=aid, status=body.status, project_id=body.project_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="assumption not found")
+    return _assumption_dict(row)
 
 
 # ---------- Project Brain + Coverage (UI-CP-1 / UI-CP-2) ----------
@@ -662,20 +709,26 @@ def project_brain(project_id: str, session: Session = Depends(get_session)) -> d
     """Project Brain dashboard payload: live coverage + the four headline counts.
 
     coverage/coverage_by_domain come from the coverage engine (transparent, never fabricated).
-    counts: decisions from the decision store; contradictions = open-conflict watchdog alerts;
-    open_risks = all watchdog alerts; assumptions = 0 until first-class assumptions land (UI-CP-6)."""
+    counts: decisions from the decision store; assumptions = live count of first-class Assumption rows
+    (UI-CP-6, split open vs resolved); contradictions = open-conflict watchdog alerts; open_risks = all
+    watchdog alerts."""
     if store.get_project(session, project_id) is None:
         raise HTTPException(status_code=404, detail="project not found")
     report = coverage.coverage_report(session, project_id)
     alerts = watchdog.scan(session, project_id)
     decisions = len(decision_store.list_for_project(session, project_id))
     contradictions = sum(1 for a in alerts if a.type == "open_conflict")
+    assumption_rows = assumptions_engine.list_for_project(session, project_id)
+    # "open" = still-live (created); "resolved" = validated/challenged/invalidated (has a verdict)
+    assumptions_open = sum(1 for a in assumption_rows if a.status == "created")
     return {
         "coverage": report["overall"],
         "coverage_by_domain": report["by_domain"],
         "counts": {
             "decisions": decisions,
-            "assumptions": 0,  # TODO(UI-CP-6): first-class assumptions become countable here
+            "assumptions": len(assumption_rows),
+            "assumptions_open": assumptions_open,
+            "assumptions_resolved": len(assumption_rows) - assumptions_open,
             "contradictions": contradictions,
             "open_risks": len(alerts),
         },
