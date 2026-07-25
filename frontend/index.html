@@ -169,6 +169,32 @@
   .monitored{padding:.9rem 1.2rem;background:#f4eefe;border-top:1px solid #ddd0f5;
     color:#5a2ea6;font-size:13px;font-weight:600;display:flex;gap:.5rem;align-items:center}
   @media(max-width:720px){.ch-cols{grid-template-columns:1fr}.ch-col.cost{border-right:0;border-bottom:1px solid #f3ddc6}}
+
+  /* ---- UI-CP-7: Decision Graph (inline SVG) ---- */
+  .graphwrap{overflow-x:auto;background:#0f1629;border-radius:var(--radius);padding:.6rem}
+  svg.graph{display:block}
+  svg.graph .n-label{font:600 12px system-ui,sans-serif;fill:#fff}
+  svg.graph .n-label.dark{fill:#dfe6f5}
+  svg.graph .e-label{font:600 10px system-ui,sans-serif;fill:#9fb0d0;letter-spacing:.02em}
+  svg.graph .e-label.conflict{fill:#ff7a7d}
+  .glegend{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.7rem;font-size:12px;color:var(--ink2)}
+  .glegend .k{display:inline-flex;align-items:center;gap:.4rem}
+  .glegend .sw{width:26px;height:14px;border-radius:4px;display:inline-block}
+
+  /* ---- UI-CP-7: Decision Diff ---- */
+  .diffcard{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);background:var(--surface);overflow:hidden;margin-top:1rem}
+  .diffhead{background:var(--navy);color:#fff;padding:.8rem 1.1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .diffhead .vtag{font-size:11px;font-weight:800;letter-spacing:.06em;background:#26324f;color:#c9d5ef;padding:.15rem .5rem;border-radius:5px}
+  .diffbody{padding:1.1rem}
+  .diff-summ{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;font-size:15px}
+  .diff-summ .old{text-decoration:line-through;color:var(--ink2);background:#fbeaea;border:1px solid #f2c8c2;border-radius:6px;padding:.25rem .55rem}
+  .diff-summ .arw{color:var(--accent);font-weight:800}
+  .diff-summ .new{color:#0d6b3f;background:#eafaf1;border:1px solid #bfe9cf;border-radius:6px;padding:.25rem .55rem;font-weight:600}
+  .diffcols{display:grid;grid-template-columns:1.3fr 1fr;gap:1rem}
+  .diffcols .whyc,.diffcols .affc{border:1px solid var(--line);border-radius:10px;padding:.8rem .9rem}
+  .diffcols .whyc .h,.diffcols .affc .h{font-size:11px;letter-spacing:.1em;font-weight:700;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem}
+  .diffcols ul{margin:0;padding-left:1.1rem} .diffcols li{font-size:13px;margin:.35rem 0;line-height:1.45}
+  @media(max-width:720px){.diffcols{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -225,7 +251,7 @@ async function delProject(id,name){
   if(PID===id)PID=null;
   await loadProjects(); render();
 }
-async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]}; loadProjects(); tab('brain'); }
+async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]}; GRAPH={data:null,contradictions:null,decisions:null,diff:null,diffId:'',busy:false}; loadProjects(); tab('brain'); }
 
 /* ---- tab routing ---- */
 function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
@@ -234,6 +260,7 @@ function render(){
   if(TAB==='brain') return renderBrain();
   if(TAB==='review') return renderReview();
   if(TAB==='deepdive') return renderDeepDive();
+  if(TAB==='graph') return renderGraph();
   $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
 
@@ -636,6 +663,158 @@ async function ddMarkChallenged(id){
     try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
     renderDeepDive();
   }catch(e){ alert('mark challenged: '+e.message); }
+}
+
+/* ---- UI-CP-7: Decision Graph + Cross-Contradiction + Diff ---- */
+let GRAPH={data:null,contradictions:null,decisions:null,diff:null,diffId:'',busy:false};
+
+async function renderGraph(){
+  $('#view').innerHTML=`<div class="card"><div class="eyebrow">Decision Graph</div><div class="muted">Loading the decision web…</div></div>`;
+  try{
+    const [g,con,decs]=await Promise.all([
+      api(`/v1/projects/${PID}/graph`),
+      api(`/v1/projects/${PID}/contradictions`),
+      api(`/v1/projects/${PID}/decisions`),
+    ]);
+    GRAPH.data=g; GRAPH.contradictions=con; GRAPH.decisions=decs;
+  }catch(e){ $('#view').innerHTML=`<div class="empty">graph: ${esc(e.message)}</div>`; return; }
+  paintGraph();
+}
+
+function paintGraph(){
+  const g=GRAPH.data||{nodes:[],edges:[]};
+  const svg=g.nodes.length?graphSVG(g):`<div class="empty" style="color:#9fb0d0">No decisions or assumptions yet. Persist a decision (Deep Dive) — its nodes and their relationships appear here.</div>`;
+  const legend=`<div class="glegend">
+    <span class="k"><span class="sw" style="background:#6d5efc"></span> Decision</span>
+    <span class="k"><span class="sw" style="background:#eef0f8;border:1px solid #c3d2ec"></span> Assumption</span>
+    <span class="k"><span class="sw" style="background:#eef0f8;border:1px dashed #a5231f"></span> Challenged / invalidated</span>
+    <span class="k"><span class="sw" style="background:#e5484d"></span> Conflict edge</span></div>`;
+
+  const cons=GRAPH.contradictions||[];
+  const conCards=cons.length? cons.map(c=>`
+    <div class="finding contradiction">
+      <div class="row wrap" style="margin-bottom:.4rem">
+        <span class="cat contradiction">Cross-Decision Contradiction</span>
+        <span class="pill high">conflict</span>
+        <b>${esc(c.a_label)} ⇄ ${esc(c.b_label)}</b>
+      </div>
+      <div>${esc(c.explanation)}</div>
+      <div style="margin-top:.5rem"><span class="chip">${esc(c.a_type)} ${esc(c.a)}</span><span class="chip">${esc(c.b_type)} ${esc(c.b)}</span></div>
+    </div>`).join('')
+    : `<div class="muted" style="padding:.4rem">No cross-decision contradictions. When two decisions are linked by a <code>conflicts_with</code> edge they surface here.</div>`;
+
+  const versioned=(GRAPH.decisions||[]).filter(d=>d.version>1);
+  const options=versioned.map(d=>`<option value="${esc(d.id)}" ${d.id===GRAPH.diffId?'selected':''}>${esc((d.decision&&d.decision.summary)||d.id)} · v${d.version}</option>`).join('');
+  const diffPicker=versioned.length?`
+    <div class="row" style="gap:.6rem;margin-bottom:.6rem">
+      <select id="diffsel" onchange="loadDiff(this.value)" style="max-width:420px">
+        <option value="">Pick a decision with &gt;1 version…</option>${options}
+      </select>
+    </div>${GRAPH.diff?renderDiff(GRAPH.diff):''}`
+    : `<div class="muted" style="padding:.4rem">No decision has more than one version yet. Accept or edit a decision to create a new version, then its diff (struck-through old → new, why changed, affected) shows here.</div>`;
+
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="eyebrow">Decision Graph <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— decisions (purple) + assumptions (dashed = challenged/invalidated); red = conflicts_with</span></div>
+      <div class="graphwrap">${svg}</div>
+      ${legend}
+    </div>
+    <div class="card">
+      <div class="eyebrow">Cross-Decision Contradictions</div>
+      ${conCards}
+    </div>
+    <div class="card">
+      <div class="eyebrow">Decision Diff <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— what changed between two versions</span></div>
+      ${diffPicker}
+    </div>`;
+}
+
+function graphSVG(g){
+  const dec=g.nodes.filter(n=>n.type==='decision');
+  const asm=g.nodes.filter(n=>n.type==='assumption');
+  const DW=158,DH=54,AW=132,AH=42, decY=64, asmY=300;
+  const cols=Math.max(dec.length,asm.length,1);
+  const colW=Math.max(190, 900/cols);
+  const W=Math.max(680, cols*colW), H=380;
+  const pos={};
+  dec.forEach((n,i)=>{pos[n.id]={x:(i+0.5)*(W/Math.max(dec.length,1)),y:decY+DH/2,w:DW,h:DH,n};});
+  asm.forEach((n,i)=>{pos[n.id]={x:(i+0.5)*(W/Math.max(asm.length,1)),y:asmY+AH/2,w:AW,h:AH,n};});
+
+  // ---- edges first (under nodes) ----
+  const edgeSVG=(g.edges||[]).map(e=>{
+    const s=pos[e.source], t=pos[e.target]; if(!s||!t) return '';
+    const conflict=e.conflict;
+    const sameBand=Math.abs(s.y-t.y)<6;
+    const col=conflict?'#e5484d':'#5566a8';
+    let d, mx, my;
+    if(sameBand){ // bow above the band so decision↔decision edges don't overlap the row
+      const dir=(s.y<200)?-1:1; const lift=54;
+      const cx=(s.x+t.x)/2, cy=s.y+dir*lift;
+      const sx=s.x, sy=s.y+dir*(s.h/2), tx=t.x, ty=t.y+dir*(t.h/2);
+      d=`M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`; mx=cx; my=cy+dir*4;
+    }else{ // cross-band (assumption→decision): stop at box edges
+      const sy=s.y-s.h/2, ty=t.y+t.h/2;
+      d=`M ${s.x} ${sy} L ${t.x} ${ty}`; mx=(s.x+t.x)/2; my=(sy+ty)/2;
+    }
+    const marker=conflict?'':`marker-end="url(#arrow)"`;
+    const dash=conflict?'stroke-dasharray="6 4"':'';
+    const lbl=conflict?'conflicts_with':e.relation;
+    return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${conflict?2.2:1.6}" ${dash} ${marker} opacity="${conflict?.95:.7}"/>
+      <rect x="${mx-lbl.length*3-4}" y="${my-9}" width="${lbl.length*6+8}" height="15" rx="4" fill="#0f1629" opacity=".85"/>
+      <text class="e-label ${conflict?'conflict':''}" x="${mx}" y="${my+2}" text-anchor="middle">${esc(lbl)}</text>`;
+  }).join('');
+
+  // ---- nodes on top ----
+  const trunc=(s,n)=>{s=(s||'').toString();return s.length>n?s.slice(0,n-1)+'…':s;};
+  const decSVG=dec.map(n=>{
+    const p=pos[n.id]; const conflicted=n.validity==='conflicted';
+    const fill=conflicted?'#7a2b3a':'#6d5efc';
+    const stroke=conflicted?'#e5484d':'#8b7bff';
+    return `<g>
+      <rect x="${p.x-p.w/2}" y="${p.y-p.h/2}" width="${p.w}" height="${p.h}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="${conflicted?2.5:1.5}"/>
+      <text class="n-label" x="${p.x}" y="${p.y-4}" text-anchor="middle">${esc(trunc(n.label,20))}</text>
+      <text class="e-label" x="${p.x}" y="${p.y+11}" text-anchor="middle" fill="#cdd7ee">${esc(n.id)} · ${esc(n.status)}</text>
+    </g>`;
+  }).join('');
+  const asmSVG=asm.map(n=>{
+    const p=pos[n.id]; const shaky=n.validity==='invalid';
+    const stroke=shaky?'#a5231f':'#c3d2ec';
+    return `<g>
+      <rect x="${p.x-p.w/2}" y="${p.y-p.h/2}" width="${p.w}" height="${p.h}" rx="9" fill="#eef0f8" stroke="${stroke}" stroke-width="1.6" ${shaky?'stroke-dasharray="6 4"':''}/>
+      <text class="n-label dark" x="${p.x}" y="${p.y-3}" text-anchor="middle" fill="#2c3e66">${esc(trunc(n.label,22))}</text>
+      <text class="e-label" x="${p.x}" y="${p.y+11}" text-anchor="middle" fill="#5a6478">${esc(n.id)} · ${esc(n.status)}</text>
+    </g>`;
+  }).join('');
+
+  return `<svg class="graph" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#5566a8"/></marker></defs>
+    ${edgeSVG}${decSVG}${asmSVG}
+  </svg>`;
+}
+
+async function loadDiff(id){
+  GRAPH.diffId=id; GRAPH.diff=null;
+  if(!id){ paintGraph(); return; }
+  try{ GRAPH.diff=await api(`/v1/decisions/${id}/diff`); }catch(e){ alert('diff: '+e.message); }
+  paintGraph();
+}
+
+function renderDiff(df){
+  const why=(df.why_changed||[]).map(x=>`<li>${esc(x)}</li>`).join('')||'<li class="muted">No material change detected between these versions.</li>';
+  const aff=(df.affected||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')||'<span class="muted">—</span>';
+  const oldSumm=df.from_summary!=null?`<span class="old">${esc(df.from_summary)}</span><span class="arw">→</span>`:'';
+  return `<div class="diffcard">
+    <div class="diffhead">Decision Diff
+      <span class="vtag">v${df.from_version==null?'—':df.from_version} → v${df.to_version}</span></div>
+    <div class="diffbody">
+      <div class="diff-summ">${oldSumm}<span class="new">${esc(df.to_summary||'')}</span></div>
+      <div class="diffcols">
+        <div class="whyc"><div class="h">Why changed?</div><ul>${why}</ul></div>
+        <div class="affc"><div class="h">Affected</div><div>${aff}</div></div>
+      </div>
+    </div>
+  </div>`;
 }
 
 loadProjects().then(render);
