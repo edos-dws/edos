@@ -178,7 +178,17 @@ contradiction cards, Decision Diff card (struck-through old → new, why changed
 **Backend:** scheduled watchdog pass over active assumptions/decisions (age + cross-decision conflict check)
 → alerts (reuse watchdog + conflicts). Optional notify hook (ntfy/email).
 **UI:** alerts feed on Project Brain (decay alerts, cross-decision contradictions caught in background).
-- [ ] 8.1 scheduled scan. 8.2 alert surfacing. 8.3 UI alerts feed.
+- [x] 8.1 scheduled scan. 8.2 alert surfacing. 8.3 UI alerts feed.
+  `engines/decay.py` (`decay_scan(session, project_id, now=None, age_days=30)` — composes the first-class
+  assumption ledger + `graph_view.contradictions`, no LLM): (a) aged still-`created` assumptions older than
+  `age_days` → `assumption_decay` (medium, "needs re-validation (age N days)"); (b) `conflicts_with` pairs →
+  `cross_decision_contradiction` (high, or **critical** when an assumption is an endpoint or is sourced from a
+  conflicting decision — the "A12 forced-air vs IP67" moment, naming both sides + the participating
+  assumption). `now` is injectable so the 30-day trigger is deterministic (tests back-date `created_at` + pass
+  `now`). `GET /projects/{id}/decay-alerts?age_days&as_of` (`as_of` = injectable now); `/alerts` unchanged.
+  Best-effort ntfy notify hook (`notify_critical_contradiction`, opt-in `EDOS_DECAY_NOTIFY=1`, never in tests,
+  failure non-fatal). Project Brain renders a distinct "⚠ Background review" feed. `tests/test_decay.py`
+  (9 tests).
 **AC:** an aged assumption that now conflicts (e.g., IP67 vs forced-air) raises a background alert. **Resume:** decay alerts fire.
 
 ---
