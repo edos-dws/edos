@@ -116,7 +116,7 @@ richer fields live in the persistence envelope / a `decision_detail` block — s
 **UI:** Deep Dive Q&A (each question shows "why am I asking?"), then Decision Card: comparison matrix (★),
 recommendation + why-others-eliminated, Decision Impact grid, Risks & Blind Spots, **Decision Explorer**
 (deps/related/assumptions/impacted/review-conditions), Accept, Share link.
-- [ ] 4.1 deepdive questions. 4.2 decide → rich card (envelope fields). 4.3 UI Q&A flow. 4.4 UI Decision Card. 4.5 Accept+writeback.
+- [x] 4.1 deepdive questions. 4.2 decide → rich card (envelope fields). 4.3 UI Q&A flow. 4.4 UI Decision Card. 4.5 Accept+writeback.
 **AC:** topic → targeted questions with rationale → a Decision Card matching the PDF layout. **Resume:** decision card renders.
 
 ---

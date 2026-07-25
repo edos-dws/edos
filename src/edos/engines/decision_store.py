@@ -33,12 +33,19 @@ def _project(decision: Decision) -> dict:
 
 
 def save_new(
-    session: Session, *, id: str, project_id: str, decision: Decision, status: str | None = None
+    session: Session, *, id: str, project_id: str, decision: Decision, status: str | None = None,
+    detail: dict | None = None,
 ) -> DecisionRecord:
-    """Persist a brand-new decision as version 1."""
+    """Persist a brand-new decision as version 1.
+
+    `detail` is the optional rich Decision-Card block (UI-CP-4): comparison_matrix / decision_impact /
+    impacted_components / review_conditions, etc. It is stored in the persistence envelope
+    (`decision_detail` column), NOT inside the locked `edos.decision.v1` contract."""
     fields = _project(decision)
     if status is not None:
         fields["status"] = status
+    if detail is not None:
+        fields["decision_detail"] = json.dumps(detail)
     row = DecisionRecord(id=id, project_id=project_id, version=1, parent_version=None, **fields)
     session.add(row)
     session.flush()

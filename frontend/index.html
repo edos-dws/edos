@@ -77,6 +77,60 @@
   .chip{display:inline-block;font-size:11px;background:#eef0f8;border:1px solid var(--line);border-radius:6px;padding:.15rem .5rem;margin:.15rem .2rem 0 0}
 
   .empty{color:var(--ink2);text-align:center;padding:2rem}
+
+  /* ---- UI-CP-4: Deep Dive Q&A ---- */
+  .userinput{background:var(--navy);color:#dfe6f5;border-left:3px solid #3ddc97;border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1.1rem}
+  .userinput .l{font-size:10px;letter-spacing:.16em;color:#9fb0d0;font-weight:700}
+  .qcard{border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem;margin-bottom:.8rem;background:var(--surface)}
+  .qcard .qh{color:var(--accent);font-weight:700;margin-bottom:.5rem}
+  .whybox{background:#f3f1fe;border:1px solid #e2ddfb;border-radius:8px;padding:.6rem .8rem;margin-bottom:.6rem}
+  .whybox .h{color:#6d5efc;font-weight:700;font-size:10px;letter-spacing:.1em}
+  .whybox .t{font-size:13px;color:#3a3560;margin-top:.2rem}
+
+  /* ---- UI-CP-4: Decision Card ---- */
+  .deccard{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:1.1rem;background:var(--surface)}
+  .dechead{background:linear-gradient(120deg,#5b3fd6,#7c5cff 60%,#8b6bff);color:#fff;padding:1.1rem 1.2rem}
+  .dechead .eye{font-size:11px;letter-spacing:.16em;font-weight:700;opacity:.85}
+  .dechead h2{font-size:22px;margin:.15rem 0 .6rem}
+  .dechead .meta{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;font-size:13px}
+  .decstatus{font-size:11px;font-weight:800;letter-spacing:.08em;padding:.2rem .6rem;border-radius:5px;text-transform:uppercase}
+  .decstatus.proposed,.decstatus.recommended{background:#f0d264;color:#3a2e00}
+  .decstatus.accepted,.decstatus.verified{background:#3ddc97;color:#06331f}
+  .decstatus.frozen{background:#dbe4f5;color:#2c3e66}
+  .dechead .missing{color:#e7ddff}
+  .decbody{padding:1.2rem}
+
+  /* comparison matrix */
+  .matrixwrap{overflow-x:auto}
+  table.matrix{border-collapse:collapse;width:100%;font-size:13px}
+  table.matrix th,table.matrix td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top}
+  table.matrix thead th{background:var(--navy);color:#fff;font-weight:600;white-space:nowrap}
+  table.matrix tbody th{background:#f6f7fb;font-weight:600;white-space:nowrap}
+  table.matrix td.rec,table.matrix th.rec{background:#eafaf1}
+  table.matrix thead th.rec{background:#1f9d61;color:#fff}
+  table.matrix tbody tr:nth-child(even) td:not(.rec){background:#fafbfe}
+
+  /* recommendation block */
+  .recblock{background:#eefaf2;border:1px solid #bfe9cf;border-radius:10px;padding:1rem 1.1rem;margin-top:1rem}
+  .recblock .rh{color:#1f9d61;font-weight:700;font-size:11px;letter-spacing:.1em}
+  .recblock h3{font-size:18px;color:#0d6b3f;margin:.2rem 0 .5rem}
+  .recblock ul{margin:.3rem 0;padding-left:1.1rem}
+  .recblock .elim{color:var(--ink2);font-size:12px;margin-top:.5rem}
+
+  /* decision impact grid */
+  .impactgrid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem}
+  .impactcell{border:1px solid var(--line);border-radius:8px;padding:.6rem .8rem;font-size:13px}
+  .impactcell b{color:var(--accent)}
+
+  /* decision explorer (dark panel) */
+  .explorer{background:var(--navy);color:#cdd7ee;border-radius:10px;padding:1rem 1.1rem;margin-top:1.1rem}
+  .explorer .eh{color:#fff;font-size:11px;letter-spacing:.16em;font-weight:700;margin-bottom:.7rem}
+  .exprow{display:grid;grid-template-columns:150px 1fr;gap:.6rem;padding:.35rem 0;font-size:13px;border-top:1px solid #24304f}
+  .exprow:first-of-type{border-top:0}
+  .exprow .k{color:#8ea0c6}
+  .chip.dark{background:#1e2947;border-color:#2c3a5f;color:#c9d5ef}
+  .challenge{background:#ef8b2c;color:#fff;font-weight:700;margin-top:1rem}
+  .challenge:hover{background:#e07d1d}
 </style>
 </head>
 <body>
@@ -133,7 +187,7 @@ async function delProject(id,name){
   if(PID===id)PID=null;
   await loadProjects(); render();
 }
-async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; loadProjects(); tab('brain'); }
+async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false}; loadProjects(); tab('brain'); }
 
 /* ---- tab routing ---- */
 function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
@@ -141,6 +195,7 @@ function render(){
   if(!PID){ $('#view').innerHTML='<div class="empty">Pick or create a project on the left to open its <b>Project Brain</b>.</div>'; return; }
   if(TAB==='brain') return renderBrain();
   if(TAB==='review') return renderReview();
+  if(TAB==='deepdive') return renderDeepDive();
   $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
 
@@ -293,6 +348,153 @@ async function saveReview(){
     await api(`/v1/projects/${PID}/review`,{method:'POST',body:JSON.stringify({text:REVIEWTEXT,save:true})});
     alert('Saved to Project Brain — this input is now project context (feeds coverage + counts).');
   }catch(e){ alert('save: '+e.message); }
+}
+
+/* ---- UI-CP-4: Deep Dive → Decision Card ---- */
+let DD={topic:'',questions:null,answers:{},envelope:null,busy:false};
+
+function renderDeepDive(){
+  // preserve any in-progress topic/answers typed into the DOM before re-render
+  const tEl=$('#ddtopic'); if(tEl) DD.topic=tEl.value;
+  if(DD.questions) DD.questions.forEach(q=>{const a=$('#a-'+q.id); if(a) DD.answers[q.id]=a.value;});
+
+  let html=`
+    <div class="card">
+      <div class="eyebrow">Deep Dive <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— targeted questions (each with a rationale), then a Decision Card</span></div>
+      <textarea id="ddtopic" rows="2" placeholder="What decision are you diving into? e.g. &quot;Cell balancing strategy — passive vs active for 14S LFP&quot;">${esc(DD.topic)}</textarea>
+      <div class="row" style="margin-top:.6rem;justify-content:flex-end">
+        <button ${DD.busy?'disabled':''} onclick="ddAsk()">${DD.busy?'Thinking…':(DD.questions?'New topic':'Ask targeted questions')}</button>
+      </div>
+    </div>`;
+
+  if(DD.questions){
+    html+=`<div class="userinput"><div class="l">USER INPUT</div><div style="margin-top:.3rem">"${esc(DD.topic)}"</div></div>`;
+    html+=DD.questions.map((q,i)=>`
+      <div class="qcard">
+        <div class="qh">Q${i+1} · ${esc(q.q)}</div>
+        <div class="whybox"><div class="h">WHY AM I ASKING?</div><div class="t">${esc(q.why)}</div></div>
+        <textarea id="a-${q.id}" rows="2" placeholder="Your answer…">${esc(DD.answers[q.id]||'')}</textarea>
+      </div>`).join('');
+    html+=`<div class="row" style="justify-content:flex-end;margin-bottom:1.1rem">
+      <button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button></div>`;
+  }
+  if(DD.envelope) html+=renderDecisionCard(DD.envelope);
+  $('#view').innerHTML=html;
+}
+
+async function ddAsk(){
+  DD.topic=($('#ddtopic').value||'').trim();
+  if(!DD.topic){ $('#ddtopic').focus(); return; }
+  DD.busy=true; DD.questions=null; DD.answers={}; DD.envelope=null; renderDeepDive();
+  try{
+    const r=await api(`/v1/projects/${PID}/deepdive`,{method:'POST',body:JSON.stringify({topic:DD.topic})});
+    DD.questions=r.questions;
+  }catch(e){ alert('deep dive: '+e.message); }
+  DD.busy=false; renderDeepDive();
+}
+
+async function ddDecide(){
+  DD.questions.forEach(q=>{const a=$('#a-'+q.id); if(a) DD.answers[q.id]=a.value;});
+  const answers=DD.questions.map(q=>({id:q.id,answer:(DD.answers[q.id]||'').trim()})).filter(a=>a.answer);
+  DD.busy=true; renderDeepDive();
+  try{
+    DD.envelope=await api(`/v1/projects/${PID}/deepdive/decide`,{method:'POST',
+      body:JSON.stringify({topic:DD.topic,answers})});
+  }catch(e){ alert('decide: '+e.message); }
+  DD.busy=false; renderDeepDive();
+  const card=$('#deccard'); if(card) card.scrollIntoView({behavior:'smooth'});
+}
+
+function renderDecisionCard(env){
+  const d=env.decision||{}, det=env.decision_detail||{};
+  const st=(env.status||d.status||'recommended');
+  const conf=Math.round((d.confidence||env.confidence||0)*100);
+  const m=det.comparison_matrix||{criteria:[],options:[]};
+  const rec=det.recommendation||{chosen:'',reasons:[],eliminated:[]};
+
+  // comparison matrix
+  let matrix='';
+  if(m.options&&m.options.length){
+    const head=m.options.map(o=>`<th class="${o.recommended?'rec':''}">${esc(o.name)}${o.recommended?' ★':''}</th>`).join('');
+    const rows=(m.criteria||[]).map((c,ri)=>`
+      <tr><th>${esc(c)}</th>${m.options.map(o=>`<td class="${o.recommended?'rec':''}">${esc((o.values||[])[ri]??'—')}</td>`).join('')}</tr>`).join('');
+    matrix=`<div class="eyebrow" style="margin-top:.3rem">Comparison Matrix</div>
+      <div class="matrixwrap"><table class="matrix"><thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  // recommendation
+  const recReasons=(rec.reasons||[]).map(r=>`<li>${esc(r)}</li>`).join('');
+  const elim=(rec.eliminated||[]).map(e=>`<b>${esc(e.option)}</b> eliminated: ${esc(e.reason)}`).join(' · ');
+  const recBlock=`<div class="recblock">
+      <div class="rh">◎ RECOMMENDATION</div>
+      <h3>${esc(rec.chosen||d.summary||'')}</h3>
+      <ul>${recReasons||'<li>'+esc(d.recommendation||'')+'</li>'}</ul>
+      ${elim?`<div class="elim">${elim}</div>`:''}</div>`;
+
+  // decision impact
+  const impact=(det.decision_impact||[]).map(x=>`<div class="impactcell"><b>${esc(x.area)}:</b> ${esc(x.change)}</div>`).join('');
+  const impactBlock=impact?`<div class="eyebrow" style="margin-top:1.1rem">Decision Impact — if this changes, what else changes?</div>
+      <div class="impactgrid">${impact}</div>`:'';
+
+  // risks & blind spots (reuse finding-style rows from the contract risks)
+  const sevcat={critical:'contradiction',high:'hidden_dependency',medium:'assumption',low:'optimization'};
+  const risks=(d.risks||[]).map(r=>`
+    <div class="finding ${sevcat[r.severity]||'assumption'}">
+      <div class="row wrap" style="margin-bottom:.3rem">
+        <span class="pill ${r.severity}">${esc(r.severity)}</span><b>${esc(r.description)}</b>
+      </div>
+      ${r.mitigation?`<div class="muted" style="font-size:13px">Mitigation: ${esc(r.mitigation)}</div>`:''}
+    </div>`).join('');
+  const risksBlock=risks?`<div class="eyebrow" style="margin-top:1.1rem">Risks &amp; Blind Spots</div>${risks}`:'';
+
+  // decision explorer (dark)
+  const assumChips=(d.assumptions||[]).map(a=>`<span class="chip dark">${esc(a.statement)}</span>`).join('')||'<span class="muted">—</span>';
+  const compChips=(det.impacted_components||[]).join(' · ')||'—';
+  const related=(det.related_decisions||[]).filter(r=>r.id!==env.id).map(r=>`${esc(r.id)} (${esc(r.status)})`).join(', ')||'None';
+  const deps=(det.dependencies||[]).length?det.dependencies.map(x=>esc(x)).join(' · '):'None (first decision)';
+  const reviewConds=(det.review_conditions||[]).map(x=>esc(x)).join(' · ')||'—';
+  const explorer=`<div class="explorer">
+      <div class="eh">DECISION EXPLORER</div>
+      <div class="exprow"><div class="k">Dependencies</div><div>${deps}</div></div>
+      <div class="exprow"><div class="k">Related decisions</div><div>${related}</div></div>
+      <div class="exprow"><div class="k">Assumptions</div><div>${assumChips}</div></div>
+      <div class="exprow"><div class="k">Impacted components</div><div>${esc(compChips)}</div></div>
+      <div class="exprow"><div class="k">Review conditions</div><div>${reviewConds}</div></div>
+    </div>`;
+
+  const accepted=(st==='accepted');
+  const actions=`<div class="row" style="margin-top:1rem;gap:.6rem">
+      <button ${accepted?'disabled':''} onclick="ddAccept('${env.id}')">${accepted?'✓ Accepted':'Accept Decision'}</button>
+      <button class="challenge" onclick="alert('Challenge This Decision arrives in UI-CP-5 — it will argue the counter-case against the load-bearing assumption with a cost callout.')">⚡ Challenge This Decision</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:.5rem">Share: edos.dev/d/${esc(env.id)}</div>`;
+
+  return `<div class="deccard" id="deccard">
+    <div class="dechead">
+      <div class="eye">DECISION CARD · ${esc(env.id)}</div>
+      <h2>${esc(d.summary||det.recommendation?.chosen||'Decision')}</h2>
+      <div class="meta"><span class="decstatus ${st}">${esc(st)}</span>
+        <span>Coverage <b>${conf}%</b></span>
+        ${det.missing?`<span class="missing">Missing: ${esc(det.missing)}</span>`:''}</div>
+    </div>
+    <div class="decbody">
+      ${matrix}
+      ${recBlock}
+      ${impactBlock}
+      ${risksBlock}
+      ${explorer}
+      ${actions}
+    </div>
+  </div>`;
+}
+
+async function ddAccept(id){
+  try{
+    await api(`/v1/decisions/${id}/accept`,{method:'POST',body:JSON.stringify({})});
+    await api(`/v1/decisions/${id}/outcome`,{method:'POST',body:JSON.stringify({outcome:'accepted'})});
+    DD.envelope=await api(`/v1/decisions/${id}`);
+    renderDeepDive();
+  }catch(e){ alert('accept: '+e.message); }
 }
 
 loadProjects().then(render);
