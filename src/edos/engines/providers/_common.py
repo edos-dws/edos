@@ -64,6 +64,11 @@ def extract_json(text: str) -> dict:
     return {"_malformed": text}
 
 
-def resolve_model(capability, models: dict[Tier, str]) -> str:
-    """Pick the model id for a capability's tier from a {Tier: model_id} map."""
-    return models[tier_for(Capability(capability))]
+def resolve_tier(capability, tier: Tier | None = None) -> Tier:
+    """The tier a call runs at: an explicit caller `tier` override wins, else the capability's default tier."""
+    return tier if tier is not None else tier_for(Capability(capability))
+
+
+def resolve_model(capability, models: dict[Tier, str], tier: Tier | None = None) -> str:
+    """Pick the model id for a capability's tier from a {Tier: model_id} map (caller `tier` override wins)."""
+    return models[resolve_tier(capability, tier)]

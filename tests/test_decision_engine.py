@@ -29,7 +29,7 @@ class _FrozenProvider:
     """A provider that (wrongly) returns a frozen decision — the engine must downgrade it."""
 
     def execute(self, capability: Capability, context: dict, schema: dict | None,
-                prompt: str | None = None) -> dict:
+                prompt: str | None = None, tier=None) -> dict:
         return Decision(
             summary="s", recommendation="r", confidence=0.99, status="frozen",
             evidence=[{"claim": "c", "source": "x"}],

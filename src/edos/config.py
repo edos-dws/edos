@@ -9,7 +9,44 @@ and CI run fully offline.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+# --- Gemini model fallback chains (per capability tier) ---------------------------------------------------
+# Each Gemini model has its OWN rate/quota limit. When the primary model returns HTTP 429 RESOURCE_EXHAUSTED,
+# a single-model provider fails outright and the engines drop to static heuristics (bad UX). Instead, each
+# tier holds an ORDERED chain of text models: on a retriable error (429 / quota / rate limit, or a 404
+# "model not found" when an id is wrong) the provider tries the NEXT model in the chain, only raising once the
+# whole chain is exhausted. Tiers are separated so cheap tasks (question generation, intent) burn the Lite
+# models and preserve the good model's limited quota for heavy tasks (decisions, challenge).
+#
+# These are the BEST-order defaults (text models only). The names are display-name→API-id GUESSES; correct
+# any that don't map to a real API id via the *_CHAIN env overrides below (comma-separated), e.g.
+#   GEMINI_FRONTIER_CHAIN="gemini-3.6-flash,gemini-2.5-flash"
+# NOTE: the Gemini Embedding models (Embedding 1/2) are deliberately NOT in these chains — they belong to a
+# real embedder (a separate change that needs a pgvector dimension migration), not the text generation path.
+# TTS and Robotics models are likewise excluded.
+_FRONTIER_CHAIN_DEFAULT: tuple[str, ...] = (
+    "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash", "gemini-2.5-flash",
+    "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
+    "gemma-4-31b", "gemma-4-26b",
+)
+_STANDARD_CHAIN_DEFAULT: tuple[str, ...] = (
+    "gemini-3-flash", "gemini-2.5-flash",
+    "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
+    "gemma-4-31b", "gemma-4-26b",
+)
+_LIGHTWEIGHT_CHAIN_DEFAULT: tuple[str, ...] = (
+    "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite",
+    "gemma-4-31b", "gemma-4-26b",
+)
+
+
+def _chain_from_env(env_var: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    """Parse a comma-separated `*_CHAIN` env var into an ordered model list. When the var is unset or empty,
+    fall back to the given default LIST (not a single model) so a missing override still gets full fallback."""
+    raw = os.environ.get(env_var, "")
+    items = tuple(x.strip() for x in raw.split(",") if x.strip())
+    return items or default
 
 # Load `.env` (gitignored) so go-live is "drop the key in .env" with no code change. `override=False` means a
 # real shell/CI/Docker environment variable always wins over the file — and the test suite forces
@@ -46,6 +83,16 @@ class Settings:
     gemini_frontier_model: str = os.environ.get("GEMINI_FRONTIER_MODEL", "gemini-3.6-flash")
     gemini_standard_model: str = os.environ.get("GEMINI_STANDARD_MODEL", "gemini-3.6-flash")
     gemini_lightweight_model: str = os.environ.get("GEMINI_LIGHTWEIGHT_MODEL", "gemini-3.5-flash-lite")
+
+    # Per-tier ordered fallback CHAINS (see the block above the class). The GeminiProvider walks a tier's
+    # chain, trying the next model on a retriable error (429 / quota / rate / 404 not-found). Override any
+    # chain end-to-end with a comma-separated env var; unset → the best-order default list above.
+    gemini_frontier_chain: tuple[str, ...] = field(
+        default_factory=lambda: _chain_from_env("GEMINI_FRONTIER_CHAIN", _FRONTIER_CHAIN_DEFAULT))
+    gemini_standard_chain: tuple[str, ...] = field(
+        default_factory=lambda: _chain_from_env("GEMINI_STANDARD_CHAIN", _STANDARD_CHAIN_DEFAULT))
+    gemini_lightweight_chain: tuple[str, ...] = field(
+        default_factory=lambda: _chain_from_env("GEMINI_LIGHTWEIGHT_CHAIN", _LIGHTWEIGHT_CHAIN_DEFAULT))
 
     # Anthropic model IDs are the exact current-generation strings (do not append date suffixes).
     anthropic_frontier_model: str = os.environ.get("ANTHROPIC_FRONTIER_MODEL", "claude-opus-4-8")
