@@ -195,6 +195,48 @@
   .diffcols .whyc .h,.diffcols .affc .h{font-size:11px;letter-spacing:.1em;font-weight:700;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem}
   .diffcols ul{margin:0;padding-left:1.1rem} .diffcols li{font-size:13px;margin:.35rem 0;line-height:1.45}
   @media(max-width:720px){.diffcols{grid-template-columns:1fr}}
+
+  /* UI-CP-9: Execution Context — the dark spec card (PDF p24) */
+  .ec-card{background:var(--navy);color:#e7ecf7;border:1px solid #26304d;border-radius:14px;
+    box-shadow:0 8px 30px rgba(10,15,35,.35);padding:0 0 1.4rem;overflow:hidden}
+  .ec-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+    padding:1.2rem 1.4rem;background:linear-gradient(120deg,#161d36,#1f2547);border-bottom:1px solid #2b3556}
+  .ec-title{font-weight:800;letter-spacing:.16em;font-size:15px;color:#fff}
+  .ec-tag{font-size:12px;letter-spacing:.04em;color:#a99bff;font-weight:600;margin-top:.15rem}
+  .ec-meta{display:flex;align-items:center;gap:.8rem;font-size:12px;color:#9fb0d0}
+  .ec-copy{background:var(--accent);color:#fff;border-radius:8px;padding:.45rem .8rem;font-size:12px;font-weight:600}
+  .ec-copy:hover{background:var(--accent2)}
+  .ec-subhead{padding:.9rem 1.4rem .2rem;font-size:12.5px;color:#93a2c4}
+  .ec-prov{display:inline-block;background:#3a2e5f;color:#e7deff;border:1px solid #5a4a8f;
+    border-radius:20px;padding:.1rem .55rem;font-size:11px;font-weight:600;margin-left:.4rem}
+  .ec-prov.sm{margin-left:.5rem}
+  .ec-sec{padding:1rem 1.4rem 0}
+  .ec-h{font-size:11px;letter-spacing:.16em;font-weight:800;text-transform:uppercase;color:#7f8ff5;
+    border-bottom:1px solid #2b3556;padding-bottom:.4rem;margin-bottom:.7rem}
+  .ec-empty{color:#6f7ea0;font-size:13px;font-style:italic;padding:.1rem 0 .3rem}
+  .ec-list{list-style:none;margin:0;padding:0}
+  .ec-list li{font-size:13px;line-height:1.5;padding:.35rem 0;border-bottom:1px dashed #232c48;color:#dbe3f4}
+  .ec-list li:last-child{border-bottom:0}
+  .ec-ref{display:inline-block;margin-left:.5rem;font-size:10.5px;color:#8ea0c6;background:#1a2340;
+    border:1px solid #2b3556;border-radius:5px;padding:0 .35rem;font-family:ui-monospace,Menlo,monospace}
+  .ec-dec{border:1px solid #2b3556;border-radius:10px;padding:.7rem .85rem;margin-bottom:.65rem;background:#141b33}
+  .ec-dec-top{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}
+  .ec-id{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#0f1629;background:#8b7bff;
+    border-radius:5px;padding:.08rem .4rem;font-weight:700}
+  .ec-summ{font-weight:700;color:#fff;font-size:13.5px}
+  .ec-rec{color:#c3cfe8;font-size:13px;margin:.4rem 0 .1rem;line-height:1.5}
+  .ec-kp{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+  .ec-kpi{font-size:11.5px;color:#cdd8f0;background:#1c2444;border:1px solid #313c63;border-radius:6px;padding:.15rem .5rem}
+  .ec-chips{display:flex;flex-wrap:wrap;gap:.45rem}
+  .ec-iface{font-size:12px;border-radius:7px;padding:.22rem .55rem;font-weight:600;display:inline-flex;align-items:center;gap:.35rem}
+  .ec-iface.proto{background:#123536;color:#7ff0e0;border:1px solid #1f5a58}
+  .ec-iface.comp{background:#1c2444;color:#b9c4e6;border:1px solid #313c63}
+  .ec-iface em{font-style:normal;font-size:10px;color:#7d8cb0;font-family:ui-monospace,Menlo,monospace}
+  .ec-std{font-size:12px;background:#33280f;color:#f0cf7f;border:1px solid #5c4820;border-radius:7px;padding:.22rem .55rem;font-weight:600}
+  .ec-rk{font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;border-radius:5px;
+    padding:.05rem .4rem;margin-right:.45rem}
+  .ec-rk.assumption{background:#3a3410;color:#e8d67a} .ec-rk.contradiction{background:#43181a;color:#f19a9d}
+  .ec-rk.freeze_blocker,.ec-rk.risk{background:#3a2e5f;color:#d8ccff}
 </style>
 </head>
 <body>
@@ -261,6 +303,7 @@ function render(){
   if(TAB==='review') return renderReview();
   if(TAB==='deepdive') return renderDeepDive();
   if(TAB==='graph') return renderGraph();
+  if(TAB==='execution') return renderExecution();
   $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
 
@@ -838,6 +881,77 @@ function renderDiff(df){
       </div>
     </div>
   </div>`;
+}
+
+/* ---- UI-CP-9: Execution Context (the handoff — "EDOS decides. Agents execute.") ---- */
+let EXECCTX=null;
+async function renderExecution(){
+  $('#view').innerHTML=`<div class="card"><div class="eyebrow">Execution Context</div><div class="muted">Assembling the spec…</div></div>`;
+  let ctx;
+  try{ ctx=await api(`/v1/projects/${PID}/execution-context`); }
+  catch(e){ $('#view').innerHTML=`<div class="empty">execution-context: ${esc(e.message)}</div>`; return; }
+  EXECCTX=ctx;
+  const m=ctx.meta||{};
+  const prov=m.provisional?`<span class="ec-prov">provisional — no accepted decisions yet</span>`:'';
+  const sec=(title,body)=>`<div class="ec-sec"><div class="ec-h">${esc(title)}</div>${body}</div>`;
+  const empty=t=>`<div class="ec-empty">${esc(t)}</div>`;
+  const refChip=r=>r?`<span class="ec-ref">${esc(r)}</span>`:'';
+  const lineList=(arr,emptyMsg)=>arr&&arr.length?
+    `<ul class="ec-list">${arr.map(x=>`<li>${esc(x.text)}${refChip(x.source)}</li>`).join('')}</ul>`:empty(emptyMsg);
+
+  const decs=(ctx.accepted_decisions||[]);
+  const decBody=decs.length?decs.map(d=>`
+    <div class="ec-dec">
+      <div class="ec-dec-top"><span class="ec-id">${esc(d.id)}</span><span class="ec-summ">${esc(d.summary)}</span>
+        ${d.provisional?'<span class="ec-prov sm">provisional</span>':''}</div>
+      <div class="ec-rec">${esc(d.recommendation)}</div>
+      ${(d.key_params||[]).length?`<div class="ec-kp">${d.key_params.map(k=>`<span class="ec-kpi">${esc(k)}</span>`).join('')}</div>`:''}
+    </div>`).join(''):empty('Accept a decision (Deep Dive) to populate this spec.');
+
+  const ifaceBody=(ctx.interfaces||[]).length?
+    `<div class="ec-chips">${ctx.interfaces.map(i=>`<span class="ec-iface ${i.kind==='component'?'comp':'proto'}">${esc(i.text)}${i.source?`<em>${esc(i.source)}</em>`:''}</span>`).join('')}</div>`
+    :empty('No interfaces or bus protocols referenced yet.');
+
+  const stdBody=(ctx.standards||[]).length?
+    `<div class="ec-chips">${ctx.standards.map(s=>`<span class="ec-std">${esc(s.text)}</span>`).join('')}</div>`
+    :empty('No standards referenced yet.');
+
+  const risks=(ctx.open_risks||[]);
+  const riskBody=risks.length?`<ul class="ec-list">${risks.map(r=>`
+    <li><span class="ec-rk ${esc(r.kind||'risk')}">${esc((r.kind||'risk').replace('_',' '))}</span> ${esc(r.text)}${refChip(r.source)}</li>`).join('')}</ul>`
+    :empty('No open risks. Accepted decisions have no unresolved assumptions, contradictions or freeze-blockers.');
+
+  $('#view').innerHTML=`
+    <div class="ec-card">
+      <div class="ec-bar">
+        <div><div class="ec-title">EXECUTION CONTEXT</div>
+          <div class="ec-tag">EDOS decides. Agents execute.</div></div>
+        <div class="ec-meta">
+          <span>coverage ${m.coverage||0}%</span>
+          <button class="ec-copy" onclick="copyExecution(this)">⧉ Copy spec</button>
+        </div>
+      </div>
+      <div class="ec-subhead">Machine-readable spec for any coding agent — Claude Code, Codex, Cursor. ${prov}</div>
+      ${sec('Accepted Decisions',decBody)}
+      ${sec('Constraints',lineList(ctx.constraints,'No hard constraints captured yet — add requirements or review conditions.'))}
+      ${sec('Interfaces',ifaceBody)}
+      ${sec('Acceptance Criteria',lineList(ctx.acceptance_criteria,'No acceptance criteria yet — add next actions or measurable requirements.'))}
+      ${sec('Standards',stdBody)}
+      ${sec('Open Risks',riskBody)}
+    </div>`;
+}
+async function copyExecution(btn){
+  let txt='';
+  try{
+    const r=await fetch(`/v1/projects/${PID}/execution-context.txt`);
+    txt=await r.text();
+  }catch(e){ btn.textContent='copy failed'; return; }
+  try{ await navigator.clipboard.writeText(txt); }
+  catch{ /* clipboard blocked (e.g. non-secure ctx) — fall back to a selectable textarea */
+    const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta);
+    ta.select(); try{document.execCommand('copy');}catch{} ta.remove();
+  }
+  const old=btn.textContent; btn.textContent='✓ Copied'; setTimeout(()=>btn.textContent=old,1600);
 }
 
 loadProjects().then(render);
