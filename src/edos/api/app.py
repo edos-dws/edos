@@ -11,6 +11,7 @@ CP-6+ runs on the stub Model Router (no live LLM). CORS is open for local fronte
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import uuid
 from pathlib import Path
@@ -30,6 +31,7 @@ from edos.engines import (
 from edos.engines import (
     auth,
     coverage,
+    decay,
     decision_store,
     deepdive,
     domain,
@@ -615,6 +617,30 @@ def project_alerts(project_id: str, session: Session = Depends(get_session)) -> 
         raise HTTPException(status_code=404, detail="project not found")
     return [{"type": a.type, "subject": a.subject, "message": a.message, "severity": a.severity}
             for a in watchdog.scan(session, project_id)]
+
+
+@app.get("/v1/projects/{project_id}/decay-alerts")
+def project_decay_alerts(
+    project_id: str, age_days: int = 30, as_of: str | None = None,
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Assumption Decay Alert (UI-CP-8): the background re-check. Flags (a) aged, still-unvalidated
+    assumptions past `age_days` and (b) cross-decision contradictions caught in the background (a
+    `conflicts_with` edge between two decisions in the same graph → high/critical, naming any participating
+    assumption). `as_of` (ISO-8601) runs the scan as of a given instant — the injectable `now` that makes the
+    aging window deterministic (used by tests and to replay the "30 days later" moment)."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    now = None
+    if as_of:
+        try:
+            now = dt.datetime.fromisoformat(as_of)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f"invalid as_of datetime: {as_of!r}") from exc
+    alerts = decay.decay_scan(session, project_id, now=now, age_days=age_days)
+    decay.notify_critical_contradiction(alerts)  # best-effort, non-fatal, never in tests
+    return [{"type": a.type, "subject": a.subject, "message": a.message, "severity": a.severity}
+            for a in alerts]
 
 
 @app.get("/v1/projects/{project_id}/rule-flags")

@@ -271,9 +271,10 @@ async function renderBrain(){
   COVDOMAIN=null;
   const p=PROJECTS.find(x=>x.id===PID)||{name:'Project'};
   let brain={coverage:0,coverage_by_domain:{},counts:{decisions:0,assumptions:0,contradictions:0,open_risks:0}};
-  let items=0;
+  let items=0, decay=[];
   try{ brain=await api(`/v1/projects/${PID}/brain`); }catch(e){ console.warn('brain',e); }
   try{ items=(await api(`/v1/projects/${PID}/items`)).length; }catch{}
+  try{ decay=await api(`/v1/projects/${PID}/decay-alerts`); }catch(e){ console.warn('decay',e); }
   const c=brain.counts, cov=brain.coverage||0;
   const DOMAINS=['Architecture','Hardware','Firmware','Manufacturing','Testing','Certification'];
   $('#view').innerHTML=`
@@ -297,11 +298,33 @@ async function renderBrain(){
             <div class="dtrack"><div class="dfill" style="width:${v}%"></div></div>
           </div>`;}).join('')}
       </div>
+      ${decayFeed(decay)}
       <div class="row" style="margin-top:1.2rem">
         <button onclick="tab('review')">Start Engineering Review</button>
         <button class="ghost" onclick="tab('deepdive')">Deep Dive</button>
       </div>
     </div>`;
+}
+
+/* ---- UI-CP-8: Assumption Decay Alert feed (background re-check) ---- */
+const DECAYLABEL={assumption_decay:'Aged Assumption',cross_decision_contradiction:'Cross-Decision Contradiction'};
+function decayFeed(alerts){
+  alerts=alerts||[];
+  if(!alerts.length) return '';
+  const rows=alerts.map(a=>{
+    const kind=a.type==='cross_decision_contradiction'?'contradiction':'';
+    return `<div class="finding ${kind}">
+      <div class="row wrap" style="margin-bottom:.35rem;align-items:center">
+        <span class="pill" style="background:#3a2e5f;color:#e7deff;border-color:#5a4a8f">⚠ Background review</span>
+        <span class="cat ${kind||'assumption'}">${DECAYLABEL[a.type]||a.type}</span>
+        <span class="pill ${esc(a.severity)}">${esc(a.severity)}</span>
+        <span class="chip">${esc(a.subject)}</span>
+      </div>
+      <div>${esc(a.message)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="eyebrow" style="margin-top:1.3rem">Background review <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— assumption decay + cross-decision contradictions caught automatically</span></div>
+    <div class="card" style="padding:.8rem 1rem">${rows}</div>`;
 }
 
 /* ---- UI-CP-2: coverage detail panel for one domain (nudges + attach datasheet) ---- */
