@@ -60,9 +60,9 @@ still fully usable; the bar just tells the engineer "add X to get a more grounde
 **UI:** replace the chat SPA. Left rail = projects (create/open/**delete**). Main = router with a **Project
 Brain** home + mode views. EDOS wordmark. No chat bubbles anywhere.
 **Backend:** none (projects CRUD done).
-- [ ] 0.1 App shell + left rail + routing (Brain / Review / Deep Dive / Graph / Execution Context tabs).
-- [ ] 0.2 Project create / open / delete wired.
-- [ ] 0.3 Design tokens matching PDF (colors, category chips, severity pills).
+- [x] 0.1 App shell + left rail + routing (Brain / Review / Deep Dive / Graph / Execution Context tabs).
+- [x] 0.2 Project create / open / delete wired.
+- [x] 0.3 Design tokens matching PDF (colors, category chips, severity pills).
 **AC:** open app → pick/create project → land on Project Brain (not chat). Delete works. **Resume:** shell in place.
 
 ---

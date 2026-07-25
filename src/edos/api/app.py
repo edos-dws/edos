@@ -28,6 +28,7 @@ from edos.engines import (
     auth,
     decision_store,
     domain,
+    extraction,
     faithfulness,
     feedback,
     ingestion,
@@ -476,6 +477,32 @@ def ingest_item(project_id: str, body: ItemIngest, session: Session = Depends(ge
         item_type=body.item_type, content=body.content,
     )
     return _item_dict(item)
+
+
+class SmartAsk(BaseModel):
+    question: str
+    conversation_id: str | None = None
+    auto_extract: bool = True
+
+
+@app.post("/v1/projects/{project_id}/ask")
+async def smart_ask(
+    project_id: str, body: SmartAsk, session: Session = Depends(get_session)
+) -> dict:
+    """Auto-context ask: pull requirements/assumptions out of the question, fold them into the project as
+    context, then reason. Returns the extracted context (so the engineer sees what was captured) + decision."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    extracted: list[dict] = []
+    if body.auto_extract:
+        for it in extraction.extract(body.question):
+            row = ingestion.ingest_item(session, id=_new_id(), project_id=project_id,
+                                        item_type=it["type"], content=it["content"])
+            extracted.append({"id": row.id, "item_type": row.item_type, "content": row.content})
+    req = AnalyzeRequest(project_id=project_id, question=body.question,
+                         conversation_id=body.conversation_id)
+    decision = await analyze(req, session)
+    return {"extracted": extracted, "decision": decision}
 
 
 @app.get("/v1/projects/{project_id}/items")
