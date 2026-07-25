@@ -22,12 +22,28 @@ topic + answers + retrieved project context, so the card is honest offline and r
 from __future__ import annotations
 
 import re
+import uuid
 
 from sqlalchemy.orm import Session
 
-from edos.engines import decision_store, retrieval
+from edos.engines import decision_store, ingestion, retrieval
 from edos.engines.model_router import Capability, ModelRouter
 from edos.models.decision import Decision
+
+
+def _persist_answers(session: Session, project_id: str, answers: list[dict]) -> None:
+    """Save the engineer's deep-dive answers as project context (facts/requirements) so they ground this and
+    future reasoning — the answers are context, not assumptions."""
+    for a in answers or []:
+        ans = (a.get("answer") or "").strip()
+        if not ans:
+            continue
+        content = f"[deep-dive answer · {a.get('id', 'q')}] {ans}"
+        try:
+            ingestion.ingest_item(session, id=f"dda-{uuid.uuid4().hex[:10]}", project_id=project_id,
+                                  item_type="requirement", content=content)
+        except Exception:  # noqa: BLE001, S110 — persisting context is best-effort; never blocks a decision
+            pass
 
 # ---- the six engineering areas a decision can ripple into (Decision Impact grid) ----
 _IMPACT_AREAS = ("Firmware", "Hardware", "Architecture", "Power stage", "Manufacturing", "Certification")
@@ -43,6 +59,53 @@ _COMPONENT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Thermal", ("thermal", "cooling", "heatsink", "temperature", "heat")),
     ("Comms", ("can", "isospi", "spi", "i2c", "uart", "wireless", "ble", "lora")),
 )
+
+
+# The engineer's *answers* are facts that become project context and reasoning input — they are NOT
+# assumptions. Assumptions are what the SYSTEM had to infer/guess to reach the recommendation (the gaps it
+# filled), each with a real "risk if wrong". These keyword-driven probes generate honest system assumptions
+# from the topic/context — never an echo of the answers.
+_ASSUMPTION_PROBES: tuple[dict, ...] = (
+    {"any": ("balanc", "cell", "lfp", "pack", "soc", "14s"),
+     "statement": "End-of-life cell spread stays within the recommended balancing current's budget",
+     "risk": "If the spread exceeds it, passive balancing is insufficient and active balancing (more "
+             "cost/EMI/firmware) becomes mandatory."},
+    {"any": ("cost", "volume", "bom", "mass production", "cheap", "price"),
+     "statement": "Production volume is high enough that the recommended part's unit pricing holds",
+     "risk": "At lower volume the cost advantage erodes and a cheaper alternative may win instead."},
+    {"any": ("mcu", "soc", "processor", "stm32", "aurix", "controller"),
+     "statement": "The chosen MCU/SoC's peripherals and qualification meet the requirement without an add-on",
+     "risk": "A missing peripheral or qualification forces an MCU change and a firmware port."},
+    {"any": ("afe", "cell monitor", "adc", "sensing", "accuracy", "measurement"),
+     "statement": "The chosen front-end's measurement accuracy is sufficient without an external precision AFE",
+     "risk": "Insufficient accuracy adds an external AFE — extra BOM and PCB area."},
+    {"any": ("thermal", "cool", "power", "current", "mosfet", "enclosure", "100a"),
+     "statement": "The assumed thermal/cooling envelope is available in the final enclosure",
+     "risk": "A sealed or derated enclosure invalidates the thermal budget and forces a power-stage re-derate."},
+    {"any": ("cert", "iso", "asil", "automotive", "standard", "compliance"),
+     "statement": "The target certification scope is as stated and won't expand mid-program",
+     "risk": "A stricter or added standard reshapes the architecture late, at high cost."},
+)
+
+
+def _system_assumptions(topic: str, answers: list[dict], context: list[str], detail: dict) -> list[dict]:
+    """The premises the recommendation *rests on* that the answers did NOT establish — i.e. what the system
+    inferred to decide. Never the engineer's answers (those are facts/context)."""
+    blob = " ".join([topic, *[a.get("answer", "") for a in answers if a.get("answer")], *context]).lower()
+    out: list[dict] = []
+    for probe in _ASSUMPTION_PROBES:
+        if any(t in blob for t in probe["any"]):
+            out.append({"statement": probe["statement"], "confidence": 0.55, "risk_if_wrong": probe["risk"]})
+    missing = detail.get("missing")
+    if missing:
+        out.append({"statement": f"Reasonable engineering defaults were assumed for unspecified: {missing}",
+                    "confidence": 0.5,
+                    "risk_if_wrong": "If those defaults differ from reality, the recommendation may change."})
+    if not out:
+        out.append({"statement": "Standard engineering priorities (safety > reliability > cost) apply",
+                    "confidence": 0.5,
+                    "risk_if_wrong": "A different priority order changes how the options are weighted."})
+    return out[:6]
 
 
 # ==================================================================================================
@@ -284,12 +347,8 @@ def _heuristic_decision(topic: str, answers: list[dict], context: list[str], det
     chosen = rec["chosen"]
     answer_texts = [a.get("answer", "") for a in answers if a.get("answer")]
 
-    assumptions = [
-        {"statement": f"Engineer's answer holds: {t}"[:180], "confidence": 0.6,
-         "risk_if_wrong": "Recommendation may flip if this changes"}
-        for t in answer_texts[:6]
-    ] or [{"statement": "Default engineering priorities (safety > reliability > cost) apply",
-           "confidence": 0.5, "risk_if_wrong": "Recommendation weighting changes"}]
+    # Assumptions = what the SYSTEM inferred to decide (gaps), NOT the engineer's answers.
+    assumptions = _system_assumptions(topic, answers, context, detail)
 
     risks = [
         {"description": f"{chosen} adds integration work in {c}",
@@ -315,8 +374,9 @@ def _heuristic_decision(topic: str, answers: list[dict], context: list[str], det
     evidence = [{"claim": f"Recommendation weighs {len(context)} project-context item(s) plus "
                           f"{len(answer_texts)} deep-dive answer(s)",
                  "source": "deep-dive", "kind": "inference"}]
+    # The engineer's answers are FACTS the reasoning is grounded in (evidence), not assumptions.
     for t in answer_texts[:3]:
-        evidence.append({"claim": t[:180], "source": "engineer-answer", "kind": "assumption"})
+        evidence.append({"claim": t[:180], "source": "engineer-answer", "kind": "fact"})
 
     confidence = round(min(0.9, 0.55 + 0.05 * len(answer_texts) + 0.03 * len(context)), 2)
 
@@ -365,6 +425,7 @@ def decide(
     LLM first (schema-validated), deterministic heuristic fallback offline / on malformed output."""
     router = router or ModelRouter()
     answers = answers or []
+    _persist_answers(session, project_id, answers)  # answers → project context (not assumptions)
     context = _gather_context(session, project_id, topic, answers)
 
     try:
