@@ -29,40 +29,51 @@ that you **accept** (written back into project knowledge) or **challenge** (re-r
 ### 0. Prerequisites
 - Python **3.12+** · Docker (for Postgres+pgvector) · this repo.
 
-### 1. Bring up Postgres (pgvector) + Redis
+### 1. Install (project venv)
 ```bash
 cd edos
-docker compose up -d postgres          # pgvector/pgvector:pg16 on :5432 (redis optional)
-export DATABASE_URL="postgresql+psycopg://edos:edos@localhost:5432/edos"
-```
-
-### 2. Install (project venv)
-```bash
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"      # core + pytest/httpx/ruff
 ```
 
-### 3. Create the schema
+### 2. One command: Postgres + schema + server
 ```bash
-.venv/bin/alembic upgrade head         # or, for a quick local bootstrap, tables auto-create in tests
+./scripts/run-server.sh                # brings up Postgres, ensures the schema, launches uvicorn on :8000
+```
+On a **headless box, run it inside tmux** so it survives your SSH session:
+```bash
+tmux new -s edos ; ./scripts/run-server.sh      # detach: Ctrl+b then d
+```
+Or keep it running **permanently** as a user service (auto-restart, survives logout):
+```bash
+mkdir -p ~/.config/systemd/user && cp scripts/edos.service ~/.config/systemd/user/
+loginctl enable-linger "$USER" ; systemctl --user daemon-reload
+systemctl --user enable --now edos                 # logs: journalctl --user -u edos -f
 ```
 
-### 4. Run the API server
+<details><summary>Manual steps (what run-server.sh does)</summary>
+
 ```bash
+docker compose up -d postgres                              # pgvector/pgvector:pg16 on :5432
+export DATABASE_URL="postgresql+psycopg://edos:edos@localhost:5432/edos"
+.venv/bin/python scripts/db/bootstrap.py                   # create schema + stamp Alembic (idempotent)
 .venv/bin/uvicorn edos.api.app:app --app-dir src --host 0.0.0.0 --port 8000
-# background (headless box): nohup … > /tmp/edos.log 2>&1 &   ·   stop: pkill -f uvicorn
 ```
-> On a headless box, run it inside **tmux** so it survives your SSH session.
+> **Schema note:** use `scripts/db/bootstrap.py` for fresh installs (revision 0001 is metadata-driven, so
+> `alembic upgrade head` collides with later incremental revisions on an empty DB). Existing DBs still take
+> `alembic upgrade <rev>` for incremental upgrades.
+</details>
 
-### 5. Open it
+### 3. Open it
 - **UI:** `http://<host>:8000/app` (chat → decision cards → accept/challenge)
 - **Swagger:** `http://<host>:8000/docs` · **Health:** `http://<host>:8000/health`
-- Remote access over Tailscale: use the box's Tailscale IP; if it won't open, allow the interface:
+- Remote over Tailscale: use the box's Tailscale IP; if it won't open, allow the interface:
   `sudo ufw allow in on tailscale0`.
 
 ### Tests / gate
 ```bash
-.venv/bin/python -m pytest -q          # needs DATABASE_URL + Postgres up (DB tests skip if absent)
+export DATABASE_URL="postgresql+psycopg://edos:edos@localhost:5432/edos"
+.venv/bin/python -m pytest -q          # needs Postgres up (DB tests skip if absent)
 ./scripts/check.sh                     # full gate: contracts + pytest + ruff (0.16.0, pinned)
 ```
 

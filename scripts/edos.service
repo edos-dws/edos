@@ -1,0 +1,16 @@
+[Unit]
+Description=EDOS API server (FastAPI + Postgres/pgvector)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/edos
+Environment=DATABASE_URL=postgresql+psycopg://edos:edos@localhost:5432/edos
+# run-server.sh brings up Postgres, ensures the schema, then execs uvicorn
+ExecStart=%h/Projects/edos/scripts/run-server.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
