@@ -10,155 +10,229 @@
   * { box-sizing:border-box; }
   body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; }
   h1,h2,h3 { margin:0 0 .4rem; }
-  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:.5rem .8rem; cursor:pointer; font-size:13px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:.45rem .7rem; cursor:pointer; font-size:13px; }
   button.ghost { background:var(--panel2); color:var(--fg); border:1px solid var(--line); }
-  button.bad { background:var(--bad); } button.good { background:var(--good); }
-  input,textarea { width:100%; background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:.5rem; font:inherit; }
-  .side { width:260px; background:var(--panel); border-right:1px solid var(--line); padding:1rem; overflow:auto; }
+  button.bad { background:var(--bad); } button.good { background:var(--good); } button.sm { padding:.2rem .45rem; font-size:12px; }
+  input,textarea,select { width:100%; background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:.45rem; font:inherit; }
+  .side { width:250px; background:var(--panel); border-right:1px solid var(--line); padding:1rem; overflow:auto; display:flex; flex-direction:column; }
   .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .topbar { padding:.8rem 1.2rem; border-bottom:1px solid var(--line); background:var(--panel); display:flex; gap:.6rem; align-items:center; }
-  .feed { flex:1; overflow:auto; padding:1.2rem; }
-  .composer { border-top:1px solid var(--line); padding:1rem 1.2rem; background:var(--panel); display:flex; gap:.6rem; }
+  .topbar { padding:.6rem 1.1rem; border-bottom:1px solid var(--line); background:var(--panel); display:flex; gap:.4rem; align-items:center; }
+  .tab { background:transparent; color:var(--muted); border:0; border-bottom:2px solid transparent; border-radius:0; padding:.4rem .7rem; }
+  .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
+  .body { flex:1; overflow:auto; padding:1.1rem; }
+  .composer { border-top:1px solid var(--line); padding:.8rem 1.1rem; background:var(--panel); display:flex; gap:.5rem; }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem; margin:0 0 1rem; }
-  .proj { padding:.5rem; border-radius:6px; cursor:pointer; }
+  .card.warnc { border-color:var(--warn); } .card.badc { border-color:var(--bad); } .card.goodc { border-color:var(--good); }
+  .proj { padding:.45rem .5rem; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:.3rem; }
   .proj:hover, .proj.active { background:var(--panel2); }
-  .muted { color:var(--muted); } .row { display:flex; gap:.5rem; align-items:center; }
+  .proj .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .muted { color:var(--muted); } .row { display:flex; gap:.5rem; align-items:center; } .wrap { flex-wrap:wrap; }
   .pill { display:inline-block; padding:.1rem .5rem; border-radius:20px; font-size:12px; border:1px solid var(--line); }
-  .conf { font-weight:600; } .sec { margin-top:.7rem; }
-  .li { padding:.35rem .5rem; border-left:2px solid var(--line); margin:.25rem 0; }
-  .li.risk { border-color:var(--warn); } .li.block { border-color:var(--bad); } .li.assum { border-color:var(--accent); }
-  .qbubble { background:var(--panel2); border-radius:10px; padding:.6rem .9rem; margin:0 0 .8rem; max-width:80%; }
-  a { color:var(--accent); }
+  .pill.hi { border-color:var(--bad); color:#ffb4ae; } .pill.md { border-color:var(--warn); color:#f2cc7a; }
+  .sec { margin-top:.7rem; } .li { padding:.35rem .5rem; border-left:2px solid var(--line); margin:.25rem 0; }
+  .li.risk { border-color:var(--warn); } .li.block { border-color:var(--bad); } .li.assum { border-color:var(--accent); } .li.stale { opacity:.6; }
+  .qbubble { background:var(--panel2); border-radius:10px 10px 10px 2px; padding:.55rem .85rem; margin:0 0 .8rem; max-width:82%; }
+  a { color:var(--accent); } .hide { display:none; } .grow { flex:1; }
+  label { font-size:12px; color:var(--muted); }
 </style>
 </head>
 <body>
   <aside class="side">
-    <h1 style="font-size:18px">EDOS</h1>
-    <div class="muted" style="margin-bottom:1rem">Engineering Decision OS</div>
+    <div class="row"><h1 style="font-size:18px;flex:1">EDOS</h1></div>
+    <div class="muted" style="margin-bottom:1rem;font-size:12px">Engineering Decision OS</div>
     <div class="row" style="margin-bottom:.6rem">
-      <input id="newProj" placeholder="New project name"/>
+      <input id="newProj" placeholder="New project" onkeydown="if(event.key==='Enter')createProject()"/>
       <button onclick="createProject()">+</button>
     </div>
-    <div id="projects"></div>
-    <hr style="border-color:var(--line);margin:1rem 0"/>
-    <button class="ghost" style="width:100%" onclick="openCalibration()">📊 Calibration</button>
-    <p class="muted" style="font-size:12px;margin-top:1rem">Default vanilla-JS UI (OD-7). Swap for your
-      preferred stack anytime.</p>
+    <div id="projects" class="grow" style="overflow:auto"></div>
+    <div class="muted" style="font-size:11px;margin-top:.8rem">Functional demo UI · vanilla JS · <a href="/docs" target="_blank">API docs</a></div>
   </aside>
 
   <main class="main">
     <div class="topbar">
-      <strong id="projTitle">Select a project</strong>
-      <span class="muted" id="projMeta"></span>
-      <span style="flex:1"></span>
-      <button class="ghost" onclick="loadItems()">Items</button>
-      <button class="ghost" onclick="loadDecisions()">Decisions</button>
+      <strong id="projTitle">Pick or create a project →</strong>
+      <span class="grow"></span>
+      <button class="tab active" data-tab="chat" onclick="tab('chat')">Chat</button>
+      <button class="tab" data-tab="context" onclick="tab('context')">Context</button>
+      <button class="tab" data-tab="decisions" onclick="tab('decisions')">Decisions</button>
+      <button class="tab" data-tab="alerts" onclick="tab('alerts')">Alerts</button>
     </div>
-    <div class="feed" id="feed">
-      <div class="card muted">Create or pick a project, then ask an engineering question. EDOS assembles
-        project context, reasons, and returns a decision you can accept or challenge.</div>
+
+    <div class="body" id="body">
+      <div class="card muted">Create a project, add its context (requirements / constraints / prior decisions)
+        in the <b>Context</b> tab, then ask an engineering question in <b>Chat</b>. EDOS retrieves the
+        relevant context itself and returns a decision you can accept or challenge.</div>
     </div>
-    <div class="composer">
-      <textarea id="q" rows="2" placeholder="Ask an engineering question… (e.g. which MCU for a 4-sensor water quality device?)"></textarea>
+
+    <div class="composer" id="composer">
+      <textarea id="q" rows="2" placeholder="Ask an engineering question…"></textarea>
       <button onclick="ask()" id="askBtn">Ask</button>
     </div>
   </main>
 
 <script>
 const $ = s => document.querySelector(s);
-let PID = null, PROJECTS = [];
+let PID=null, PROJECTS=[], CONV=null, TAB='chat';
 
 async function api(path, opts={}) {
   const r = await fetch(path, { headers:{'Content-Type':'application/json'}, ...opts });
-  if (!r.ok) { const t = await r.text(); throw new Error(r.status + ' ' + t); }
-  return r.status === 204 ? null : r.json();
+  if (!r.ok) { let d; try{d=await r.json()}catch{d=await r.text()} throw new Error((d && d.detail) || JSON.stringify(d) || r.status); }
+  return r.status===204 ? null : r.json();
 }
-function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+const esc = s => (s??'').toString().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const sev = s => s==='high'||s==='critical' ? 'hi' : s==='medium' ? 'md' : '';
 
-async function loadProjects() {
+/* ---------- projects ---------- */
+async function loadProjects(){
   PROJECTS = await api('/v1/projects');
-  $('#projects').innerHTML = PROJECTS.map(p =>
-    `<div class="proj ${p.id===PID?'active':''}" onclick="selectProject('${p.id}')">${esc(p.name)}
-       <div class="muted" style="font-size:11px">${esc(p.domain||'')}</div></div>`).join('') ||
-    '<div class="muted">No projects yet</div>';
+  $('#projects').innerHTML = PROJECTS.map(p=>`
+    <div class="proj ${p.id===PID?'active':''}" onclick="openProject('${p.id}')">
+      <span class="nm">${esc(p.name)}</span>
+      <button class="ghost sm" title="Delete" onclick="event.stopPropagation();delProject('${p.id}','${esc(p.name)}')">🗑</button>
+    </div>`).join('') || '<div class="muted">No projects yet</div>';
 }
-async function createProject() {
-  const name = $('#newProj').value.trim(); if (!name) return;
-  const p = await api('/v1/projects', {method:'POST', body:JSON.stringify({name})});
-  $('#newProj').value=''; await loadProjects(); selectProject(p.id);
+async function createProject(){
+  const name=$('#newProj').value.trim(); if(!name) return;
+  const p=await api('/v1/projects',{method:'POST',body:JSON.stringify({name})});
+  $('#newProj').value=''; await loadProjects(); openProject(p.id);
 }
-function selectProject(id) {
-  PID = id; const p = PROJECTS.find(x=>x.id===id);
-  $('#projTitle').textContent = p ? p.name : 'Project';
-  $('#projMeta').textContent = id;
-  $('#feed').innerHTML = '<div class="card muted">Ask a question to start reasoning in this project.</div>';
+async function delProject(id,name){
+  if(!confirm(`Delete project "${name}" and all its data?`)) return;
+  await api(`/v1/projects/${id}`,{method:'DELETE'});
+  if(PID===id){ PID=null; CONV=null; $('#projTitle').textContent='Pick or create a project →'; render(); }
   loadProjects();
 }
+async function openProject(id){
+  PID=id; CONV=null;
+  const p=PROJECTS.find(x=>x.id===id)||await api(`/v1/projects/${id}`);
+  $('#projTitle').textContent=p.name;
+  // ensure a conversation exists to chat in
+  const convs=await api(`/v1/projects/${id}/conversations`);
+  CONV = convs[0] || await api(`/v1/projects/${id}/conversations`,{method:'POST',body:JSON.stringify({title:'Session 1'})});
+  loadProjects(); tab('chat');
+}
 
-function decisionCard(d, did) {
-  if (d.status === 'needs_clarification') {
-    return `<div class="card"><h3>❓ Clarification needed</h3><div class="muted">${esc(d.reason||'')}</div>
-      ${(d.questions||[]).map(q=>`<div class="li assum">${esc(q)}</div>`).join('')}</div>`;
+/* ---------- tabs / render ---------- */
+function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  $('#composer').classList.toggle('hide', t!=='chat'); render(); }
+function render(){
+  if(!PID){ $('#body').innerHTML='<div class="card muted">Pick or create a project to begin.</div>'; return; }
+  if(TAB==='chat') return renderChat();
+  if(TAB==='context') return renderContext();
+  if(TAB==='decisions') return renderDecisions();
+  if(TAB==='alerts') return renderAlerts();
+}
+
+/* ---------- chat ---------- */
+async function renderChat(){
+  const conv = CONV ? await api(`/v1/conversations/${CONV.id}`) : {turns:[]};
+  const turns = (conv.turns||[]).map(t=>`
+    <div class="qbubble">🧑‍🔧 ${esc(t.prompt)}</div>
+    ${t.response ? decisionCard(t.response) : ''}`).join('');
+  $('#body').innerHTML = turns || '<div class="card muted">Ask a question below. Tip: add project context in the <b>Context</b> tab first so EDOS has something to reason over.</div>';
+  $('#body').scrollTop = $('#body').scrollHeight;
+}
+async function ask(){
+  const q=$('#q').value.trim(); if(!q) return; if(!PID){ alert('Pick a project first'); return; }
+  $('#askBtn').disabled=true; $('#q').value='';
+  $('#body').insertAdjacentHTML('beforeend',`<div class="qbubble">🧑‍🔧 ${esc(q)}</div>`);
+  try{
+    const d=await api('/v1/analyze',{method:'POST',body:JSON.stringify({project_id:PID,question:q,conversation_id:CONV?.id})});
+    $('#body').insertAdjacentHTML('beforeend', decisionCard(d, q));
+  }catch(e){ $('#body').insertAdjacentHTML('beforeend',`<div class="card badc">${esc(e.message)}</div>`); }
+  $('#askBtn').disabled=false; $('#body').scrollTop=$('#body').scrollHeight;
+}
+function decisionCard(d, q){
+  if(d.status==='needs_clarification'){
+    return `<div class="card warnc"><h3>❓ Need more context</h3>
+      <div class="muted">${esc(d.reason||'')}</div>
+      ${(d.questions||[]).map(x=>`<div class="li assum">${esc(x)}</div>`).join('')}
+      <div class="sec row wrap">
+        <button onclick="tab('context')">➕ Add project context</button>
+        <button class="ghost" onclick="quickContext(${JSON.stringify(q||'')})">Answer inline</button>
+      </div></div>`;
   }
-  const list = (arr,cls,fmt) => (arr||[]).map(x=>`<div class="li ${cls}">${fmt(x)}</div>`).join('');
+  const L=(a,c,f)=>(a||[]).map(x=>`<div class="li ${c}">${f(x)}</div>`).join('');
   return `<div class="card">
-    <div class="row"><h3 style="flex:1">${esc(d.summary||'Decision')}</h3>
-      <span class="pill conf">conf ${(d.confidence??0).toFixed(2)}</span>
-      <span class="pill">${esc(d.status||'')}</span></div>
+    <div class="row wrap"><h3 class="grow">${esc(d.summary||'Decision')}</h3>
+      <span class="pill">conf ${(d.confidence??0).toFixed(2)}</span><span class="pill">${esc(d.status||'')}</span></div>
     <p>${esc(d.recommendation||'')}</p>
-    ${d.assumptions?.length?`<div class="sec"><strong>Assumptions</strong>${list(d.assumptions,'assum',a=>esc(a.statement)+` <span class="muted">(risk if wrong: ${esc(a.risk_if_wrong||'—')})</span>`)}</div>`:''}
-    ${d.risks?.length?`<div class="sec"><strong>Risks</strong>${list(d.risks,'risk',r=>esc(r.description)+` <span class="muted">[${esc(r.severity)}/${esc(r.likelihood)}]</span>`)}</div>`:''}
-    ${d.tradeoffs?.length?`<div class="sec"><strong>Tradeoffs</strong>${list(d.tradeoffs,'',t=>`<strong>${esc(t.option)}</strong> — +${esc(t.benefit)} / −${esc(t.drawback)}`)}</div>`:''}
-    ${d.freeze_blockers?.length?`<div class="sec"><strong>🔒 Freeze blockers</strong>${list(d.freeze_blockers,'block',b=>esc(b))}</div>`:''}
-    ${d.evidence?.length?`<div class="sec"><strong>Provenance</strong>${list(d.evidence,'',e=>esc(e.claim)+` <span class="muted">← ${esc(e.source)}</span>`)}</div>`:''}
-    ${d.next_actions?.length?`<div class="sec"><strong>Next actions</strong>${list(d.next_actions,'',a=>esc(a))}</div>`:''}
-    <div class="sec row">
-      <button class="good" onclick='persistThenAccept(${JSON.stringify(JSON.stringify(d))})'>✓ Accept</button>
+    ${d.assumptions?.length?`<div class="sec"><b>Assumptions</b>${L(d.assumptions,'assum',a=>esc(a.statement)+` <span class="muted">(risk: ${esc(a.risk_if_wrong||'—')})</span>`)}</div>`:''}
+    ${d.risks?.length?`<div class="sec"><b>Risks</b>${L(d.risks,'risk',r=>esc(r.description)+` <span class="pill ${sev(r.severity)}">${esc(r.severity)}/${esc(r.likelihood)}</span>`)}</div>`:''}
+    ${d.tradeoffs?.length?`<div class="sec"><b>Tradeoffs</b>${L(d.tradeoffs,'',t=>`<b>${esc(t.option)}</b> — +${esc(t.benefit)} / −${esc(t.drawback)}`)}</div>`:''}
+    ${d.freeze_blockers?.length?`<div class="sec"><b>🔒 Freeze blockers</b>${L(d.freeze_blockers,'block',b=>esc(b))}</div>`:''}
+    ${d.evidence?.length?`<div class="sec"><b>Provenance</b>${L(d.evidence,'',e=>esc(e.claim)+` <span class="muted">← ${esc(e.source)}</span>`)}</div>`:''}
+    ${d.next_actions?.length?`<div class="sec"><b>Next actions</b>${L(d.next_actions,'',a=>esc(a))}</div>`:''}
+    <div class="sec row wrap">
+      <button class="good" onclick='acceptDecision(${JSON.stringify(JSON.stringify(d))})'>✓ Accept & save</button>
       <button class="bad" onclick="challenge()">✗ Challenge</button>
     </div></div>`;
 }
-
-async function ask() {
-  const q = $('#q').value.trim(); if (!q || !PID) { alert('Pick a project and type a question'); return; }
-  $('#askBtn').disabled = true;
-  $('#feed').insertAdjacentHTML('beforeend', `<div class="qbubble">🧑‍🔧 ${esc(q)}</div>`);
-  try {
-    const d = await api('/v1/analyze', {method:'POST', body:JSON.stringify({project_id:PID, question:q})});
-    $('#feed').insertAdjacentHTML('beforeend', decisionCard(d));
-  } catch(e) { $('#feed').insertAdjacentHTML('beforeend', `<div class="card" style="border-color:var(--bad)">${esc(e.message)}</div>`); }
-  $('#q').value=''; $('#askBtn').disabled=false; $('#feed').scrollTop = $('#feed').scrollHeight;
+function challenge(){ const c=prompt('What should EDOS reconsider / change?'); if(c){ $('#q').value=c; ask(); } }
+function quickContext(q){
+  const a=prompt('Provide the missing context (comma-separated facts):'); if(!a) return;
+  api('/v1/analyze/answer',{method:'POST',body:JSON.stringify({project_id:PID,question:q,answers:a.split(',').map(s=>s.trim()).filter(Boolean),conversation_id:CONV?.id})})
+    .then(d=>$('#body').insertAdjacentHTML('beforeend',decisionCard(d,q)));
+}
+async function acceptDecision(dStr){
+  const decision=JSON.parse(dStr);
+  const env=await api('/v1/decisions',{method:'POST',body:JSON.stringify({project_id:PID,decision})});
+  await api(`/v1/decisions/${env.id}/accept`,{method:'POST',body:JSON.stringify({})});
+  await api(`/v1/decisions/${env.id}/outcome`,{method:'POST',body:JSON.stringify({outcome:'accepted'})});
+  $('#body').insertAdjacentHTML('beforeend',`<div class="card goodc">✓ Accepted — written back into project knowledge (${env.id}). Future questions will use it.</div>`);
 }
 
-async function persistThenAccept(dStr) {
-  const decision = JSON.parse(dStr);
-  const env = await api('/v1/decisions', {method:'POST', body:JSON.stringify({project_id:PID, decision})});
-  await api(`/v1/decisions/${env.id}/accept`, {method:'POST', body:JSON.stringify({})});
-  $('#feed').insertAdjacentHTML('beforeend', `<div class="card" style="border-color:var(--good)">✓ Accepted &amp; written back to project knowledge (decision ${env.id})</div>`);
+/* ---------- context (items) — THE way to give EDOS context ---------- */
+async function renderContext(){
+  const items=await api(`/v1/projects/${PID}/items`);
+  const flags=await api(`/v1/projects/${PID}/rule-flags`);
+  $('#body').innerHTML=`
+    <div class="card"><h3>Add context</h3>
+      <div class="muted" style="margin-bottom:.5rem">Give EDOS the project's requirements, constraints, and prior decisions. It links them into the graph and retrieves them when you ask.</div>
+      <div class="row wrap" style="align-items:flex-end">
+        <div style="width:150px"><label>Type</label>
+          <select id="itType"><option>requirement</option><option>decision</option><option>assumption</option><option>document</option></select></div>
+        <div class="grow"><label>Content</label><input id="itContent" placeholder="e.g. Must read pH via high-impedance electrode; battery 18650; BOM < $12" onkeydown="if(event.key==='Enter')addItem()"/></div>
+        <button onclick="addItem()">Add</button>
+      </div>
+    </div>
+    ${flags.length?`<div class="card warnc"><b>⚑ Domain checks</b>${flags.map(f=>`<div class="li risk">${esc(f.flag)} <span class="pill ${sev(f.severity)}">${esc(f.severity)}</span></div>`).join('')}</div>`:''}
+    <div class="card"><h3>Project items (${items.length})</h3>
+      ${items.map(i=>`<div class="li ${i.validity!=='active'?'stale':''}"><b>${esc(i.item_type)}</b> ${esc(i.content)}
+        <span class="pill ${i.validity!=='active'?'md':''}">${esc(i.validity)}${i.needs_linking?' · unlinked':''}</span></div>`).join('') || '<div class="muted">No context yet — add some above.</div>'}
+    </div>`;
 }
-function challenge() {
-  const c = prompt('What should EDOS reconsider / what changes?'); if (!c) return;
-  $('#q').value = c; ask();
+async function addItem(){
+  const item_type=$('#itType').value, content=$('#itContent').value.trim(); if(!content) return;
+  await api(`/v1/projects/${PID}/items`,{method:'POST',body:JSON.stringify({item_type,content})});
+  renderContext();
 }
 
-async function loadItems() {
-  if (!PID) return;
-  const items = await api(`/v1/projects/${PID}/items`);
-  $('#feed').innerHTML = `<div class="card"><h3>Project items (${items.length})</h3>` +
-    items.map(i=>`<div class="li ${i.validity!=='active'?'block':''}">${esc(i.item_type)}: ${esc(i.content)}
-      <span class="muted">[${esc(i.validity)}${i.needs_linking?' · needs-linking':''}]</span></div>`).join('') + '</div>';
+/* ---------- decisions ---------- */
+async function renderDecisions(){
+  const ds=await api(`/v1/projects/${PID}/decisions`);
+  $('#body').innerHTML=`<div class="card"><h3>Decisions (${ds.length})</h3>
+    ${ds.map(e=>`<div class="li"><b>v${e.version}</b> · ${esc(e.status)} · conf ${(e.confidence??0).toFixed(2)} — ${esc(e.decision?.summary||'')}
+      <button class="ghost sm" onclick="history('${e.id}')">history</button></div>`).join('')||'<div class="muted">No saved decisions yet. Accept a decision in Chat to save it.</div>'}
+    </div><div id="hist"></div>`;
 }
-async function loadDecisions() {
-  if (!PID) return;
-  const ds = await api(`/v1/projects/${PID}/decisions`);
-  $('#feed').innerHTML = `<div class="card"><h3>Decisions (${ds.length})</h3>` +
-    ds.map(e=>`<div class="li">v${e.version} · ${esc(e.status)} · conf ${(e.confidence??0).toFixed(2)} — ${esc(e.decision?.summary||'')}</div>`).join('') + '</div>';
+async function history(id){
+  const h=await api(`/v1/decisions/${id}/history`);
+  $('#hist').innerHTML=`<div class="card"><h3>History — ${esc(id)}</h3>${h.map(e=>`<div class="li">v${e.version} · ${esc(e.status)} · conf ${(e.confidence??0).toFixed(2)}</div>`).join('')}</div>`;
 }
-async function openCalibration() {
-  const c = await api('/v1/calibration');
-  $('#feed').innerHTML = `<div class="card"><h3>📊 Calibration</h3>
-    <div class="li">outcomes: ${c.n} (accepted ${c.n_accepted}, reversed ${c.n_reversed})</div>
-    <div class="li">mean conf — accepted ${c.mean_confidence_accepted}, reversed ${c.mean_confidence_reversed}</div>
-    <div class="li assum">calibration gap: ${c.calibration_gap} <span class="muted">(higher = better)</span></div></div>`;
+
+/* ---------- alerts (watchdog) ---------- */
+async function renderAlerts(){
+  const a=await api(`/v1/projects/${PID}/alerts`);
+  const cal=await api('/v1/calibration');
+  $('#body').innerHTML=`
+    <div class="card"><h3>⚠️ Watchdog alerts (${a.length})</h3>
+      ${a.map(x=>`<div class="li ${x.severity==='high'?'block':'risk'}"><b>${esc(x.type)}</b> — ${esc(x.message)}</div>`).join('')||'<div class="muted">No open conflicts or invalidated dependencies. 🎉</div>'}
+    </div>
+    <div class="card"><h3>📊 Calibration</h3>
+      <div class="li">outcomes: ${cal.n} (accepted ${cal.n_accepted}, reversed ${cal.n_reversed})</div>
+      <div class="li assum">calibration gap: ${cal.calibration_gap} <span class="muted">(accepted conf − reversed conf; higher = better)</span></div>
+    </div>`;
 }
 
 loadProjects();
