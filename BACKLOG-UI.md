@@ -199,7 +199,20 @@ contradiction cards, Decision Diff card (struck-through old → new, why changed
 Constraints, Interfaces, Acceptance Criteria, Standards, Open Risks — assembled from accepted decisions +
 assumptions + findings. JSON + copyable text.
 **UI:** Execution Context view (the dark spec card from the PDF) + copy/export for any coding agent.
-- [ ] 9.1 execution-context assembler. 9.2 endpoint (json+text). 9.3 UI view + copy.
+- [x] 9.1 execution-context assembler. 9.2 endpoint (json+text). 9.3 UI view + copy.
+  `engines/execution_context.py` (`build(session, project_id, now=None)` + `to_text` — deterministic, no LLM):
+  ACCEPTED DECISIONS (latest `accepted` decisions, or latest `recommended` marked **provisional** when none
+  accepted; each with summary/recommendation + `key_params` from the decision_detail comparison_matrix
+  recommended option + impacted_components); CONSTRAINTS (requirement/constraint items + decision_detail
+  review_conditions + high/critical risk mitigations); INTERFACES (decision_detail impacted_components +
+  whole-token protocol scan SPI/isoSPI/CAN/I2C/UART/BLE/ADC/GPIO/…); ACCEPTANCE CRITERIA (accepted decisions'
+  next_actions + measurable requirement items); STANDARDS (regex scan ISO 26262/AEC-Q100/UN 38.3/AIS 156/ECE
+  R100/IEC 62619/IP67/ASIL/…); OPEN RISKS (open=created/challenged first-class assumptions + active
+  `conflicts_with` contradictions + accepted-decision freeze_blockers). `meta`: project_id / injected
+  `generated_at` (None offline → deterministic) / coverage (`coverage_report`). `GET
+  /projects/{id}/execution-context` (JSON, `?format=text`) + `GET …/execution-context.txt` (plain-text spec).
+  UI Execution Context tab = the dark spec card (PDF p24 sections + "EDOS decides. Agents execute.") with a
+  **Copy spec** button that copies the .txt form. `tests/test_execution_context.py` (12 tests).
 **AC:** a project with accepted decisions emits a coherent spec a coding agent can consume. **Resume:** exec-context exports.
 
 ---

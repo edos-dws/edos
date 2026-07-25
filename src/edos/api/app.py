@@ -18,7 +18,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -35,6 +35,7 @@ from edos.engines import (
     decision_store,
     deepdive,
     domain,
+    execution_context,
     extraction,
     faithfulness,
     feedback,
@@ -546,6 +547,34 @@ def decision_diff_ep(
     if result is None:
         raise HTTPException(status_code=404, detail="decision not found")
     return result
+
+
+# ---------- Execution Context — the handoff (UI-CP-9, PDF p24) ----------
+@app.get("/v1/projects/{project_id}/execution-context")
+def project_execution_context(
+    project_id: str,
+    format: str | None = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    """The machine-readable Execution Context ("EDOS decides. Agents execute."): a coherent spec assembled
+    from the project's accepted decisions + assumptions + graph — ACCEPTED DECISIONS / CONSTRAINTS /
+    INTERFACES / ACCEPTANCE CRITERIA / STANDARDS / OPEN RISKS. Deterministic (no LLM). `?format=text` returns
+    the copy-pasteable plain-text spec instead of JSON."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    ctx = execution_context.build(session, project_id, now=dt.datetime.now(dt.UTC))
+    if format == "text":
+        return PlainTextResponse(execution_context.to_text(ctx))
+    return ctx
+
+
+@app.get("/v1/projects/{project_id}/execution-context.txt")
+def project_execution_context_text(project_id: str, session: Session = Depends(get_session)):
+    """Copy-pasteable plain-text Execution Context an engineer can hand straight to a coding agent."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    ctx = execution_context.build(session, project_id, now=dt.datetime.now(dt.UTC))
+    return PlainTextResponse(execution_context.to_text(ctx))
 
 
 # ---------- project items / graph ingestion (CP-12) ----------
