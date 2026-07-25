@@ -5,237 +5,178 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>EDOS — Engineering Decision OS</title>
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --fg:#e6e9ef;
-          --muted:#9aa4b2; --accent:#4f8cff; --good:#3fb950; --warn:#d29922; --bad:#f85149; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:14px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--fg); height:100vh; display:flex; }
-  h1,h2,h3 { margin:0 0 .4rem; }
-  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:.45rem .7rem; cursor:pointer; font-size:13px; }
-  button.ghost { background:var(--panel2); color:var(--fg); border:1px solid var(--line); }
-  button.bad { background:var(--bad); } button.good { background:var(--good); } button.sm { padding:.2rem .45rem; font-size:12px; }
-  input,textarea,select { width:100%; background:var(--panel2); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:.45rem; font:inherit; }
-  .side { width:250px; background:var(--panel); border-right:1px solid var(--line); padding:1rem; overflow:auto; display:flex; flex-direction:column; }
-  .main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
-  .topbar { padding:.6rem 1.1rem; border-bottom:1px solid var(--line); background:var(--panel); display:flex; gap:.4rem; align-items:center; }
-  .tab { background:transparent; color:var(--muted); border:0; border-bottom:2px solid transparent; border-radius:0; padding:.4rem .7rem; }
-  .tab.active { color:var(--fg); border-bottom-color:var(--accent); }
-  .body { flex:1; overflow:auto; padding:1.1rem; }
-  .composer { border-top:1px solid var(--line); padding:.8rem 1.1rem; background:var(--panel); display:flex; gap:.5rem; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem; margin:0 0 1rem; }
-  .card.warnc { border-color:var(--warn); } .card.badc { border-color:var(--bad); } .card.goodc { border-color:var(--good); }
-  .proj { padding:.45rem .5rem; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:.3rem; }
-  .proj:hover, .proj.active { background:var(--panel2); }
-  .proj .nm { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .muted { color:var(--muted); } .row { display:flex; gap:.5rem; align-items:center; } .wrap { flex-wrap:wrap; }
-  .pill { display:inline-block; padding:.1rem .5rem; border-radius:20px; font-size:12px; border:1px solid var(--line); }
-  .pill.hi { border-color:var(--bad); color:#ffb4ae; } .pill.md { border-color:var(--warn); color:#f2cc7a; }
-  .sec { margin-top:.7rem; } .li { padding:.35rem .5rem; border-left:2px solid var(--line); margin:.25rem 0; }
-  .li.risk { border-color:var(--warn); } .li.block { border-color:var(--bad); } .li.assum { border-color:var(--accent); } .li.stale { opacity:.6; }
-  .qbubble { background:var(--panel2); border-radius:10px 10px 10px 2px; padding:.55rem .85rem; margin:0 0 .8rem; max-width:82%; }
-  a { color:var(--accent); } .hide { display:none; } .grow { flex:1; }
-  label { font-size:12px; color:var(--muted); }
+  /* ---- design system (matches EDOS_v3 walkthrough: light theme, navy brain bar, purple accent) ---- */
+  :root{
+    --bg:#eef1f7; --surface:#ffffff; --ink:#1a2030; --ink2:#5a6478; --line:#e3e7f0;
+    --accent:#6d5efc; --accent2:#8b7bff; --navy:#0f1629; --navy2:#1a2340;
+    /* finding categories */
+    --contradiction:#e5484d; --hiddendep:#e5891a; --assumption:#e0b400; --optimization:#3b82f6; --bestpractice:#22a565;
+    /* coverage gradient */
+    --cov:linear-gradient(90deg,#e5484d,#e5891a,#e0b400,#22a565);
+    --radius:12px; --shadow:0 1px 3px rgba(20,30,60,.08),0 1px 2px rgba(20,30,60,.04);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex}
+  h1,h2,h3,h4{margin:0}
+  button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:.5rem .85rem;background:var(--accent);color:#fff;font-weight:500}
+  button.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+  button.sm{padding:.25rem .5rem;font-size:12px}
+  button:disabled{opacity:.5;cursor:default}
+  input,textarea,select{width:100%;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem}
+  a{color:var(--accent);text-decoration:none}
+  .muted{color:var(--ink2)} .row{display:flex;gap:.6rem;align-items:center} .wrap{flex-wrap:wrap} .grow{flex:1}
+  .hide{display:none}
+
+  /* left rail */
+  .rail{width:250px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:1rem}
+  .brand{font-weight:800;font-size:20px;letter-spacing:.12em;background:linear-gradient(90deg,var(--accent),#c084fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand-sub{font-size:10px;letter-spacing:.18em;color:var(--ink2);margin:.1rem 0 1rem}
+  .proj{padding:.5rem .55rem;border-radius:8px;cursor:pointer;display:flex;gap:.4rem;align-items:center}
+  .proj:hover,.proj.active{background:#f0f2f9}
+  .proj .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* main */
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .tabs{display:flex;gap:.2rem;padding:.5rem 1.2rem 0;background:var(--surface);border-bottom:1px solid var(--line)}
+  .tab{background:transparent;color:var(--ink2);border-radius:0;border-bottom:2px solid transparent;padding:.6rem .8rem;font-weight:500}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+  .view{flex:1;overflow:auto;padding:1.4rem;max-width:1080px;width:100%;margin:0 auto}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem;margin-bottom:1.1rem}
+  .eyebrow{font-size:11px;letter-spacing:.14em;color:var(--ink2);font-weight:700;text-transform:uppercase;margin-bottom:.5rem}
+
+  /* project brain */
+  .brainbar{background:var(--navy);color:#fff;border-radius:var(--radius) var(--radius) 0 0;padding:.9rem 1.2rem;display:flex;align-items:center;gap:.6rem;font-weight:600}
+  .brainbar .dot{width:9px;height:9px;border-radius:50%;background:#3ddc97}
+  .brainbody{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);padding:1.2rem;box-shadow:var(--shadow)}
+  .covwrap{display:flex;align-items:center;gap:1rem;margin-bottom:1.1rem}
+  .covtrack{flex:1;height:12px;border-radius:20px;background:#e7eaf3;overflow:hidden}
+  .covfill{height:100%;background:var(--cov);border-radius:20px;transition:width .5s}
+  .covpct{font-size:26px;font-weight:800;color:var(--accent);min-width:70px;text-align:right}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.1rem}
+  .tile{border:1px solid var(--line);border-radius:10px;padding:.9rem;text-align:center}
+  .tile .n{font-size:28px;font-weight:800} .tile .l{font-size:11px;letter-spacing:.1em;color:var(--ink2);text-transform:uppercase;margin-top:.2rem}
+  .domains{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
+  .domain{border:1px solid var(--line);border-radius:10px;padding:.7rem .8rem}
+  .domain .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:.4rem}
+  .dtrack{height:7px;border-radius:20px;background:#e7eaf3;overflow:hidden}
+  .dfill{height:100%;background:linear-gradient(90deg,var(--accent),#4ec5ff);border-radius:20px}
+
+  /* reusable finding / severity primitives (used by later UI-CPs) */
+  .cat{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.12rem .5rem;border-radius:5px;color:#fff}
+  .cat.contradiction{background:var(--contradiction)} .cat.hidden_dependency{background:var(--hiddendep)}
+  .cat.assumption{background:var(--assumption);color:#3a2e00} .cat.optimization{background:var(--optimization)} .cat.best_practice{background:var(--bestpractice)}
+  .pill{display:inline-block;font-size:11px;padding:.1rem .5rem;border-radius:20px;border:1px solid var(--line)}
+  .pill.critical{background:#e5484d;color:#fff;border-color:#e5484d} .pill.high{background:#e5891a;color:#fff;border-color:#e5891a}
+  .pill.medium{background:#f2d675;color:#3a2e00;border-color:#e0b400} .pill.low{background:#dbe4f5;color:#2c3e66;border-color:#c3d2ec}
+  .finding{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:.9rem 1rem;margin-bottom:.8rem}
+  .finding.contradiction{border-left-color:var(--contradiction)} .finding.hidden_dependency{border-left-color:var(--hiddendep)}
+  .finding.assumption{border-left-color:var(--assumption)} .finding.optimization{border-left-color:var(--optimization)} .finding.best_practice{border-left-color:var(--bestpractice)}
+  .ignore{background:#fdf0f0;border:1px dashed #f2c3c3;border-radius:8px;padding:.6rem .8rem;margin-top:.6rem;font-size:13px}
+  .ignore .h{color:var(--contradiction);font-weight:700;font-size:11px;letter-spacing:.08em}
+  .chip{display:inline-block;font-size:11px;background:#eef0f8;border:1px solid var(--line);border-radius:6px;padding:.15rem .5rem;margin:.15rem .2rem 0 0}
+
+  .empty{color:var(--ink2);text-align:center;padding:2rem}
 </style>
 </head>
 <body>
-  <aside class="side">
-    <div class="row"><h1 style="font-size:18px;flex:1">EDOS</h1></div>
-    <div class="muted" style="margin-bottom:1rem;font-size:12px">Engineering Decision OS</div>
+  <aside class="rail">
+    <div class="brand">EDOS</div>
+    <div class="brand-sub">ENGINEERING DECISION OS</div>
     <div class="row" style="margin-bottom:.6rem">
       <input id="newProj" placeholder="New project" onkeydown="if(event.key==='Enter')createProject()"/>
       <button onclick="createProject()">+</button>
     </div>
     <div id="projects" class="grow" style="overflow:auto"></div>
-    <div class="muted" style="font-size:11px;margin-top:.8rem">Functional demo UI · vanilla JS · <a href="/docs" target="_blank">API docs</a></div>
+    <div class="muted" style="font-size:11px;margin-top:.6rem"><a href="/docs" target="_blank">API docs</a> · decision memory, not chat</div>
   </aside>
 
   <main class="main">
-    <div class="topbar">
-      <strong id="projTitle">Pick or create a project →</strong>
-      <span class="grow"></span>
-      <button class="tab active" data-tab="chat" onclick="tab('chat')">Chat</button>
-      <button class="tab" data-tab="context" onclick="tab('context')">Context</button>
-      <button class="tab" data-tab="decisions" onclick="tab('decisions')">Decisions</button>
-      <button class="tab" data-tab="alerts" onclick="tab('alerts')">Alerts</button>
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-tab="brain"  onclick="tab('brain')">Project Brain</button>
+      <button class="tab" data-tab="review" onclick="tab('review')">Engineering Review</button>
+      <button class="tab" data-tab="deepdive" onclick="tab('deepdive')">Deep Dive</button>
+      <button class="tab" data-tab="graph" onclick="tab('graph')">Decision Graph</button>
+      <button class="tab" data-tab="execution" onclick="tab('execution')">Execution Context</button>
     </div>
-
-    <div class="body" id="body">
-      <div class="card muted">Create a project, add its context (requirements / constraints / prior decisions)
-        in the <b>Context</b> tab, then ask an engineering question in <b>Chat</b>. EDOS retrieves the
-        relevant context itself and returns a decision you can accept or challenge.</div>
-    </div>
-
-    <div class="composer" id="composer">
-      <textarea id="q" rows="2" placeholder="Ask an engineering question…"></textarea>
-      <button onclick="ask()" id="askBtn">Ask</button>
-    </div>
+    <div class="view" id="view"></div>
   </main>
 
 <script>
-const $ = s => document.querySelector(s);
-let PID=null, PROJECTS=[], CONV=null, TAB='chat';
+const $=s=>document.querySelector(s);
+let PID=null, PROJECTS=[], TAB='brain';
 
-async function api(path, opts={}) {
-  const r = await fetch(path, { headers:{'Content-Type':'application/json'}, ...opts });
-  if (!r.ok) { let d; try{d=await r.json()}catch{d=await r.text()} throw new Error((d && d.detail) || JSON.stringify(d) || r.status); }
-  return r.status===204 ? null : r.json();
+async function api(path,opts={}){
+  const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok){let d;try{d=await r.json()}catch{d=await r.text()}throw new Error((d&&d.detail)||JSON.stringify(d)||r.status)}
+  return r.status===204?null:r.json();
 }
-const esc = s => (s??'').toString().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const sev = s => s==='high'||s==='critical' ? 'hi' : s==='medium' ? 'md' : '';
+const esc=s=>(s??'').toString().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-/* ---------- projects ---------- */
+/* ---- projects (left rail) ---- */
 async function loadProjects(){
-  PROJECTS = await api('/v1/projects');
-  $('#projects').innerHTML = PROJECTS.map(p=>`
+  PROJECTS=await api('/v1/projects');
+  $('#projects').innerHTML=PROJECTS.map(p=>`
     <div class="proj ${p.id===PID?'active':''}" onclick="openProject('${p.id}')">
       <span class="nm">${esc(p.name)}</span>
       <button class="ghost sm" title="Delete" onclick="event.stopPropagation();delProject('${p.id}','${esc(p.name)}')">🗑</button>
-    </div>`).join('') || '<div class="muted">No projects yet</div>';
+    </div>`).join('')||'<div class="muted" style="font-size:12px">No projects yet</div>';
 }
 async function createProject(){
-  const name=$('#newProj').value.trim(); if(!name) return;
+  const name=$('#newProj').value.trim(); if(!name)return;
   const p=await api('/v1/projects',{method:'POST',body:JSON.stringify({name})});
   $('#newProj').value=''; await loadProjects(); openProject(p.id);
 }
 async function delProject(id,name){
-  if(!confirm(`Delete project "${name}" and all its data?`)) return;
+  if(!confirm(`Delete project "${name}" and all its data?`))return;
   await api(`/v1/projects/${id}`,{method:'DELETE'});
-  if(PID===id){ PID=null; CONV=null; $('#projTitle').textContent='Pick or create a project →'; render(); }
-  loadProjects();
+  if(PID===id)PID=null;
+  await loadProjects(); render();
 }
-async function openProject(id){
-  PID=id; CONV=null;
-  const p=PROJECTS.find(x=>x.id===id)||await api(`/v1/projects/${id}`);
-  $('#projTitle').textContent=p.name;
-  // ensure a conversation exists to chat in
-  const convs=await api(`/v1/projects/${id}/conversations`);
-  CONV = convs[0] || await api(`/v1/projects/${id}/conversations`,{method:'POST',body:JSON.stringify({title:'Session 1'})});
-  loadProjects(); tab('chat');
-}
+async function openProject(id){ PID=id; loadProjects(); tab('brain'); }
 
-/* ---------- tabs / render ---------- */
-function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
-  $('#composer').classList.toggle('hide', t!=='chat'); render(); }
+/* ---- tab routing ---- */
+function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
 function render(){
-  if(!PID){ $('#body').innerHTML='<div class="card muted">Pick or create a project to begin.</div>'; return; }
-  if(TAB==='chat') return renderChat();
-  if(TAB==='context') return renderContext();
-  if(TAB==='decisions') return renderDecisions();
-  if(TAB==='alerts') return renderAlerts();
+  if(!PID){ $('#view').innerHTML='<div class="empty">Pick or create a project on the left to open its <b>Project Brain</b>.</div>'; return; }
+  if(TAB==='brain') return renderBrain();
+  $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
 
-/* ---------- chat ---------- */
-async function renderChat(){
-  const conv = CONV ? await api(`/v1/conversations/${CONV.id}`) : {turns:[]};
-  const turns = (conv.turns||[]).map(t=>`
-    <div class="qbubble">🧑‍🔧 ${esc(t.prompt)}</div>
-    ${t.response ? decisionCard(t.response) : ''}`).join('');
-  $('#body').innerHTML = turns || '<div class="card muted">Ask a question below. Tip: add project context in the <b>Context</b> tab first so EDOS has something to reason over.</div>';
-  $('#body').scrollTop = $('#body').scrollHeight;
-}
-async function ask(){
-  const q=$('#q').value.trim(); if(!q) return; if(!PID){ alert('Pick a project first'); return; }
-  $('#askBtn').disabled=true; $('#q').value='';
-  $('#body').insertAdjacentHTML('beforeend',`<div class="qbubble">🧑‍🔧 ${esc(q)}</div>`);
-  try{
-    const d=await api('/v1/analyze',{method:'POST',body:JSON.stringify({project_id:PID,question:q,conversation_id:CONV?.id})});
-    $('#body').insertAdjacentHTML('beforeend', decisionCard(d, q));
-  }catch(e){ $('#body').insertAdjacentHTML('beforeend',`<div class="card badc">${esc(e.message)}</div>`); }
-  $('#askBtn').disabled=false; $('#body').scrollTop=$('#body').scrollHeight;
-}
-function decisionCard(d, q){
-  if(d.status==='needs_clarification'){
-    return `<div class="card warnc"><h3>❓ Need more context</h3>
-      <div class="muted">${esc(d.reason||'')}</div>
-      ${(d.questions||[]).map(x=>`<div class="li assum">${esc(x)}</div>`).join('')}
-      <div class="sec row wrap">
-        <button onclick="tab('context')">➕ Add project context</button>
-        <button class="ghost" onclick="quickContext(${JSON.stringify(q||'')})">Answer inline</button>
-      </div></div>`;
-  }
-  const L=(a,c,f)=>(a||[]).map(x=>`<div class="li ${c}">${f(x)}</div>`).join('');
-  return `<div class="card">
-    <div class="row wrap"><h3 class="grow">${esc(d.summary||'Decision')}</h3>
-      <span class="pill">conf ${(d.confidence??0).toFixed(2)}</span><span class="pill">${esc(d.status||'')}</span></div>
-    <p>${esc(d.recommendation||'')}</p>
-    ${d.assumptions?.length?`<div class="sec"><b>Assumptions</b>${L(d.assumptions,'assum',a=>esc(a.statement)+` <span class="muted">(risk: ${esc(a.risk_if_wrong||'—')})</span>`)}</div>`:''}
-    ${d.risks?.length?`<div class="sec"><b>Risks</b>${L(d.risks,'risk',r=>esc(r.description)+` <span class="pill ${sev(r.severity)}">${esc(r.severity)}/${esc(r.likelihood)}</span>`)}</div>`:''}
-    ${d.tradeoffs?.length?`<div class="sec"><b>Tradeoffs</b>${L(d.tradeoffs,'',t=>`<b>${esc(t.option)}</b> — +${esc(t.benefit)} / −${esc(t.drawback)}`)}</div>`:''}
-    ${d.freeze_blockers?.length?`<div class="sec"><b>🔒 Freeze blockers</b>${L(d.freeze_blockers,'block',b=>esc(b))}</div>`:''}
-    ${d.evidence?.length?`<div class="sec"><b>Provenance</b>${L(d.evidence,'',e=>esc(e.claim)+` <span class="muted">← ${esc(e.source)}</span>`)}</div>`:''}
-    ${d.next_actions?.length?`<div class="sec"><b>Next actions</b>${L(d.next_actions,'',a=>esc(a))}</div>`:''}
-    <div class="sec row wrap">
-      <button class="good" onclick='acceptDecision(${JSON.stringify(JSON.stringify(d))})'>✓ Accept & save</button>
-      <button class="bad" onclick="challenge()">✗ Challenge</button>
-    </div></div>`;
-}
-function challenge(){ const c=prompt('What should EDOS reconsider / change?'); if(c){ $('#q').value=c; ask(); } }
-function quickContext(q){
-  const a=prompt('Provide the missing context (comma-separated facts):'); if(!a) return;
-  api('/v1/analyze/answer',{method:'POST',body:JSON.stringify({project_id:PID,question:q,answers:a.split(',').map(s=>s.trim()).filter(Boolean),conversation_id:CONV?.id})})
-    .then(d=>$('#body').insertAdjacentHTML('beforeend',decisionCard(d,q)));
-}
-async function acceptDecision(dStr){
-  const decision=JSON.parse(dStr);
-  const env=await api('/v1/decisions',{method:'POST',body:JSON.stringify({project_id:PID,decision})});
-  await api(`/v1/decisions/${env.id}/accept`,{method:'POST',body:JSON.stringify({})});
-  await api(`/v1/decisions/${env.id}/outcome`,{method:'POST',body:JSON.stringify({outcome:'accepted'})});
-  $('#body').insertAdjacentHTML('beforeend',`<div class="card goodc">✓ Accepted — written back into project knowledge (${env.id}). Future questions will use it.</div>`);
-}
-
-/* ---------- context (items) — THE way to give EDOS context ---------- */
-async function renderContext(){
-  const items=await api(`/v1/projects/${PID}/items`);
-  const flags=await api(`/v1/projects/${PID}/rule-flags`);
-  $('#body').innerHTML=`
-    <div class="card"><h3>Add context</h3>
-      <div class="muted" style="margin-bottom:.5rem">Give EDOS the project's requirements, constraints, and prior decisions. It links them into the graph and retrieves them when you ask.</div>
-      <div class="row wrap" style="align-items:flex-end">
-        <div style="width:150px"><label>Type</label>
-          <select id="itType"><option>requirement</option><option>decision</option><option>assumption</option><option>document</option></select></div>
-        <div class="grow"><label>Content</label><input id="itContent" placeholder="e.g. Must read pH via high-impedance electrode; battery 18650; BOM < $12" onkeydown="if(event.key==='Enter')addItem()"/></div>
-        <button onclick="addItem()">Add</button>
+/* ---- UI-CP-0: Project Brain scaffold (live counts where available; coverage lands in UI-CP-2) ---- */
+async function renderBrain(){
+  const p=PROJECTS.find(x=>x.id===PID)||{name:'Project'};
+  // live-ish counts from existing endpoints; full /brain endpoint arrives in UI-CP-1
+  let decisions=0, contradictions=0, items=0;
+  try{ decisions=(await api(`/v1/projects/${PID}/decisions`)).length; }catch{}
+  try{ contradictions=(await api(`/v1/projects/${PID}/alerts`)).filter(a=>a.type==='open_conflict').length; }catch{}
+  try{ items=(await api(`/v1/projects/${PID}/items`)).length; }catch{}
+  const coverage=0; // placeholder until UI-CP-2 coverage engine
+  const DOMAINS=['Architecture','Hardware','Firmware','Manufacturing','Testing','Certification'];
+  $('#view').innerHTML=`
+    <div class="brainbar"><span class="dot"></span> PROJECT BRAIN · ${esc(p.name)} <span class="grow"></span>
+      <span class="muted" style="color:#9fb0d0;font-size:12px">${items} context items</span></div>
+    <div class="brainbody">
+      <div class="eyebrow">Coverage</div>
+      <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${coverage}%"></div></div><div class="covpct">${coverage}%</div></div>
+      <div class="tiles">
+        <div class="tile"><div class="n">${decisions}</div><div class="l">Decisions</div></div>
+        <div class="tile"><div class="n">0</div><div class="l">Assumptions</div></div>
+        <div class="tile"><div class="n">${contradictions}</div><div class="l">Contradictions</div></div>
+        <div class="tile"><div class="n">0</div><div class="l">Open Risks</div></div>
       </div>
-    </div>
-    ${flags.length?`<div class="card warnc"><b>⚑ Domain checks</b>${flags.map(f=>`<div class="li risk">${esc(f.flag)} <span class="pill ${sev(f.severity)}">${esc(f.severity)}</span></div>`).join('')}</div>`:''}
-    <div class="card"><h3>Project items (${items.length})</h3>
-      ${items.map(i=>`<div class="li ${i.validity!=='active'?'stale':''}"><b>${esc(i.item_type)}</b> ${esc(i.content)}
-        <span class="pill ${i.validity!=='active'?'md':''}">${esc(i.validity)}${i.needs_linking?' · unlinked':''}</span></div>`).join('') || '<div class="muted">No context yet — add some above.</div>'}
-    </div>`;
-}
-async function addItem(){
-  const item_type=$('#itType').value, content=$('#itContent').value.trim(); if(!content) return;
-  await api(`/v1/projects/${PID}/items`,{method:'POST',body:JSON.stringify({item_type,content})});
-  renderContext();
-}
-
-/* ---------- decisions ---------- */
-async function renderDecisions(){
-  const ds=await api(`/v1/projects/${PID}/decisions`);
-  $('#body').innerHTML=`<div class="card"><h3>Decisions (${ds.length})</h3>
-    ${ds.map(e=>`<div class="li"><b>v${e.version}</b> · ${esc(e.status)} · conf ${(e.confidence??0).toFixed(2)} — ${esc(e.decision?.summary||'')}
-      <button class="ghost sm" onclick="history('${e.id}')">history</button></div>`).join('')||'<div class="muted">No saved decisions yet. Accept a decision in Chat to save it.</div>'}
-    </div><div id="hist"></div>`;
-}
-async function history(id){
-  const h=await api(`/v1/decisions/${id}/history`);
-  $('#hist').innerHTML=`<div class="card"><h3>History — ${esc(id)}</h3>${h.map(e=>`<div class="li">v${e.version} · ${esc(e.status)} · conf ${(e.confidence??0).toFixed(2)}</div>`).join('')}</div>`;
-}
-
-/* ---------- alerts (watchdog) ---------- */
-async function renderAlerts(){
-  const a=await api(`/v1/projects/${PID}/alerts`);
-  const cal=await api('/v1/calibration');
-  $('#body').innerHTML=`
-    <div class="card"><h3>⚠️ Watchdog alerts (${a.length})</h3>
-      ${a.map(x=>`<div class="li ${x.severity==='high'?'block':'risk'}"><b>${esc(x.type)}</b> — ${esc(x.message)}</div>`).join('')||'<div class="muted">No open conflicts or invalidated dependencies. 🎉</div>'}
-    </div>
-    <div class="card"><h3>📊 Calibration</h3>
-      <div class="li">outcomes: ${cal.n} (accepted ${cal.n_accepted}, reversed ${cal.n_reversed})</div>
-      <div class="li assum">calibration gap: ${cal.calibration_gap} <span class="muted">(accepted conf − reversed conf; higher = better)</span></div>
+      <div class="eyebrow">Decision coverage</div>
+      <div class="domains">
+        ${DOMAINS.map(d=>`<div class="domain"><div class="top"><span>${d}</span><b>0%</b></div><div class="dtrack"><div class="dfill" style="width:0%"></div></div></div>`).join('')}
+      </div>
+      <div class="row" style="margin-top:1.2rem">
+        <button onclick="tab('review')">Start Engineering Review</button>
+        <button class="ghost" onclick="tab('deepdive')">Deep Dive</button>
+      </div>
     </div>`;
 }
 
-loadProjects();
+loadProjects().then(render);
 </script>
 </body>
 </html>
