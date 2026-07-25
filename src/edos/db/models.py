@@ -86,6 +86,10 @@ class DecisionRecord(Base):
     # Full decision contract (edos.decision.v1) as JSON. The projected columns above (title/rationale/
     # confidence/status) are for querying; body_json is the source of truth for the rich decision.
     body_json: Mapped[str] = mapped_column(Text, default="")
+    # Rich Decision-Card detail (UI-CP-4): comparison_matrix / decision_impact / impacted_components /
+    # review_conditions, etc. as JSON. Kept in the persistence ENVELOPE, NOT the locked decision contract
+    # (same stance as version/supersedes) — the core reasoning still emits a contract-valid Decision.
+    decision_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -177,6 +181,7 @@ def new_decision_version(session: Session, current: DecisionRecord, **changes) -
         version=current.version + 1,
         parent_version=current.version,
         body_json=changes.get("body_json", current.body_json),
+        decision_detail=changes.get("decision_detail", current.decision_detail),
     )
     session.add(nxt)
     session.flush()

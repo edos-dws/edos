@@ -28,6 +28,7 @@ from edos.engines import (
     auth,
     coverage,
     decision_store,
+    deepdive,
     domain,
     extraction,
     faithfulness,
@@ -335,6 +336,8 @@ def _decision_envelope(row) -> dict:
         "parent_version": row.parent_version, "status": row.status, "confidence": row.confidence,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "decision": json.loads(row.body_json) if row.body_json else None,
+        # Rich Decision-Card detail (UI-CP-4) — persistence ENVELOPE, not the locked decision contract.
+        "decision_detail": json.loads(row.decision_detail) if row.decision_detail else None,
     }
 
 
@@ -565,6 +568,51 @@ def review_project(project_id: str, body: ReviewRequest, session: Session = Depe
                                         item_type=it["type"], content=it["content"])
             saved.append({"id": row.id, "item_type": row.item_type, "content": row.content})
     return {"findings": result, "count": len(result), "saved": saved}
+
+
+# ---------- Deep Dive → Decision Card (UI-CP-4) ----------
+class DeepDiveRequest(BaseModel):
+    topic: str
+
+
+class DeepDiveAnswer(BaseModel):
+    id: str
+    answer: str
+
+
+class DeepDiveDecideRequest(BaseModel):
+    topic: str
+    answers: list[DeepDiveAnswer] = Field(default_factory=list)
+
+
+@app.post("/v1/projects/{project_id}/deepdive")
+def deepdive_questions(
+    project_id: str, body: DeepDiveRequest, session: Session = Depends(get_session)
+) -> dict:
+    """Deep Dive stage 1: 5-8 targeted questions, each with a "WHY AM I ASKING?" rationale (opposite of the
+    no-question Engineering Review). Planner LLM with stub→heuristic fallback."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return {"topic": body.topic, "questions": deepdive.plan_questions(body.topic)}
+
+
+@app.post("/v1/projects/{project_id}/deepdive/decide", status_code=201)
+def deepdive_decide(
+    project_id: str, body: DeepDiveDecideRequest, session: Session = Depends(get_session)
+) -> dict:
+    """Deep Dive stage 2: reason over (retriever context + the engineer's answers) → a contract-valid
+    Decision PLUS a rich `decision_detail` (comparison_matrix / recommendation / decision_impact /
+    impacted_components / review_conditions / …). The decision is persisted with the detail in the
+    persistence envelope (NOT the locked contract) and the full envelope is returned."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    answers = [a.model_dump() for a in body.answers]
+    decision, detail = deepdive.decide(session, project_id, body.topic, answers)
+    row = decision_store.save_new(
+        session, id=_new_id(), project_id=project_id, decision=decision,
+        status="recommended", detail=detail,
+    )
+    return _decision_envelope(row)
 
 
 # ---------- Project Brain + Coverage (UI-CP-1 / UI-CP-2) ----------

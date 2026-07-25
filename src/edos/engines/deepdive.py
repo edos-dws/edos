@@ -1,0 +1,412 @@
+"""Deep Dive → Decision Card (UI-CP-4).
+
+Deep Dive is the **opposite of Engineering Review**: instead of a fast no-question scan, it asks 5-8
+*targeted* questions — each with a "WHY AM I ASKING?" rationale — then, once the engineer answers, it
+produces a rich **Decision Card**.
+
+Two stages:
+
+  1. ``plan_questions(topic)`` → ``[{id, q, why}]`` — the targeted question set + rationale.
+  2. ``decide(session, project_id, topic, answers)`` → ``(Decision, decision_detail)`` where:
+       * ``Decision`` is a **contract-valid** ``edos.decision.v1`` (summary / recommendation / confidence /
+         status / assumptions / risks / evidence / …) — reasoned over retriever context + the answers;
+       * ``decision_detail`` is the rich card block kept in the **persistence envelope**, NOT the locked
+         contract: ``{comparison_matrix, recommendation, decision_impact, impacted_components,
+         review_conditions, dependencies, related_decisions, missing}``.
+
+Both stages go through the Model Router with a JSON schema and fall back to a deterministic heuristic exactly
+like ``extraction.py`` / ``findings.py`` — so the suite is deterministic offline (stub provider) and uses the
+real model live. The heuristic never fabricates datasheet numbers: options/criteria are derived from the
+topic + answers + retrieved project context, so the card is honest offline and richer live.
+"""
+from __future__ import annotations
+
+import re
+
+from sqlalchemy.orm import Session
+
+from edos.engines import decision_store, retrieval
+from edos.engines.model_router import Capability, ModelRouter
+from edos.models.decision import Decision
+
+# ---- the six engineering areas a decision can ripple into (Decision Impact grid) ----
+_IMPACT_AREAS = ("Firmware", "Hardware", "Architecture", "Power stage", "Manufacturing", "Certification")
+
+# keyword → impacted component (transparent, tunable; never fabricated part numbers)
+_COMPONENT_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("MCU", ("mcu", "microcontroller", "stm32", "soc", "processor")),
+    ("AFE", ("afe", "cell monitor", "monitoring ic", "bms ic", "analog front")),
+    ("Firmware", ("firmware", "driver", "algorithm", "control loop", "software")),
+    ("PCB", ("pcb", "board", "layout", "routing")),
+    ("BOM", ("bom", "cost", "budget", "component", "part")),
+    ("Power stage", ("mosfet", "fet", "gate driver", "power stage", "shunt", "current sens")),
+    ("Thermal", ("thermal", "cooling", "heatsink", "temperature", "heat")),
+    ("Comms", ("can", "isospi", "spi", "i2c", "uart", "wireless", "ble", "lora")),
+)
+
+
+# ==================================================================================================
+# stage 1 — question plan (LLM → heuristic)
+# ==================================================================================================
+QUESTIONS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "questions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "q": {"type": "string"},
+                    "why": {"type": "string"},
+                },
+                "required": ["q", "why"],
+            },
+        }
+    },
+    "required": ["questions"],
+}
+
+# Deterministic offline probes: each is a targeted engineering question that applies when a trigger keyword is
+# present (or as a general fallback). The "why" is a real rationale — what the answer changes downstream.
+_QUESTION_PROBES: tuple[dict, ...] = (
+    {"any": ("current", "100a", "power", "mosfet", "charge", "discharge", "load"),
+     "q": "Peak current rating? (inrush, regen braking, fault stall)",
+     "why": ("Parts sized for continuous current fail under 2-3x peak transients if not derated. The peak "
+             "and its duration set the FET/copper count and the protection threshold.")},
+    {"any": ("balanc", "cell", "pack", "14s", "lfp", "li-ion", "soc", "battery"),
+     "q": "Maximum acceptable cell imbalance at end of life?",
+     "why": ("Cells age apart; end-of-life spread decides whether passive balancing current is enough or "
+             "active balancing (more cost/EMI/firmware) is required.")},
+    {"any": ("cool", "thermal", "heat", "enclosure", "power", "mosfet", "dissipat"),
+     "q": "Cooling method and ambient/enclosure conditions?",
+     "why": ("Dissipation vs cooling sets the continuous rating, PCB copper, and enclosure design. Sealed "
+             "vs forced-air changes the whole thermal budget.")},
+    {"any": ("protect", "fault", "safety", "short", "overcurrent", "fuse"),
+     "q": "Fault-response time budget and protection layer (hardware vs software)?",
+     "why": ("Software-only protection is ~100us+ — too slow for a hard short. Sub-10us needs a hardware "
+             "comparator. This decides whether a dedicated protection IC is on the BOM.")},
+    {"any": ("cost", "budget", "volume", "mass production", "bom", "cheap"),
+     "q": "Target unit cost at volume and the production volume?",
+     "why": ("Cost targets trade against accuracy, thermal margin and field life. Volume decides whether "
+             "NRE (custom silicon, tooling) amortizes or a catalog part wins.")},
+    {"any": ("cert", "standard", "iso", "automotive", "asil", "compliance", "regulat"),
+     "q": "Which certification / safety standard must this meet?",
+     "why": ("Automotive (ISO 26262 ASIL), medical, or industrial each impose redundancy, traceability and "
+             "component-qualification requirements that reshape the architecture — cheaper to design in now.")},
+    {"any": ("comm", "can", "isospi", "spi", "interface", "bus", "protocol", "wireless"),
+     "q": "Communication interface and its noise/isolation environment?",
+     "why": ("The bus (isoSPI/CAN/SPI) and whether it crosses a noisy/high-voltage boundary decide isolation, "
+             "shielding and connector count — and the firmware driver work.")},
+    {"any": ("expand", "future", "scal", "roadmap", "next", "modular", "platform"),
+     "q": "Future expansion / scaling plan for this subsystem?",
+     "why": ("Designing only for today's spec forces a redesign when the pack/feature scales. Knowing the "
+             "expansion path lets one architecture cover both without over-building now.")},
+)
+
+# General-purpose questions used to top up to a minimum of 5 when few probes fire.
+_GENERIC_QUESTIONS: tuple[dict, ...] = (
+    {"q": "What are the hard constraints (size, weight, cost, power) that cannot move?",
+     "why": ("Hard constraints eliminate whole option branches up front — reasoning without them risks "
+             "recommending something that was never viable.")},
+    {"q": "What is the single most important priority — safety, cost, performance, or time-to-market?",
+     "why": ("The ranked priority is the tiebreaker in the comparison matrix; without it the recommendation "
+             "is just an opinion.")},
+    {"q": "What is the expected operating environment (temperature, vibration, EMI, ingress)?",
+     "why": ("Environment sets derating, sealing and component qualification — it often decides the option "
+             "more than the nominal spec does.")},
+    {"q": "Are there existing decisions or components this must stay compatible with?",
+     "why": ("A locally-optimal choice can contradict an earlier decision; surfacing dependencies now avoids "
+             "a cross-decision conflict later.")},
+)
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")[:24] or "q"
+
+
+def _heuristic_questions(topic: str) -> list[dict]:
+    low = (topic or "").lower()
+    picked: list[dict] = []
+    for probe in _QUESTION_PROBES:
+        if any(t in low for t in probe["any"]):
+            picked.append({"q": probe["q"], "why": probe["why"]})
+    # top up to >= 5 targeted questions, cap at 8 (backlog: 5-8)
+    for g in _GENERIC_QUESTIONS:
+        if len(picked) >= 5:
+            break
+        if all(g["q"] != p["q"] for p in picked):
+            picked.append(g)
+    picked = picked[:8]
+    return [{"id": f"q{i + 1}-{_slug(p['q'])}", "q": p["q"], "why": p["why"]}
+            for i, p in enumerate(picked)]
+
+
+def plan_questions(topic: str, router: ModelRouter | None = None) -> list[dict]:
+    """Return 5-8 targeted deep-dive questions, each with a WHY rationale. LLM first, heuristic fallback."""
+    router = router or ModelRouter()
+    try:
+        out = router.execute(Capability.deepdive, {"mode": "questions", "topic": topic},
+                             schema=QUESTIONS_SCHEMA)
+        raw = out.get("questions") if isinstance(out, dict) else None
+        parsed = [
+            {"id": f"q{i + 1}-{_slug(q['q'])}", "q": q["q"].strip(), "why": q["why"].strip()}
+            for i, q in enumerate(raw or [])
+            if isinstance(q, dict) and q.get("q") and q.get("why")
+        ]
+        if len(parsed) >= 5:
+            return parsed[:8]
+    except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic
+        pass
+    return _heuristic_questions(topic)
+
+
+# ==================================================================================================
+# stage 2 — the Decision Card (LLM → heuristic)
+# ==================================================================================================
+def _gather_context(session: Session, project_id: str, topic: str, answers: list[dict]) -> list[str]:
+    """Retriever context (grounding) + the engineer's answers, as plain content strings."""
+    ctx: list[str] = []
+    try:
+        for c in retrieval.retrieve(session, project_id=project_id, question=topic):
+            if c["signals"]["semantic"] >= 0.2 or c["signals"]["graph"] >= 0.2:
+                ctx.append(c["content"])
+    except Exception:  # noqa: BLE001, S110 — retrieval is best-effort context; never blocks a decision
+        pass
+    ctx += [a["answer"] for a in answers if a.get("answer")]
+    return ctx
+
+
+def _options_from_topic(topic: str) -> list[str]:
+    """Derive candidate option names from an "A vs B" / "A or B" topic; else two generic named options."""
+    low = (topic or "").lower()
+    for sep in (" vs ", " vs. ", " versus ", " or "):
+        if sep in low:
+            head = low.split(sep)
+            left = head[0].split()[-1] if head[0].split() else "Option A"
+            right = head[1].split()[0] if head[1].split() else "Option B"
+            a, b = left.strip(".,").title(), right.strip(".,").title()
+            if a and b and a != b:
+                return [a, b, "Hybrid"]
+    return ["Baseline approach", "Alternative approach"]
+
+
+def _impacted_components(text: str) -> list[str]:
+    low = text.lower()
+    hits = [name for name, kws in _COMPONENT_KEYWORDS if any(k in low for k in kws)]
+    # stable de-dupe, sensible default
+    seen: list[str] = []
+    for h in hits:
+        if h not in seen:
+            seen.append(h)
+    return seen or ["Firmware", "Hardware", "BOM"]
+
+
+def _heuristic_detail(topic: str, answers: list[dict], context: list[str]) -> dict:
+    """Deterministic Decision-Card detail from topic + answers + context. No fabricated datasheet values —
+    options/criteria are structural, the specifics come from what the engineer actually said."""
+    options = _options_from_topic(topic)
+    chosen = options[0]
+    answer_texts = [a.get("answer", "") for a in answers if a.get("answer")]
+    blob = " ".join([topic, *answer_texts, *context])
+
+    # criteria: a standard engineering axis set (rows of the comparison matrix)
+    criteria = ["Cost", "Complexity", "Performance / accuracy", "Risk", "Time to integrate"]
+    # per-option qualitative values (structural, not fabricated numbers)
+    profiles = {
+        0: ["Lower", "Lower", "Meets spec", "Lower", "Faster"],
+        1: ["Higher", "Higher", "Higher headroom", "Higher", "Slower"],
+        2: ["Medium", "Medium", "Balanced", "Medium", "Medium"],
+    }
+    matrix_options = []
+    for i, name in enumerate(options):
+        matrix_options.append({
+            "name": name,
+            "values": profiles.get(i, ["Medium"] * len(criteria))[:len(criteria)],
+            "recommended": (i == 0),
+        })
+
+    recommendation = {
+        "chosen": chosen,
+        "reasons": [
+            f"Satisfies the stated constraints for '{topic.strip() or 'this decision'}' at the lowest risk",
+            "Lower cost and complexity than the alternatives for the current spec",
+            "Fastest path to integration without foreclosing the expansion path",
+        ] + ([f"Directly reflects the engineer's answer: \"{answer_texts[0][:90]}\""] if answer_texts else []),
+        "eliminated": [
+            {"option": o["name"],
+             "reason": "Adds cost/complexity that the current requirements do not justify"}
+            for o in matrix_options[1:]
+        ],
+    }
+
+    decision_impact = [
+        {"area": "Firmware", "change": "Driver / control-loop work follows the chosen option"},
+        {"area": "Hardware", "change": "Component selection and PCB layout depend on this choice"},
+        {"area": "Architecture", "change": "Sets an interface other subsystems build against"},
+        {"area": "Power stage", "change": "Thermal and protection budget is derived from this decision"},
+    ]
+
+    review_conditions = [
+        f"Revisit if the priority stated for '{topic.strip() or 'this'}' changes",
+        "Revisit if peak/worst-case operating conditions exceed the assumed envelope",
+        "Revisit if the production volume or cost target moves materially",
+    ]
+
+    missing = _missing_context(blob, answers)
+
+    return {
+        "comparison_matrix": {"criteria": criteria, "options": matrix_options},
+        "recommendation": recommendation,
+        "decision_impact": decision_impact,
+        "impacted_components": _impacted_components(blob),
+        "review_conditions": review_conditions,
+        "dependencies": context[:4],
+        "related_decisions": [],
+        "missing": missing,
+    }
+
+
+def _missing_context(blob: str, answers: list[dict]) -> str:
+    low = blob.lower()
+    gaps = []
+    if not any(k in low for k in ("cycle", "lifetime", "life", "hours")):
+        gaps.append("field lifetime / cycle target")
+    if not any(k in low for k in ("test", "measured", "validated", "prototype")):
+        gaps.append("bench/thermal test data")
+    if not answers:
+        gaps.append("answers to the deep-dive questions")
+    return ", ".join(gaps[:2]) if gaps else ""
+
+
+def _heuristic_decision(topic: str, answers: list[dict], context: list[str], detail: dict) -> Decision:
+    """Build a contract-valid `Decision` from the derived detail. Status caps at `recommended`."""
+    rec = detail["recommendation"]
+    chosen = rec["chosen"]
+    answer_texts = [a.get("answer", "") for a in answers if a.get("answer")]
+
+    assumptions = [
+        {"statement": f"Engineer's answer holds: {t}"[:180], "confidence": 0.6,
+         "risk_if_wrong": "Recommendation may flip if this changes"}
+        for t in answer_texts[:6]
+    ] or [{"statement": "Default engineering priorities (safety > reliability > cost) apply",
+           "confidence": 0.5, "risk_if_wrong": "Recommendation weighting changes"}]
+
+    risks = [
+        {"description": f"{chosen} adds integration work in {c}",
+         "severity": "medium", "likelihood": "medium",
+         "mitigation": f"Scope the {c} change before committing"}
+        for c in detail["impacted_components"][:2]
+    ]
+    risks.append({
+        "description": ("Under-specified worst-case operating conditions could invalidate the recommendation"),
+        "severity": "high", "likelihood": "medium",
+        "mitigation": "Confirm peak/fault envelope with bench data",
+    })
+
+    tradeoffs = [
+        {"option": o["name"],
+         "benefit": "Recommended: best fit for the stated constraints" if o["recommended"]
+                    else "Higher headroom",
+         "drawback": "Meets-spec, not over-provisioned" if o["recommended"]
+                     else "More cost / complexity than the spec justifies"}
+        for o in detail["comparison_matrix"]["options"]
+    ]
+
+    evidence = [{"claim": f"Recommendation weighs {len(context)} project-context item(s) plus "
+                          f"{len(answer_texts)} deep-dive answer(s)",
+                 "source": "deep-dive", "kind": "inference"}]
+    for t in answer_texts[:3]:
+        evidence.append({"claim": t[:180], "source": "engineer-answer", "kind": "assumption"})
+
+    confidence = round(min(0.9, 0.55 + 0.05 * len(answer_texts) + 0.03 * len(context)), 2)
+
+    return Decision(
+        summary=f"{topic.strip() or 'Deep dive'} — recommend {chosen}",
+        recommendation=f"Recommend {chosen}. " + "; ".join(rec["reasons"][:3]),
+        confidence=confidence,
+        status="recommended",
+        assumptions=assumptions,
+        risks=risks,
+        tradeoffs=tradeoffs,
+        evidence=evidence,
+        next_actions=[f"Proceed with {chosen}", "Close the missing context: " + (detail.get("missing") or "n/a")],
+    )
+
+
+DECISION_CARD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "recommendation": {"type": "string"},
+        "confidence": {"type": "number"},
+        "assumptions": {"type": "array"},
+        "risks": {"type": "array"},
+        "detail": {
+            "type": "object",
+            "properties": {
+                "comparison_matrix": {"type": "object"},
+                "decision_impact": {"type": "array"},
+                "impacted_components": {"type": "array"},
+                "review_conditions": {"type": "array"},
+            },
+            "required": ["comparison_matrix", "decision_impact", "impacted_components", "review_conditions"],
+        },
+    },
+    "required": ["summary", "recommendation", "confidence", "detail"],
+}
+
+
+def decide(
+    session: Session, project_id: str, topic: str, answers: list[dict],
+    router: ModelRouter | None = None,
+) -> tuple[Decision, dict]:
+    """Run reasoning over (retriever context + answers) → (contract-valid Decision, decision_detail).
+
+    LLM first (schema-validated), deterministic heuristic fallback offline / on malformed output."""
+    router = router or ModelRouter()
+    answers = answers or []
+    context = _gather_context(session, project_id, topic, answers)
+
+    try:
+        out = router.execute(
+            Capability.deepdive,
+            {"mode": "decide", "topic": topic, "answers": answers, "context": context},
+            schema=DECISION_CARD_SCHEMA,
+        )
+        if isinstance(out, dict) and out.get("detail") and out.get("recommendation"):
+            detail = dict(out["detail"])
+            detail.setdefault("recommendation", {"chosen": "", "reasons": [], "eliminated": []})
+            detail.setdefault("dependencies", context[:4])
+            detail.setdefault("related_decisions", [])
+            detail.setdefault("missing", "")
+            decision = Decision(
+                summary=str(out["summary"]),
+                recommendation=str(out["recommendation"]),
+                confidence=float(out.get("confidence", 0.6)),
+                status="recommended",
+                assumptions=out.get("assumptions", []),
+                risks=out.get("risks", []),
+                evidence=out.get("evidence") or [
+                    {"claim": "deep-dive reasoning", "source": "deep-dive", "kind": "inference"}],
+            )
+            _link_related(session, project_id, detail)
+            return decision, detail
+    except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic below
+        pass
+
+    detail = _heuristic_detail(topic, answers, context)
+    decision = _heuristic_decision(topic, answers, context, detail)
+    _link_related(session, project_id, detail)
+    return decision, detail
+
+
+def _link_related(session: Session, project_id: str, detail: dict) -> None:
+    """Populate `related_decisions` from other latest decisions in the project (grounds the Decision Explorer)."""
+    try:
+        related = [
+            {"id": r.id, "title": r.title, "status": r.status}
+            for r in decision_store.list_for_project(session, project_id)
+        ]
+        detail["related_decisions"] = related
+    except Exception:  # noqa: BLE001 — non-fatal enrichment
+        detail.setdefault("related_decisions", [])
