@@ -237,6 +237,42 @@
     padding:.05rem .4rem;margin-right:.45rem}
   .ec-rk.assumption{background:#3a3410;color:#e8d67a} .ec-rk.contradiction{background:#43181a;color:#f19a9d}
   .ec-rk.freeze_blocker,.ec-rk.risk{background:#3a2e5f;color:#d8ccff}
+
+  /* ---- UI-CP-10: Timeline / Replay rail (PDF p23) ---- */
+  .tl{position:relative;margin:.4rem 0 .2rem;padding-left:1.4rem}
+  .tl:before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .tlev{position:relative;padding:.15rem 0 1rem}
+  .tlev:last-child{padding-bottom:.2rem}
+  .tldot{position:absolute;left:-1.4rem;top:.3rem;width:12px;height:12px;border-radius:50%;
+    border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
+  .tldot.decision{background:var(--accent)} .tldot.outcome{background:var(--bestpractice)}
+  .tldot.assumption{background:var(--assumption)} .tldot.assumption_status{background:var(--hiddendep)}
+  .tldot.document{background:#3b82f6} .tldot.coverage{background:#22a565} .tldot.context{background:var(--ink2)}
+  .tlmeta{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin-bottom:.15rem}
+  .tlkind{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:#fff;
+    border-radius:5px;padding:.08rem .45rem}
+  .tlkind.decision{background:var(--accent)} .tlkind.outcome{background:var(--bestpractice)}
+  .tlkind.assumption{background:var(--assumption);color:#3a2e00} .tlkind.assumption_status{background:var(--hiddendep)}
+  .tlkind.document{background:#3b82f6} .tlkind.coverage{background:#22a565} .tlkind.context{background:var(--ink2)}
+  .tldate{font-size:11px;color:var(--ink2);font-family:ui-monospace,Menlo,monospace}
+  .tlcov{margin-left:auto;font-size:11px;font-weight:700;color:#1f7a4d;background:#e6f7ee;
+    border:1px solid #bfe9cf;border-radius:20px;padding:.08rem .5rem}
+  .tllabel{font-size:13.5px;line-height:1.45}
+
+  /* ---- UI-CP-10: Certification Matrix (PDF p8) ---- */
+  table.certmx td.reg{text-align:center;font-weight:700}
+  table.certmx td.yes{background:#eafaf1;color:#1f9d61} table.certmx td.no{color:#c3ccdd}
+  .certtot{font-weight:700;text-align:center}
+
+  /* ---- UI-CP-10: Research Workspace (PDF p7) ---- */
+  .rw{border:1px solid var(--line);border-radius:10px;padding:.8rem .9rem;margin-top:1.1rem;background:#f8f9fd}
+  .rw .rwh{font-size:11px;letter-spacing:.12em;font-weight:700;text-transform:uppercase;color:var(--ink2);margin-bottom:.5rem}
+  .rwdoc{display:flex;gap:.5rem;align-items:flex-start;padding:.35rem 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .rwdoc:last-child{border-bottom:0}
+  .rwsrc{display:inline-block;font-size:11px;background:#eef0f8;border:1px solid var(--line);border-radius:6px;
+    padding:.15rem .5rem;margin:.15rem .25rem 0 0}
+  .rwtag{font-size:10px;font-weight:700;letter-spacing:.05em;color:#fff;background:#3b82f6;border-radius:5px;padding:.05rem .4rem;white-space:nowrap}
+  .rwtag.ext{background:#8b7bff}
 </style>
 </head>
 <body>
@@ -257,6 +293,7 @@
       <button class="tab" data-tab="review" onclick="tab('review')">Engineering Review</button>
       <button class="tab" data-tab="deepdive" onclick="tab('deepdive')">Deep Dive</button>
       <button class="tab" data-tab="graph" onclick="tab('graph')">Decision Graph</button>
+      <button class="tab" data-tab="timeline" onclick="tab('timeline')">Timeline</button>
       <button class="tab" data-tab="execution" onclick="tab('execution')">Execution Context</button>
     </div>
     <div class="view" id="view"></div>
@@ -303,6 +340,7 @@ function render(){
   if(TAB==='review') return renderReview();
   if(TAB==='deepdive') return renderDeepDive();
   if(TAB==='graph') return renderGraph();
+  if(TAB==='timeline') return renderTimeline();
   if(TAB==='execution') return renderExecution();
   $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
@@ -554,6 +592,7 @@ function renderDeepDive(){
   }
   if(DD.envelope) html+=renderDecisionCard(DD.envelope);
   $('#view').innerHTML=html;
+  if(DD.envelope) loadResearchWorkspace(DD.envelope.id);
 }
 
 async function ddAsk(){
@@ -667,8 +706,35 @@ function renderDecisionCard(env){
       ${impactBlock}
       ${risksBlock}
       ${explorer}
+      <div id="rw-${esc(env.id)}" class="rw-slot"></div>
       ${actions}
     </div>
+  </div>`;
+}
+
+/* ---- UI-CP-10: Research Workspace panel (sources referenced by this decision, PDF p7) ---- */
+async function loadResearchWorkspace(id){
+  const slot=document.getElementById('rw-'+id); if(!slot) return;
+  let rw;
+  try{ rw=await api(`/v1/decisions/${id}/sources`); }catch{ return; }
+  const docs=rw.documents||[], ev=rw.evidence||[];
+  if(!docs.length && !ev.length){
+    slot.innerHTML=`<div class="rw"><div class="rwh">Research Workspace — sources referenced</div>
+      <div class="muted" style="font-size:13px">No datasheets or evidence sources linked yet. Attach a datasheet (Project Brain → domain) or ground the decision with evidence.</div></div>`;
+    return;
+  }
+  const trunc=(s,n)=>{s=(s||'').toString();return s.length>n?s.slice(0,n-1)+'…':s;};
+  const docRows=docs.map(d=>`<div class="rwdoc"><span class="rwtag">doc</span>
+    <div><b>${esc(trunc(d.content,120))}</b>${d.domain?` <span class="chip">${esc(d.domain)}</span>`:''}</div></div>`).join('')
+    || '<div class="muted" style="font-size:13px">No document/datasheet items in this project.</div>';
+  const evChips=ev.map(e=>`<span class="rwsrc" title="${esc(e.claim||'')}"><span class="rwtag ext">${esc(e.kind||'src')}</span> ${esc(e.source)}</span>`).join('')
+    || '<span class="muted" style="font-size:13px">No evidence sources cited.</span>';
+  slot.innerHTML=`<div class="rw">
+    <div class="rwh">Research Workspace — sources referenced by ${esc(id)}</div>
+    <div style="font-size:11px;letter-spacing:.08em;color:var(--ink2);font-weight:700;margin:.2rem 0 .3rem">DATASHEETS / DOCUMENTS</div>
+    ${docRows}
+    <div style="font-size:11px;letter-spacing:.08em;color:var(--ink2);font-weight:700;margin:.7rem 0 .3rem">EVIDENCE SOURCES</div>
+    <div>${evChips}</div>
   </div>`;
 }
 
@@ -881,6 +947,62 @@ function renderDiff(df){
       </div>
     </div>
   </div>`;
+}
+
+/* ---- UI-CP-10: Timeline / Replay + Certification Matrix (PDF p23, p8) ---- */
+async function renderTimeline(){
+  $('#view').innerHTML=`<div class="card"><div class="eyebrow">Timeline</div><div class="muted">Replaying the project history…</div></div>`;
+  let tl,cm;
+  try{
+    [tl,cm]=await Promise.all([
+      api(`/v1/projects/${PID}/timeline`),
+      api(`/v1/projects/${PID}/cert-matrix`),
+    ]);
+  }catch(e){ $('#view').innerHTML=`<div class="empty">timeline: ${esc(e.message)}</div>`; return; }
+
+  const fmt=iso=>{ if(!iso) return ''; const d=new Date(iso); return isNaN(d)?esc(iso):d.toISOString().slice(0,16).replace('T',' '); };
+  const evs=tl.events||[];
+  const rail=evs.length? `<div class="tl">${evs.map(e=>`
+    <div class="tlev">
+      <span class="tldot ${esc(e.kind)}"></span>
+      <div class="tlmeta">
+        <span class="tlkind ${esc(e.kind)}">${esc((e.kind||'').replace('_',' '))}</span>
+        <span class="tldate">${fmt(e.when)}</span>
+        ${e.coverage!=null?`<span class="tlcov">coverage ${e.coverage}%</span>`:''}
+      </div>
+      <div class="tllabel">${esc(e.label)}</div>
+    </div>`).join('')}</div>`
+    : `<div class="muted" style="padding:.4rem">No events yet. Add context, run a Deep Dive, or answer coverage questions — the project's history (with coverage growth) replays here.</div>`;
+
+  // certification matrix
+  const regions=cm.regions||[];
+  const stds=cm.standards||[];
+  const anyCost=stds.some(s=>s.cost), anyTime=stds.some(s=>s.timeline);
+  let cmBody;
+  if(!stds.length){
+    cmBody=`<div class="empty" style="text-align:left">No standards detected yet. Mention standards (e.g. ISO 26262, AIS 156, ECE R100, UN 38.3) in decisions or reviews to generate the certification matrix.</div>`;
+  }else{
+    const head=`<tr><th>Standard</th>${regions.map(r=>`<th class="rec">${esc(r)}</th>`).join('')}${anyCost?'<th>Cost</th>':''}${anyTime?'<th>Timeline</th>':''}<th>Total</th></tr>`;
+    const rows=stds.map(s=>{
+      const set=new Set(s.regions||[]);
+      const cells=regions.map(r=>set.has(r)?`<td class="reg yes">✓</td>`:`<td class="reg no">—</td>`).join('');
+      const cost=anyCost?`<td>${s.cost?esc(s.cost):'<span class="muted">—</span>'}</td>`:'';
+      const time=anyTime?`<td>${s.timeline?esc(s.timeline):'<span class="muted">—</span>'}</td>`:'';
+      return `<tr><th>${esc(s.standard)}</th>${cells}${cost}${time}<td class="certtot">${set.size}</td></tr>`;
+    }).join('');
+    cmBody=`<div class="matrixwrap"><table class="matrix certmx"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+      <div class="muted" style="font-size:12px;margin-top:.5rem">✓ = standard applies to that region. Cost/Timeline are shown only when a figure actually appears alongside the standard in the project text — never invented.</div>`;
+  }
+
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="eyebrow">Project Timeline / Replay <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— day-by-day, coverage climbs as context is added</span></div>
+      ${rail}
+    </div>
+    <div class="card">
+      <div class="eyebrow">Certification Matrix <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— detected standards × regions</span></div>
+      ${cmBody}
+    </div>`;
 }
 
 /* ---- UI-CP-9: Execution Context (the handoff — "EDOS decides. Agents execute.") ---- */
