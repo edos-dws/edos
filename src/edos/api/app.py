@@ -38,6 +38,9 @@ from edos.engines import (
     watchdog,
     writeback,
 )
+from edos.engines import (
+    findings as findings_engine,
+)
 from edos.engines.context import ContextEngine
 from edos.engines.decision import ClarificationNeeded, DecisionEngine
 from edos.engines.freeze import FreezeGate
@@ -538,6 +541,30 @@ def project_rule_flags(project_id: str, session: Session = Depends(get_session))
     ).all()
     return [{"key": f.key, "flag": f.flag, "severity": f.severity, "matched": f.matched}
             for f in domain.apply_rules(contents)]
+
+
+# ---------- Engineering Review → Findings (UI-CP-3) ----------
+class ReviewRequest(BaseModel):
+    text: str
+    save: bool = False  # optionally ingest the input as project context ("Save to Project Brain")
+
+
+@app.post("/v1/projects/{project_id}/review")
+def review_project(project_id: str, body: ReviewRequest, session: Session = Depends(get_session)) -> dict:
+    """Fast, no-question Engineering Review. Returns categorized findings (contradiction /
+    hidden_dependency / assumption / optimization / best_practice), each with severity, an
+    "IF YOU IGNORE THIS" list, and evidence. `save=true` also folds the input in as project context (so a
+    review grows the Project Brain) — findings stay the primary return."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    result = [f.to_dict() for f in findings_engine.review(session, project_id, body.text)]
+    saved: list[dict] = []
+    if body.save and body.text.strip():
+        for it in extraction.extract(body.text):
+            row = ingestion.ingest_item(session, id=_new_id(), project_id=project_id,
+                                        item_type=it["type"], content=it["content"])
+            saved.append({"id": row.id, "item_type": row.item_type, "content": row.content})
+    return {"findings": result, "count": len(result), "saved": saved}
 
 
 # ---------- Project Brain + Coverage (UI-CP-1 / UI-CP-2) ----------

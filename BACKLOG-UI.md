@@ -101,7 +101,7 @@ if_ignored:[...], evidence:[...]}`. Sources: **graph** (contradictions vs past d
 (hidden-dep/best-practice), **LLM** (the rest, stub→heuristic fallback). No questions asked (fast).
 **UI:** review input → findings list, color-coded cards per category, severity pill, "IF YOU IGNORE THIS"
 box, evidence chips, "Save to Project Brain" (findings feed counts + coverage).
-- [ ] 3.1 findings.py (rules+graph+LLM merge). 3.2 `POST /review`. 3.3 UI findings cards. 3.4 save-to-brain.
+- [x] 3.1 findings.py (rules+graph+LLM merge). 3.2 `POST /review`. 3.3 UI findings cards. 3.4 save-to-brain.
 **AC:** a BMS-style input surfaces contradictions/hidden-deps/assumptions with consequences + evidence, no questions. **Resume:** review returns findings.
 
 ---
