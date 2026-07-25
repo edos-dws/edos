@@ -101,6 +101,23 @@ class ProjectItem(Base):
     content: Mapped[str] = mapped_column(Text)
     validity: Mapped[str] = mapped_column(String, default="active")  # active|superseded|stale|conflicted
     needs_linking: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Optional engineering domain tag (UI-CP-2): Architecture|Hardware|Firmware|Manufacturing|Testing|
+    # Certification. Feeds the coverage engine; null = untagged (still a valid, retrievable item).
+    domain: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class CoverageAnswer(Base):
+    """A domain question-set answer (UI-CP-2). Persists which question-set questions an engineer has
+    answered per project/domain so coverage rises deterministically. The answer's *content* also lands as a
+    domain-tagged ProjectItem (so it feeds retrieval); this row just tracks that the question is answered."""
+
+    __tablename__ = "coverage_answers"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id: Mapped[str] = mapped_column(String, index=True)
+    domain: Mapped[str] = mapped_column(String, index=True)
+    question_id: Mapped[str] = mapped_column(String)
+    item_id: Mapped[str | None] = mapped_column(String, nullable=True)  # the ProjectItem it was stored as
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 

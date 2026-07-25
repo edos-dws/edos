@@ -143,37 +143,94 @@ function render(){
   $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
 
-/* ---- UI-CP-0: Project Brain scaffold (live counts where available; coverage lands in UI-CP-2) ---- */
+/* ---- UI-CP-1: Project Brain (live coverage + counts from GET /brain) ---- */
+let COVDOMAIN=null; // when set, the coverage detail panel for that domain is shown
+
 async function renderBrain(){
+  COVDOMAIN=null;
   const p=PROJECTS.find(x=>x.id===PID)||{name:'Project'};
-  // live-ish counts from existing endpoints; full /brain endpoint arrives in UI-CP-1
-  let decisions=0, contradictions=0, items=0;
-  try{ decisions=(await api(`/v1/projects/${PID}/decisions`)).length; }catch{}
-  try{ contradictions=(await api(`/v1/projects/${PID}/alerts`)).filter(a=>a.type==='open_conflict').length; }catch{}
+  let brain={coverage:0,coverage_by_domain:{},counts:{decisions:0,assumptions:0,contradictions:0,open_risks:0}};
+  let items=0;
+  try{ brain=await api(`/v1/projects/${PID}/brain`); }catch(e){ console.warn('brain',e); }
   try{ items=(await api(`/v1/projects/${PID}/items`)).length; }catch{}
-  const coverage=0; // placeholder until UI-CP-2 coverage engine
+  const c=brain.counts, cov=brain.coverage||0;
   const DOMAINS=['Architecture','Hardware','Firmware','Manufacturing','Testing','Certification'];
   $('#view').innerHTML=`
     <div class="brainbar"><span class="dot"></span> PROJECT BRAIN · ${esc(p.name)} <span class="grow"></span>
       <span class="muted" style="color:#9fb0d0;font-size:12px">${items} context items</span></div>
     <div class="brainbody">
-      <div class="eyebrow">Coverage</div>
-      <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${coverage}%"></div></div><div class="covpct">${coverage}%</div></div>
+      <div class="eyebrow">Coverage <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— how complete this project's engineering context is</span></div>
+      <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${cov}%"></div></div><div class="covpct">${cov}%</div></div>
       <div class="tiles">
-        <div class="tile"><div class="n">${decisions}</div><div class="l">Decisions</div></div>
-        <div class="tile"><div class="n">0</div><div class="l">Assumptions</div></div>
-        <div class="tile"><div class="n">${contradictions}</div><div class="l">Contradictions</div></div>
-        <div class="tile"><div class="n">0</div><div class="l">Open Risks</div></div>
+        <div class="tile"><div class="n">${c.decisions}</div><div class="l">Decisions</div></div>
+        <div class="tile"><div class="n">${c.assumptions}</div><div class="l">Assumptions</div></div>
+        <div class="tile"><div class="n">${c.contradictions}</div><div class="l">Contradictions</div></div>
+        <div class="tile"><div class="n">${c.open_risks}</div><div class="l">Open Risks</div></div>
       </div>
-      <div class="eyebrow">Decision coverage</div>
+      <div class="eyebrow">Decision coverage <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click a domain to raise it</span></div>
       <div class="domains">
-        ${DOMAINS.map(d=>`<div class="domain"><div class="top"><span>${d}</span><b>0%</b></div><div class="dtrack"><div class="dfill" style="width:0%"></div></div></div>`).join('')}
+        ${DOMAINS.map(d=>{const v=brain.coverage_by_domain[d]||0;return `
+          <div class="domain" style="cursor:pointer" onclick="openCoverage('${d}')" title="Answer questions / attach datasheets to raise ${d} coverage">
+            <div class="top"><span>${d}</span><b>${v}%</b></div>
+            <div class="dtrack"><div class="dfill" style="width:${v}%"></div></div>
+          </div>`;}).join('')}
       </div>
       <div class="row" style="margin-top:1.2rem">
         <button onclick="tab('review')">Start Engineering Review</button>
         <button class="ghost" onclick="tab('deepdive')">Deep Dive</button>
       </div>
     </div>`;
+}
+
+/* ---- UI-CP-2: coverage detail panel for one domain (nudges + attach datasheet) ---- */
+async function openCoverage(domain){
+  COVDOMAIN=domain;
+  let data;
+  try{ data=await api(`/v1/projects/${PID}/coverage`); }catch(e){ alert('coverage: '+e.message); return; }
+  const d=data.domains[domain]||{coverage:0,items:0,docs:0,unanswered:[],total_questions:0,answered:[]};
+  const answered=(d.answered||[]).length;
+  $('#view').innerHTML=`
+    <div class="brainbar"><span class="dot"></span> COVERAGE · ${esc(domain)} <span class="grow"></span>
+      <button class="ghost sm" onclick="renderBrain()">← Project Brain</button></div>
+    <div class="brainbody">
+      <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${d.coverage}%"></div></div><div class="covpct">${d.coverage}%</div></div>
+      <div class="muted" style="margin-bottom:1rem">${d.items} context item(s) · ${d.docs} document(s) · ${answered}/${d.total_questions} questions answered. Nothing here is mandatory — each addition raises this domain's coverage.</div>
+
+      <div class="eyebrow">Attach a datasheet / document</div>
+      <div class="card" style="box-shadow:none">
+        <textarea id="covdoc" rows="2" placeholder="Paste datasheet text, spec, or a reference for ${esc(domain)}…"></textarea>
+        <div class="row" style="margin-top:.5rem;justify-content:flex-end">
+          <button onclick="attachDoc('${domain}')">Attach document</button>
+        </div>
+      </div>
+
+      <div class="eyebrow">Answer these to raise coverage</div>
+      ${d.unanswered.length? d.unanswered.map(q=>`
+        <div class="card" style="box-shadow:none">
+          <div style="font-weight:600;margin-bottom:.4rem">${esc(q.q)}</div>
+          <textarea id="q-${q.id}" rows="2" placeholder="Your answer…"></textarea>
+          <div class="row" style="margin-top:.5rem;justify-content:flex-end">
+            <button onclick="answerCoverage('${domain}','${q.id}')">Save answer</button>
+          </div>
+        </div>`).join('')
+        : '<div class="muted" style="padding:.5rem">All question-set questions answered for this domain. 🎉</div>'}
+    </div>`;
+}
+
+async function answerCoverage(domain,qid){
+  const el=$(`#q-${qid}`); const answer=(el.value||'').trim();
+  if(!answer){ el.focus(); return; }
+  await api(`/v1/projects/${PID}/coverage/answer`,{method:'POST',
+    body:JSON.stringify({domain,question_id:qid,answer})});
+  openCoverage(domain); // re-fetch → this domain's % visibly rises
+}
+
+async function attachDoc(domain){
+  const el=$('#covdoc'); const content=(el.value||'').trim();
+  if(!content){ el.focus(); return; }
+  await api(`/v1/projects/${PID}/items`,{method:'POST',
+    body:JSON.stringify({item_type:'document',content,domain})});
+  openCoverage(domain);
 }
 
 loadProjects().then(render);
