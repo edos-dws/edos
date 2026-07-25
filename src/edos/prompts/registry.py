@@ -79,3 +79,9 @@ register(PromptSpec("verification_prompt", "v1", "Critique a decision; never reg
                     ("claude-opus-4-8", "claude-sonnet-5"), "none", 3000, "verification_prompt.v1.md"))
 register(PromptSpec("knowledge_extraction_prompt", "v1", "Extract structured knowledge from a decision",
                     ("claude-sonnet-5", "gpt-5-mini"), "none", 2000, "knowledge_extraction_prompt.v1.md"))
+register(PromptSpec("deepdive_prompt", "v1", "Deep-dive: targeted questions, follow-ups, and Decision Card",
+                    ("claude-opus-4-8", "gpt-5"), "none", 6000, "deepdive_prompt.v1.md"))
+register(PromptSpec("findings_prompt", "v1", "Engineering Review: categorized findings (fast scan)",
+                    ("claude-sonnet-5", "gpt-5"), "none", 4000, "findings_prompt.v1.md"))
+register(PromptSpec("challenge_prompt", "v1", "Challenge My Decision: argue against the recommendation",
+                    ("claude-opus-4-8", "claude-sonnet-5"), "none", 3000, "challenge_prompt.v1.md"))

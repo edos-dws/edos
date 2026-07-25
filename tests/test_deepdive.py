@@ -36,8 +36,9 @@ def _new_project(client) -> str:
 # ---- stage 1: targeted questions with WHY (UI-CP-11: signature is (session, project_id, topic)) ----
 def test_plan_questions_shape_and_count(session):
     plan = deepdive.plan_questions(session, "p-plan-1", BMS_TOPIC)
-    assert set(plan) == {"questions", "skipped", "note"}
+    assert set(plan) == {"questions", "skipped", "note", "generated_by"}
     qs = plan["questions"]
+    assert plan["generated_by"] in {"llm", "heuristic"}   # offline stub → "heuristic"
     assert plan["skipped"] == []                    # empty project → nothing already known
     assert 5 <= len(qs) <= 8
     ids = set()

@@ -134,7 +134,12 @@ def frontend() -> FileResponse:
 # ---------- health ----------
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "service": "edos", "version": "0.0.1", "mode": "stub"}
+    from edos.engines.providers import provider_status
+    ps = provider_status()
+    # `mode` now reflects reality: 'live' when a real LLM provider is wired, else 'stub'. When not live,
+    # LLM-backed features (deep-dive questions, findings, challenge) fall back to deterministic heuristics.
+    return {"status": "ok", "service": "edos", "version": "0.0.1",
+            "mode": "live" if ps["live"] else "stub", "llm": ps}
 
 
 @app.get("/v1/health")

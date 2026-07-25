@@ -213,8 +213,10 @@ def _heuristic_questions(topic: str) -> list[dict]:
             for i, p in enumerate(picked)]
 
 
-def _candidate_questions(topic: str, router: ModelRouter | None = None) -> list[dict]:
-    """Generate the candidate question set: LLM primary (topic-specific), static probes as fallback."""
+def _candidate_questions(topic: str, router: ModelRouter | None = None) -> tuple[list[dict], str]:
+    """Generate the candidate question set. Returns (questions, source) where source is "llm" (topic-specific
+    LLM output) or "heuristic" (the static probe fallback — used offline OR when the live LLM errors, e.g. a
+    quota/429). The source lets the UI tell the engineer when questions are degraded, not silently static."""
     router = router or ModelRouter()
     try:
         out = router.execute(Capability.deepdive, {"mode": "questions", "topic": topic},
@@ -226,10 +228,10 @@ def _candidate_questions(topic: str, router: ModelRouter | None = None) -> list[
             if isinstance(q, dict) and q.get("q") and q.get("why")
         ]
         if len(parsed) >= 5:
-            return parsed[:8]
+            return parsed[:8], "llm"
     except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic
         pass
-    return _heuristic_questions(topic)
+    return _heuristic_questions(topic), "heuristic"
 
 
 # --------------------------------------------------------------------------------------------------
@@ -299,7 +301,7 @@ def plan_questions(
     ``note`` is non-empty only when the project already covers every question."""
     embedder = default_embedder()
     context = _retrieved_context(session, project_id, topic)
-    candidates = _candidate_questions(topic, router)
+    candidates, generated_by = _candidate_questions(topic, router)
 
     kept: list[dict] = []
     skipped: list[dict] = []
@@ -315,7 +317,9 @@ def plan_questions(
     if candidates and not kept:
         note = ("The project already has enough context on this topic — every question I would ask is "
                 "already answered. You can go straight to a decision.")
-    return {"questions": kept, "skipped": skipped, "note": note}
+    # `generated_by`: "llm" = topic-specific model questions; "heuristic" = static fallback (LLM offline or
+    # quota-limited) — the UI surfaces this so static questions are never mistaken for the model's output.
+    return {"questions": kept, "skipped": skipped, "note": note, "generated_by": generated_by}
 
 
 # ==================================================================================================
