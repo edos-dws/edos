@@ -133,13 +133,14 @@ async function delProject(id,name){
   if(PID===id)PID=null;
   await loadProjects(); render();
 }
-async function openProject(id){ PID=id; loadProjects(); tab('brain'); }
+async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; loadProjects(); tab('brain'); }
 
 /* ---- tab routing ---- */
 function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
 function render(){
   if(!PID){ $('#view').innerHTML='<div class="empty">Pick or create a project on the left to open its <b>Project Brain</b>.</div>'; return; }
   if(TAB==='brain') return renderBrain();
+  if(TAB==='review') return renderReview();
   $('#view').innerHTML=`<div class="card"><div class="eyebrow">${esc(TAB)}</div><div class="muted">This surface arrives in a later UI checkpoint (see BACKLOG-UI.md). The Project Brain + project management are live now.</div></div>`;
 }
 
@@ -231,6 +232,67 @@ async function attachDoc(domain){
   await api(`/v1/projects/${PID}/items`,{method:'POST',
     body:JSON.stringify({item_type:'document',content,domain})});
   openCoverage(domain);
+}
+
+/* ---- UI-CP-3: Engineering Review → Findings ---- */
+const CATLABEL={contradiction:'Contradiction',hidden_dependency:'Hidden Dependency',assumption:'Assumption',optimization:'Optimization',best_practice:'Best Practice'};
+let REVIEWTEXT='', REVIEWFINDINGS=null, REVIEWBUSY=false;
+
+function renderReview(){
+  const findings=REVIEWFINDINGS;
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="eyebrow">Engineering Review <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— a fast scan, no questions asked</span></div>
+      <textarea id="revtext" rows="4" placeholder="Describe what you're working on… e.g. &quot;14S 100A BMS for an LFP pack in an EV — charging, discharging, cell balancing, CAN. Priority: safety, reliability, cost.&quot;">${esc(REVIEWTEXT)}</textarea>
+      <div class="row" style="margin-top:.6rem;justify-content:flex-end">
+        <button ${REVIEWBUSY?'disabled':''} onclick="runReview()">${REVIEWBUSY?'Scanning…':'Run Engineering Review'}</button>
+      </div>
+    </div>
+    ${findings===null?'':renderFindings(findings)}`;
+}
+
+function renderFindings(findings){
+  if(!findings.length) return `<div class="empty">No findings — either the input is very sparse or nothing tripped a rule, a stored decision, or an inferred assumption. Add more detail and re-run.</div>`;
+  const cards=findings.map(f=>`
+    <div class="finding ${f.category}">
+      <div class="row wrap" style="margin-bottom:.5rem">
+        <span class="cat ${f.category}">${esc(CATLABEL[f.category]||f.category)}</span>
+        <span class="pill ${f.severity}">${esc(f.severity)}</span>
+        <b>${esc(f.title)}</b>
+      </div>
+      <div>${esc(f.detail)}</div>
+      ${(f.if_ignored&&f.if_ignored.length)?`
+        <div class="ignore">
+          <div class="h">IF YOU IGNORE THIS</div>
+          <ul style="margin:.35rem 0 0;padding-left:1.1rem">${f.if_ignored.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+        </div>`:''}
+      ${(f.evidence&&f.evidence.length)?`<div style="margin-top:.5rem">${f.evidence.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}
+    </div>`).join('');
+  return `
+    <div class="row" style="justify-content:space-between;margin:.2rem 0 .8rem">
+      <div class="eyebrow" style="margin:0">${findings.length} finding${findings.length===1?'':'s'}</div>
+      <button class="ghost sm" onclick="saveReview()">Save to Project Brain</button>
+    </div>
+    ${cards}`;
+}
+
+async function runReview(){
+  REVIEWTEXT=($('#revtext').value||'').trim();
+  if(!REVIEWTEXT){ $('#revtext').focus(); return; }
+  REVIEWBUSY=true; renderReview();
+  try{
+    const r=await api(`/v1/projects/${PID}/review`,{method:'POST',body:JSON.stringify({text:REVIEWTEXT})});
+    REVIEWFINDINGS=r.findings;
+  }catch(e){ alert('review: '+e.message); }
+  REVIEWBUSY=false; renderReview();
+}
+
+async function saveReview(){
+  if(!REVIEWTEXT) return;
+  try{
+    await api(`/v1/projects/${PID}/review`,{method:'POST',body:JSON.stringify({text:REVIEWTEXT,save:true})});
+    alert('Saved to Project Brain — this input is now project context (feeds coverage + counts).');
+  }catch(e){ alert('save: '+e.message); }
 }
 
 loadProjects().then(render);
