@@ -74,7 +74,7 @@ static shell first, wire live numbers after CP-2.
 assumptions, contradictions, open_risks} }`. Counts from decision store + graph + watchdog.
 **UI:** big **Coverage** bar (gradient, %), 4 stat tiles, **Decision Coverage** grid (6 domains, % bars),
 "Start Engineering Review" + "Deep Dive" buttons.
-- [ ] 1.1 `GET /brain` endpoint (counts + coverage). 1.2 Coverage bar + tiles. 1.3 Domain coverage grid.
+- [x] 1.1 `GET /brain` endpoint (counts + coverage). 1.2 Coverage bar + tiles. 1.3 Domain coverage grid.
   1.4 Mode-entry buttons.
 **AC:** empty project = 0% coverage, 0 counts; after review/decisions the numbers rise. **Resume:** brain renders live.
 
@@ -87,7 +87,7 @@ per-domain breakdown + unanswered questions); `POST /v1/projects/{id}/coverage/a
 answer}` (answer → ingested as context + raises coverage). Document attach endpoint (reuse items,
 `item_type=document`, domain tag). Add optional `domain` tag to ProjectItem.
 **UI:** coverage detail panel — per-domain %, "answer these to raise coverage" checklist, attach-datasheet.
-- [ ] 2.1 ProjectItem `domain` tag (+ migration). 2.2 coverage.py + `GET /coverage`. 2.3 question-set +
+- [x] 2.1 ProjectItem `domain` tag (+ migration). 2.2 coverage.py + `GET /coverage`. 2.3 question-set +
   `POST /coverage/answer`. 2.4 UI coverage panel + nudges.
 **AC:** answering a question / adding a datasheet raises that domain's coverage; nothing is mandatory. **Resume:** coverage live-computed.
 

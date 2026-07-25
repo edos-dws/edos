@@ -28,12 +28,12 @@ def _known_ids(session: Session, project_id: str, exclude: str) -> list[str]:
 
 def ingest_item(
     session: Session, *, id: str, project_id: str, item_type: str, content: str,
-    embedder: EmbeddingProvider | None = None,
+    domain: str | None = None, embedder: EmbeddingProvider | None = None,
 ) -> ProjectItem:
     embedder = embedder or default_embedder()
 
     item = ProjectItem(id=id, project_id=project_id, item_type=item_type, content=content,
-                       validity="active")
+                       validity="active", domain=domain)
     session.add(item)
     session.flush()
 

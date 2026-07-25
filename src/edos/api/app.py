@@ -23,9 +23,10 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
-from edos.db.models import GraphEdge, ProjectItem, new_decision_version
+from edos.db.models import CoverageAnswer, GraphEdge, ProjectItem, new_decision_version
 from edos.engines import (
     auth,
+    coverage,
     decision_store,
     domain,
     extraction,
@@ -461,11 +462,13 @@ class ItemIngest(BaseModel):
     item_type: str
     content: str
     id: str | None = None
+    domain: str | None = None  # optional engineering-domain tag (UI-CP-2 coverage)
 
 
 def _item_dict(item) -> dict:
     return {"id": item.id, "project_id": item.project_id, "item_type": item.item_type,
-            "content": item.content, "validity": item.validity, "needs_linking": item.needs_linking}
+            "content": item.content, "validity": item.validity, "needs_linking": item.needs_linking,
+            "domain": item.domain}
 
 
 @app.post("/v1/projects/{project_id}/items", status_code=201)
@@ -474,7 +477,7 @@ def ingest_item(project_id: str, body: ItemIngest, session: Session = Depends(ge
         raise HTTPException(status_code=404, detail="project not found")
     item = ingestion.ingest_item(
         session, id=body.id or _new_id(), project_id=project_id,
-        item_type=body.item_type, content=body.content,
+        item_type=body.item_type, content=body.content, domain=body.domain,
     )
     return _item_dict(item)
 
@@ -535,6 +538,83 @@ def project_rule_flags(project_id: str, session: Session = Depends(get_session))
     ).all()
     return [{"key": f.key, "flag": f.flag, "severity": f.severity, "matched": f.matched}
             for f in domain.apply_rules(contents)]
+
+
+# ---------- Project Brain + Coverage (UI-CP-1 / UI-CP-2) ----------
+@app.get("/v1/projects/{project_id}/brain")
+def project_brain(project_id: str, session: Session = Depends(get_session)) -> dict:
+    """Project Brain dashboard payload: live coverage + the four headline counts.
+
+    coverage/coverage_by_domain come from the coverage engine (transparent, never fabricated).
+    counts: decisions from the decision store; contradictions = open-conflict watchdog alerts;
+    open_risks = all watchdog alerts; assumptions = 0 until first-class assumptions land (UI-CP-6)."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    report = coverage.coverage_report(session, project_id)
+    alerts = watchdog.scan(session, project_id)
+    decisions = len(decision_store.list_for_project(session, project_id))
+    contradictions = sum(1 for a in alerts if a.type == "open_conflict")
+    return {
+        "coverage": report["overall"],
+        "coverage_by_domain": report["by_domain"],
+        "counts": {
+            "decisions": decisions,
+            "assumptions": 0,  # TODO(UI-CP-6): first-class assumptions become countable here
+            "contradictions": contradictions,
+            "open_risks": len(alerts),
+        },
+    }
+
+
+@app.get("/v1/projects/{project_id}/coverage")
+def project_coverage(project_id: str, session: Session = Depends(get_session)) -> dict:
+    """Per-domain coverage breakdown + each domain's unanswered question-set (the "raise coverage" nudges)."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    report = coverage.coverage_report(session, project_id)
+    return {"overall": report["overall"], "domains": report["detail"]}
+
+
+class CoverageAnswerBody(BaseModel):
+    domain: str
+    question_id: str
+    answer: str
+
+
+@app.post("/v1/projects/{project_id}/coverage/answer", status_code=201)
+def answer_coverage_question(
+    project_id: str, body: CoverageAnswerBody, session: Session = Depends(get_session)
+) -> dict:
+    """Answer a domain question-set question. The answer is ingested as a domain-tagged context item (so it
+    feeds retrieval as a graph node + embedding) AND recorded as answered, so that domain's coverage rises."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    if body.domain not in coverage.DOMAINS:
+        raise HTTPException(status_code=422, detail=f"unknown domain: {body.domain}")
+    question = next((q for q in coverage.question_set(body.domain) if q["id"] == body.question_id), None)
+    if question is None:
+        raise HTTPException(status_code=422, detail=f"unknown question_id: {body.question_id}")
+
+    item = ingestion.ingest_item(
+        session, id=_new_id(), project_id=project_id, item_type="requirement",
+        content=f"Q: {question['q']}\nA: {body.answer}", domain=body.domain,
+    )
+    # record (or refresh) the answered question so coverage is deterministic and persisted
+    existing = session.scalars(
+        select(CoverageAnswer).where(
+            CoverageAnswer.project_id == project_id, CoverageAnswer.domain == body.domain,
+            CoverageAnswer.question_id == body.question_id,
+        )
+    ).first()
+    if existing is None:
+        session.add(CoverageAnswer(project_id=project_id, domain=body.domain,
+                                   question_id=body.question_id, item_id=item.id))
+    else:
+        existing.item_id = item.id
+    session.flush()
+    report = coverage.coverage_report(session, project_id)
+    return {"item": _item_dict(item), "coverage": report["overall"],
+            "domain_coverage": report["by_domain"][body.domain]}
 
 
 @app.post("/v1/projects/{project_id}/events")
