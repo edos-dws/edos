@@ -766,15 +766,36 @@ class DeepDiveDecideRequest(BaseModel):
     answers: list[DeepDiveAnswer] = Field(default_factory=list)
 
 
+class DeepDiveFollowupRequest(BaseModel):
+    topic: str
+    answers: list[DeepDiveAnswer] = Field(default_factory=list)
+
+
 @app.post("/v1/projects/{project_id}/deepdive")
 def deepdive_questions(
     project_id: str, body: DeepDiveRequest, session: Session = Depends(get_session)
 ) -> dict:
-    """Deep Dive stage 1: 5-8 targeted questions, each with a "WHY AM I ASKING?" rationale (opposite of the
-    no-question Engineering Review). Planner LLM with stub→heuristic fallback."""
+    """Deep Dive stage 1 (UI-CP-11, context-grounded): retrieve the project's knowledge for the topic first,
+    generate targeted questions (each with a "WHY AM I ASKING?" rationale), then SKIP any question already
+    answered by the project context. Returns `{topic, questions, skipped, note}` — `skipped` powers the
+    "already known" hint. Planner LLM with stub→heuristic fallback."""
     if store.get_project(session, project_id) is None:
         raise HTTPException(status_code=404, detail="project not found")
-    return {"topic": body.topic, "questions": deepdive.plan_questions(body.topic)}
+    plan = deepdive.plan_questions(session, project_id, body.topic)
+    return {"topic": body.topic, **plan}
+
+
+@app.post("/v1/projects/{project_id}/deepdive/followup")
+def deepdive_followup(
+    project_id: str, body: DeepDiveFollowupRequest, session: Session = Depends(get_session)
+) -> dict:
+    """Deep Dive stage 1b (UI-CP-11, adaptive): AFTER the batch answers, emit 0–2 targeted follow-ups only
+    when an answer reveals a real gap/contradiction. ALWAYS runs a deterministic decision/graph-contradiction
+    check; adds LLM judgment (live only) up to the cap of 2. Empty `questions` = ready to decide."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    answers = [a.model_dump() for a in body.answers]
+    return {"questions": deepdive.follow_up(session, project_id, body.topic, answers)}
 
 
 @app.post("/v1/projects/{project_id}/deepdive/decide", status_code=201)

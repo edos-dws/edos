@@ -21,6 +21,7 @@ decisions · no fabrication · every ticket test-green (backend) · PDF is the v
 ## 🗺️ UI CHECKPOINT SEQUENCE (canonical)
 
 **✅ ALL UI-CP-0..10 complete — the UI backlog is fully built (product layer + UI on the Phase-1/2 engine).**
+**✅ UI-CP-11 (deep-dive v2) complete — Deep Dive is now context-grounded + adaptive.**
 
 
 | CP | Name | Core | PDF |
@@ -36,6 +37,7 @@ decisions · no fabrication · every ticket test-green (backend) · PDF is the v
 | **UI-CP-8** | Assumption Decay Alert (background) | scheduled re-check → alerts | p21 |
 | **UI-CP-9** | Execution Context | machine-readable spec export ("EDOS decides, agents execute") | p24 |
 | **UI-CP-10** | Timeline + Cert Matrix + Research Workspace | replay, cert matrix, sources per decision | p8, p23, p7 |
+| **UI-CP-11** | Adaptive Context-Grounded Clarification (deep-dive v2) | retrieve-then-ask (skip-known) + batch + 0–2 adaptive follow-ups | p7–8, p10 |
 
 **Reuse map (engine already built → product surface):** graph/`conflicts_with` → contradictions & graph ·
 domain rules → hidden-dependency/best-practice findings · watchdog → decay alerts · retriever → context ·
@@ -252,14 +254,58 @@ to a decision (reuse items `item_type=document` + decision link).
 
 ---
 
+## UI-CP-11 — Adaptive Context-Grounded Clarification (deep-dive v2)
+**PDF:** p7–8, p10 (Deep Dive). **Depends:** UI-CP-4 (Deep Dive), UI-CP-7 (`graph_view`), UI-CP-3 (`findings`).
+**Problem (agreed with a human + engineer):** the deep dive asked **static, generic** questions that ignored
+the project graph and threw them all at once. Three fixes, no redesign: (1) **context-grounded generation +
+skip-known** — retrieve the project's knowledge FIRST, ask only what is NOT already established; (2) **batch +
+adaptive follow-up** — present the questions as one batch (efficient for an expert), then generate **0–2**
+targeted follow-ups only when an answer reveals a real gap/contradiction (not 6 one-at-a-time round-trips);
+(3) LLM primary, static fallback — nothing mandatory (the engineer can decide with partial answers).
+**Backend (`engines/deepdive.py` — signature change):**
+- **`plan_questions(session, project_id, topic, router=None)` → `{questions, skipped, note}`** (was
+  `plan_questions(topic)`): (a) `retrieval.retrieve` the project context for `topic` FIRST; (b) generate
+  candidates (LLM via `Capability.deepdive`, static probes fallback — the fallback is context-aware because
+  the same skip filter runs on it); (c) **skip-known filter** — for each candidate, drop it if its concern is
+  already covered by a context item. Coverage score = **`0.7·lexical + 0.3·embedder-cosine`** (blended so the
+  low-dim (8-d) stub embedder — where unrelated vectors collide at 0.4–0.8 cosine — cannot fabricate a skip on
+  its own; the embedder can only *lift* a lexically-grounded match, so it's "semantic, not just keywords"),
+  threshold **0.5**. `skipped:[{q, reason}]` powers the "already known" hint; `note` is set only when the
+  project already covers every question (empty `questions`).
+- **`follow_up(session, project_id, topic, answers, router=None)` → `[{id, q, why}]`** (new): ALWAYS a
+  **deterministic** check — does any answer contradict a stored decision / the graph? (reuses
+  `findings._stance_contradictions`: answer text vs stored decisions' committed stances); PLUS **LLM judgment**
+  (live only — stub/heuristic returns none offline) filling `2 − len(deterministic)` more. **Total capped at
+  2**; `[]` = ready to decide.
+- `decide(...)` unchanged (still retrieves context, persists answers as context, system-inference assumptions).
+- Endpoints: `POST /deepdive` → `{topic, questions, skipped, note}`; **NEW** `POST /deepdive/followup {topic,
+  answers}` → `{questions}` (0–2); `POST /deepdive/decide` unchanged. Callers updated for the signature change:
+  the `deepdive_questions` endpoint + `tests/test_deepdive.py` (`plan_questions` now `(session, project_id,
+  topic)` returning a dict).
+**UI (Deep Dive tab):** after fetching questions, a green **"✓ Already known (skipped N)"** hint lists the
+concerns the project context already answers; batch-answer; **Continue** → `/deepdive/followup` → if it returns
+questions, show **"Based on your answers, one more:"** and collect; then `/deepdive/decide`. **Skip to
+decision** is always available (nothing mandatory). Reuses existing CSS.
+- [x] 11.1 `plan_questions` retrieve-then-generate + skip-known filter (blended embedder score). 11.2
+  `follow_up` (deterministic contradiction + capped LLM). 11.3 `/deepdive` returns `skipped`+`note`; new
+  `/deepdive/followup`. 11.4 UI skipped hint + adaptive follow-up flow. `tests/test_deepdive_v2.py` (6 tests:
+  skip-known, follow-up on contradiction, no-follow-up when consistent, offline fallback, endpoints).
+**AC:** empty project → topic questions, `skipped=[]`; an item that answers a concern → that concern under
+`skipped` not `questions`; an answer that conflicts with a stored decision → a follow-up naming the conflict;
+consistent answers → no follow-up. **Resume:** deep dive is context-grounded + adaptive.
+
+---
+
 ## Backend additions summary (new work beyond Phase-2)
 `engines/coverage.py` · `engines/findings.py` · `engines/challenge.py` · `engines/execution_context.py` ·
 `engines/timeline.py` · `engines/cert_matrix.py` · `engines/sources.py` · `Assumption` table (first-class) ·
 ProjectItem `domain` tag · decision envelope extras (comparison_matrix, decision_impact, impacted_components,
 review_conditions) · endpoints: `/brain`, `/coverage(+answer)`, `/review`, `/deepdive(+decide)`,
 `/decisions/{id}/challenge`, `/graph`, `/decisions/{id}/diff`, `/execution-context`, `/timeline`,
-`/cert-matrix`, `/decisions/{id}/sources`, `/projects/{id}/sources`. All LLM parts stub→heuristic fallback
-(tests green offline), real LLM live.
+`/cert-matrix`, `/decisions/{id}/sources`, `/projects/{id}/sources`, `/deepdive/followup` (UI-CP-11).
+Deep-dive v2 (UI-CP-11): `deepdive.plan_questions` is now `(session, project_id, topic)`→`{questions, skipped,
+note}` (context-grounded, skip-known) and `deepdive.follow_up` adds 0–2 adaptive follow-ups. All LLM parts
+stub→heuristic fallback (tests green offline), real LLM live.
 
 ## Sequence
 ```

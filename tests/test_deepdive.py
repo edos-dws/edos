@@ -33,9 +33,12 @@ def _new_project(client) -> str:
     return client.post("/v1/projects", json={"name": "BMS"}).json()["id"]
 
 
-# ---- stage 1: targeted questions with WHY ----
-def test_plan_questions_shape_and_count():
-    qs = deepdive.plan_questions(BMS_TOPIC)
+# ---- stage 1: targeted questions with WHY (UI-CP-11: signature is (session, project_id, topic)) ----
+def test_plan_questions_shape_and_count(session):
+    plan = deepdive.plan_questions(session, "p-plan-1", BMS_TOPIC)
+    assert set(plan) == {"questions", "skipped", "note"}
+    qs = plan["questions"]
+    assert plan["skipped"] == []                    # empty project → nothing already known
     assert 5 <= len(qs) <= 8
     ids = set()
     for q in qs:
@@ -45,8 +48,8 @@ def test_plan_questions_shape_and_count():
     assert len(ids) == len(qs)                      # ids are unique
 
 
-def test_plan_questions_are_topic_targeted():
-    qs = deepdive.plan_questions(BMS_TOPIC)
+def test_plan_questions_are_topic_targeted(session):
+    qs = deepdive.plan_questions(session, "p-plan-2", BMS_TOPIC)["questions"]
     joined = " ".join(q["q"].lower() for q in qs)
     # balancing/cost topic should surface the imbalance + cost questions (deterministic probes)
     assert "imbalance" in joined
@@ -57,6 +60,7 @@ def test_deepdive_endpoint(client):
     pid = _new_project(client)
     body = client.post(f"/v1/projects/{pid}/deepdive", json={"topic": BMS_TOPIC}).json()
     assert body["topic"] == BMS_TOPIC
+    assert body["skipped"] == []                    # empty project → no "already known"
     assert 5 <= len(body["questions"]) <= 8
     assert all({"id", "q", "why"} == set(q) for q in body["questions"])
 

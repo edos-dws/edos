@@ -4,9 +4,17 @@ Deep Dive is the **opposite of Engineering Review**: instead of a fast no-questi
 *targeted* questions — each with a "WHY AM I ASKING?" rationale — then, once the engineer answers, it
 produces a rich **Decision Card**.
 
-Two stages:
+Stages (UI-CP-11 makes questioning **context-grounded + adaptive**):
 
-  1. ``plan_questions(topic)`` → ``[{id, q, why}]`` — the targeted question set + rationale.
+  1. ``plan_questions(session, project_id, topic)`` → ``{questions, skipped, note}`` — retrieve the project's
+     graph/knowledge FIRST, generate candidate questions (LLM primary, static probes fallback), then **skip
+     any question whose concern is already established in the retrieved context** (semantic match via the
+     embedder, lexically grounded so the low-dim stub can't fabricate a skip). ``skipped`` powers the
+     "already known" hint; ``note`` is set only when the project already covers everything.
+  1b. ``follow_up(session, project_id, topic, answers)`` → ``[{id, q, why}]`` — after the batch answers,
+     emit **0–2** targeted follow-ups: ALWAYS a deterministic graph/decision-contradiction check (reuses
+     ``findings`` stance logic), PLUS an LLM judgment (live only; stub→heuristic returns none) up to the
+     remaining budget. Total capped at 2; empty = ready to decide.
   2. ``decide(session, project_id, topic, answers)`` → ``(Decision, decision_detail)`` where:
        * ``Decision`` is a **contract-valid** ``edos.decision.v1`` (summary / recommendation / confidence /
          status / assumptions / risks / evidence / …) — reasoned over retriever context + the answers;
@@ -26,7 +34,8 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from edos.engines import decision_store, ingestion, retrieval
+from edos.engines import decision_store, findings, ingestion, retrieval
+from edos.engines.embeddings import EmbeddingProvider, default_embedder
 from edos.engines.model_router import Capability, ModelRouter
 from edos.models.decision import Decision
 
@@ -204,8 +213,8 @@ def _heuristic_questions(topic: str) -> list[dict]:
             for i, p in enumerate(picked)]
 
 
-def plan_questions(topic: str, router: ModelRouter | None = None) -> list[dict]:
-    """Return 5-8 targeted deep-dive questions, each with a WHY rationale. LLM first, heuristic fallback."""
+def _candidate_questions(topic: str, router: ModelRouter | None = None) -> list[dict]:
+    """Generate the candidate question set: LLM primary (topic-specific), static probes as fallback."""
     router = router or ModelRouter()
     try:
         out = router.execute(Capability.deepdive, {"mode": "questions", "topic": topic},
@@ -221,6 +230,185 @@ def plan_questions(topic: str, router: ModelRouter | None = None) -> list[dict]:
     except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic
         pass
     return _heuristic_questions(topic)
+
+
+# --------------------------------------------------------------------------------------------------
+# skip-known: drop a candidate question whose concern is already established in the project context.
+# --------------------------------------------------------------------------------------------------
+# Semantic match via the embedder, but the low-dim stub embedder collides (unrelated 8-d vectors score
+# 0.4-0.8), so a lexically-grounded blend is used: 0.7·lexical + 0.3·embedder-cosine. The embedder can only
+# add up to 0.3, so it never fabricates a skip on its own (keeps offline honest) — it lifts a genuine
+# semantic match over the line (so it is "semantic, not just keywords"). A real embedder live drives the
+# same score meaningfully. Threshold tuned so a question and its answer skip while sibling questions don't.
+_SKIP_KNOWN_THRESHOLD = 0.5
+_SKIP_STOPWORDS: frozenset[str] = frozenset({
+    "a", "an", "the", "and", "or", "of", "at", "to", "in", "for", "is", "are", "be", "this", "that",
+    "it", "its", "what", "which", "how", "not", "on", "with", "your", "you", "must", "meet", "does", "do",
+})
+_SKIP_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _concept_tokens(text: str) -> set[str]:
+    return {w for w in _SKIP_WORD.findall((text or "").lower())
+            if w not in _SKIP_STOPWORDS and len(w) > 2}
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    """Cosine of two embedder vectors (already L2-normalized → dot product)."""
+    return sum(x * y for x, y in zip(a, b, strict=False))
+
+
+def _coverage_score(question: str, content: str, embedder: EmbeddingProvider) -> float:
+    qt = _concept_tokens(question)
+    lex = len(qt & _concept_tokens(content)) / len(qt) if qt else 0.0
+    cos = _cosine(embedder.embed(question), embedder.embed(content))
+    return 0.7 * lex + 0.3 * cos
+
+
+def _retrieved_context(session: Session, project_id: str, topic: str) -> list[str]:
+    """The project's already-established knowledge for this topic (retriever content strings)."""
+    ctx: list[str] = []
+    try:
+        for c in retrieval.retrieve(session, project_id=project_id, question=topic):
+            if c["signals"]["semantic"] >= 0.2 or c["signals"]["graph"] >= 0.2:
+                ctx.append(c["content"])
+    except Exception:  # noqa: BLE001, S110 — retrieval is best-effort context; never blocks questioning
+        pass
+    return ctx
+
+
+def _covered_by(question: str, context: list[str], embedder: EmbeddingProvider) -> str | None:
+    """Return the context item that already covers this question's concern (best match ≥ threshold), else
+    None."""
+    best_content, best_score = None, 0.0
+    for content in context:
+        score = _coverage_score(question, content, embedder)
+        if score >= _SKIP_KNOWN_THRESHOLD and score > best_score:
+            best_content, best_score = content, score
+    return best_content
+
+
+def plan_questions(
+    session: Session, project_id: str, topic: str, router: ModelRouter | None = None,
+) -> dict:
+    """Context-grounded deep-dive questions (UI-CP-11).
+
+    Retrieve the project's knowledge for ``topic`` FIRST, generate candidate questions (LLM primary, static
+    probes fallback), then **skip any question whose concern is already established in that context**. Returns
+    ``{questions:[{id,q,why}], skipped:[{q,reason}], note}`` — ``skipped`` powers the "already known" hint;
+    ``note`` is non-empty only when the project already covers every question."""
+    embedder = default_embedder()
+    context = _retrieved_context(session, project_id, topic)
+    candidates = _candidate_questions(topic, router)
+
+    kept: list[dict] = []
+    skipped: list[dict] = []
+    for q in candidates:
+        match = _covered_by(q["q"], context, embedder) if context else None
+        if match is not None:
+            reason = f'already established in project context: "{match[:120]}"'
+            skipped.append({"q": q["q"], "reason": reason})
+        else:
+            kept.append(q)
+
+    note = ""
+    if candidates and not kept:
+        note = ("The project already has enough context on this topic — every question I would ask is "
+                "already answered. You can go straight to a decision.")
+    return {"questions": kept, "skipped": skipped, "note": note}
+
+
+# ==================================================================================================
+# stage 1b — adaptive follow-up (deterministic contradiction check + LLM judgment; cap 2)
+# ==================================================================================================
+FOLLOWUP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "questions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"q": {"type": "string"}, "why": {"type": "string"}},
+                "required": ["q", "why"],
+            },
+        }
+    },
+    "required": ["questions"],
+}
+_FOLLOWUP_CAP = 2
+
+
+def _deterministic_followups(session: Session, project_id: str, answers: list[dict]) -> list[dict]:
+    """ALWAYS-run check: does any answer contradict a stored decision / the project graph? Reuses the
+    ``findings`` stance-contradiction logic (answer text vs stored decisions). Each conflict → a follow-up
+    that names it."""
+    blob = " ".join(a.get("answer", "") for a in (answers or []) if a.get("answer")).strip()
+    if not blob:
+        return []
+    out: list[dict] = []
+    for f in findings._stance_contradictions(blob, session, project_id):
+        out.append({
+            "id": f"fu-{_slug(f.title)}",
+            "q": (f"{f.title} — your answer takes a different stance than a stored decision. Which one "
+                  "governs going forward, and how do you reconcile the conflict?"),
+            "why": f.detail,
+        })
+    return out
+
+
+def _heuristic_followups(topic: str, answers: list[dict]) -> list[dict]:
+    """Offline stand-in for the LLM follow-up pass. A follow-up must be *warranted* by a real signal; the
+    deterministic contradiction check supplies those, so offline this fabricates nothing → no follow-ups."""
+    return []
+
+
+def _llm_followups(
+    session: Session, project_id: str, topic: str, answers: list[dict], limit: int,
+    router: ModelRouter | None = None,
+) -> list[dict]:
+    """LLM judgment (live): up to ``limit`` follow-ups a principal engineer would ask given the answers.
+    Stub / malformed output → heuristic (which returns none offline)."""
+    if limit <= 0:
+        return []
+    router = router or ModelRouter()
+    context = _retrieved_context(session, project_id, topic)
+    try:
+        out = router.execute(
+            Capability.deepdive,
+            {"mode": "followup", "topic": topic, "answers": answers, "context": context},
+            schema=FOLLOWUP_SCHEMA,
+        )
+        raw = out.get("questions") if isinstance(out, dict) else None
+        parsed = [
+            {"id": f"fu-{_slug(q['q'])}", "q": q["q"].strip(), "why": q["why"].strip()}
+            for q in (raw or [])
+            if isinstance(q, dict) and q.get("q") and q.get("why")
+        ]
+        if parsed:
+            return parsed[:limit]
+    except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic
+        pass
+    return _heuristic_followups(topic, answers)[:limit]
+
+
+def follow_up(
+    session: Session, project_id: str, topic: str, answers: list[dict],
+    router: ModelRouter | None = None,
+) -> list[dict]:
+    """0–2 targeted follow-ups AFTER the batch answers. Deterministic contradiction check ALWAYS runs; the
+    LLM judgment fills the remaining budget (live only; offline returns nothing). Total capped at 2 — empty
+    means the engineer is ready to decide."""
+    answers = answers or []
+    det = _deterministic_followups(session, project_id, answers)[:_FOLLOWUP_CAP]
+    llm = _llm_followups(session, project_id, topic, answers, _FOLLOWUP_CAP - len(det), router)
+    out: list[dict] = []
+    seen: set[str] = set()
+    for f in det + llm:
+        if f["id"] in seen:
+            continue
+        seen.add(f["id"])
+        out.append(f)
+    return out[:_FOLLOWUP_CAP]
 
 
 # ==================================================================================================
