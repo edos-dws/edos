@@ -15,7 +15,7 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -36,6 +36,7 @@ from edos.engines import (
     extraction,
     faithfulness,
     feedback,
+    graph_view,
     ingestion,
     resolution,
     retrieval,
@@ -507,6 +508,42 @@ def list_project_decisions(project_id: str, session: Session = Depends(get_sessi
     if store.get_project(session, project_id) is None:
         raise HTTPException(status_code=404, detail="project not found")
     return [_decision_envelope(r) for r in decision_store.list_for_project(session, project_id)]
+
+
+# ---------- Decision Graph + Diff + Cross-Contradiction (UI-CP-7) ----------
+@app.get("/v1/projects/{project_id}/graph")
+def project_graph(project_id: str, session: Session = Depends(get_session)) -> dict:
+    """Decision Graph for visualization: decision nodes (latest version) + assumption nodes + the edges
+    between them (depends_on / conflicts_with / supersedes / … + assumption→decision links). `conflict:true`
+    marks cross-decision contradictions. Node ids are stable so the frontend can lay them out."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return graph_view.build_graph(session, project_id)
+
+
+@app.get("/v1/projects/{project_id}/contradictions")
+def project_contradictions(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    """Cross-decision contradictions: the project's `conflicts_with` pairs (surfaced by the graph builder +
+    watchdog), resolved to labels with a short explanation."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return graph_view.contradictions(session, project_id)
+
+
+@app.get("/v1/decisions/{decision_id}/diff")
+def decision_diff_ep(
+    decision_id: str,
+    from_version: int | None = Query(default=None, alias="from"),
+    to_version: int | None = Query(default=None, alias="to"),
+    session: Session = Depends(get_session),
+) -> dict:
+    """Decision Diff between two versions. Defaults: `to` = latest, `from` = latest's parent_version. A
+    single-version decision returns an empty diff gracefully. `why_changed` / `affected` are derived
+    heuristically from the two versions' summary/status/assumptions + decision_detail (no LLM)."""
+    result = graph_view.decision_diff(session, decision_id, from_v=from_version, to_v=to_version)
+    if result is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return result
 
 
 # ---------- project items / graph ingestion (CP-12) ----------

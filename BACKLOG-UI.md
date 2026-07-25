@@ -159,7 +159,16 @@ for viz; `GET /v1/decisions/{id}/diff` → `{from, to, why_changed[], affected[]
 cross-contradiction already via `conflicts_with` + watchdog.
 **UI:** graph canvas (nodes color by type/validity, dashed = challenged/invalidated), cross-decision
 contradiction cards, Decision Diff card (struck-through old → new, why changed, affected).
-- [ ] 7.1 `GET /graph`. 7.2 decision diff. 7.3 UI graph. 7.4 UI diff + cross-contradiction cards.
+- [x] 7.1 `GET /graph`. 7.2 decision diff. 7.3 UI graph. 7.4 UI diff + cross-contradiction cards.
+  `engines/graph_view.py` (build_graph / decision_diff / contradictions — deterministic, no LLM);
+  `GET /projects/{id}/graph` (decision+assumption nodes, deps/conflicts/supersedes edges + assumption→decision
+  links, stable ids, `conflict:true` marks contradictions, decision validity derived from touching edges);
+  `GET /projects/{id}/contradictions` (conflicts_with pairs → labels + explanation);
+  `GET /decisions/{id}/diff?from&to` (defaults to=latest/from=parent; single-version → empty diff; why_changed
+  from summary/status/confidence/assumption + decision_impact deltas, affected from impacted_components/
+  decision_impact/affected_decisions); UI Decision Graph tab = inline SVG (purple decision nodes, dashed
+  challenged/invalidated assumptions, red conflicts_with edges) + cross-contradiction cards + diff viewer
+  (struck-through old→new, why-changed / affected). `tests/test_graph_diff.py` (7 tests).
 **AC:** changing a decision shows a diff + surfaces impacts; graph renders the decision web. **Resume:** graph+diff live.
 
 ---
