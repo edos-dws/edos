@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session
 
 from edos.engines import decision_store, findings, ingestion, retrieval
 from edos.engines.embeddings import EmbeddingProvider, default_embedder
-from edos.engines.model_router import Capability, ModelRouter
+from edos.engines.model_router import Capability, ModelRouter, Tier
 from edos.models.decision import Decision
 
 
@@ -219,8 +219,10 @@ def _candidate_questions(topic: str, router: ModelRouter | None = None) -> tuple
     quota/429). The source lets the UI tell the engineer when questions are degraded, not silently static."""
     router = router or ModelRouter()
     try:
+        # Question generation is a LIGHT task — route it to the cheap Lite chain so the good model's limited
+        # quota is preserved for the heavy decision reasoning (which uses the frontier chain, see `decide`).
         out = router.execute(Capability.deepdive, {"mode": "questions", "topic": topic},
-                             schema=QUESTIONS_SCHEMA)
+                             schema=QUESTIONS_SCHEMA, tier=Tier.lightweight)
         raw = out.get("questions") if isinstance(out, dict) else None
         parsed = [
             {"id": f"q{i + 1}-{_slug(q['q'])}", "q": q["q"].strip(), "why": q["why"].strip()}
@@ -381,6 +383,7 @@ def _llm_followups(
             Capability.deepdive,
             {"mode": "followup", "topic": topic, "answers": answers, "context": context},
             schema=FOLLOWUP_SCHEMA,
+            tier=Tier.lightweight,  # follow-up generation is light → cheap chain
         )
         raw = out.get("questions") if isinstance(out, dict) else None
         parsed = [
@@ -625,6 +628,7 @@ def decide(
             Capability.deepdive,
             {"mode": "decide", "topic": topic, "answers": answers, "context": context},
             schema=DECISION_CARD_SCHEMA,
+            tier=Tier.frontier,  # decision reasoning is the HEAVY task → route to the best (frontier) chain
         )
         if isinstance(out, dict) and out.get("detail") and out.get("recommendation"):
             detail = dict(out["detail"])

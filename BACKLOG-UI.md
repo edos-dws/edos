@@ -307,6 +307,16 @@ Deep-dive v2 (UI-CP-11): `deepdive.plan_questions` is now `(session, project_id,
 note}` (context-grounded, skip-known) and `deepdive.follow_up` adds 0–2 adaptive follow-ups. All LLM parts
 stub→heuristic fallback (tests green offline), real LLM live.
 
+LLM model fallback + tier separation (`feat/llm-fallback-chain`): each Gemini model has its own quota, so the
+`GeminiProvider` now walks an ordered per-tier **fallback chain** (`config.gemini_{frontier,standard,
+lightweight}_chain`, env-overridable via `GEMINI_*_CHAIN`) — on a retriable error (429 / RESOURCE_EXHAUSTED /
+quota / rate limit / 404 not-found) it falls forward to the next model, only raising once the chain is
+exhausted (auth errors raise immediately). `Provider.execute`/`ModelRouter.execute` gained an optional
+`tier=` override threaded through `produce_valid`, so a caller can route a light task to a cheap chain and a
+heavy one to the best chain within a single `Capability`. Deep-dive uses it: question + follow-up generation →
+`Tier.lightweight` (cheap Lite chain), `decide` → `Tier.frontier` (best chain) — preserving the good model's
+quota. StubProvider/AnthropicProvider accept and honour `tier` too. Tested offline with a fake Gemini client.
+
 ## Sequence
 ```
 UI-CP-0 shell → 1 Brain → 2 Coverage → 3 Review/Findings → 4 Deep Dive/Decision Card

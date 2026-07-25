@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 
 from edos.config import settings
-from edos.engines.model_router import Capability, Tier, tier_for
-from edos.engines.providers._common import resolve_model, result_dict
+from edos.engines.model_router import Capability, Tier
+from edos.engines.providers._common import resolve_model, resolve_tier, result_dict
 
 
 class AnthropicProvider:
@@ -33,10 +33,15 @@ class AnthropicProvider:
             self._client = anthropic.Anthropic(api_key=self._api_key)
         return self._client
 
-    def execute(self, capability, context: dict, schema: dict | None = None, prompt: str | None = None) -> dict:
+    def execute(
+        self, capability, context: dict, schema: dict | None = None, prompt: str | None = None,
+        tier: Tier | None = None,
+    ) -> dict:
+        # A caller `tier` override wins over the capability's default tier (Anthropic has a single model per
+        # tier — a 1-element chain — so the override just re-points to that tier's model).
         cap = Capability(capability)
-        tier = tier_for(cap)
-        model = resolve_model(cap, self._models)
+        tier = resolve_tier(cap, tier)
+        model = resolve_model(cap, self._models, tier)
         text = prompt if prompt is not None else json.dumps({"capability": cap.value, "context": context})
 
         kwargs: dict = {

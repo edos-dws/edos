@@ -24,7 +24,7 @@ class _SpyProvider:
     def __init__(self):
         self.seen_prompt = None
 
-    def execute(self, capability, context, schema, prompt=None):
+    def execute(self, capability, context, schema, prompt=None, tier=None):
         self.seen_prompt = prompt
         return Decision(
             summary="s", recommendation="r", confidence=0.5, status="recommended",

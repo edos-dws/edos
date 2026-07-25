@@ -58,16 +58,19 @@ def tier_for(capability: Capability | str) -> Tier:
 
 class Provider(Protocol):
     def execute(
-        self, capability: Capability, context: dict, schema: dict | None, prompt: str | None = None
+        self, capability: Capability, context: dict, schema: dict | None, prompt: str | None = None,
+        tier: Tier | None = None,
     ) -> dict: ...
 
 
 class StubProvider:
     """Deterministic, schema-valid fixtures. No live model. `prompt` is the fully-rendered prompt a real
-    provider would send; the stub ignores it (it exists so the wiring is proven before go-live)."""
+    provider would send; the stub ignores it (it exists so the wiring is proven before go-live). `tier` is a
+    caller override of the capability's default tier — the stub ignores it too (there is only one fixture)."""
 
     def execute(
-        self, capability: Capability, context: dict, schema: dict | None = None, prompt: str | None = None
+        self, capability: Capability, context: dict, schema: dict | None = None, prompt: str | None = None,
+        tier: Tier | None = None,
     ) -> dict:
         cap = Capability(capability)
         if cap == Capability.decision:
@@ -101,19 +104,25 @@ class ModelRouter:
         self.provider: Provider = provider
         self.fallback: Provider = fallback or self.provider
 
-    def execute(self, capability: Capability | str, context: dict, schema: dict | None = None) -> dict:
+    def execute(
+        self, capability: Capability | str, context: dict, schema: dict | None = None,
+        tier: Tier | None = None,
+    ) -> dict:
+        """`tier` overrides the capability's default tier for this call — a caller can route a light task
+        (question generation) to a cheap chain and a heavy task (decision reasoning) to the best chain even
+        when both share a `Capability`. When `tier` is None the provider uses the capability's own tier."""
         cap = Capability(capability)
-        _ = tier_for(cap)  # tier selection (routing to a real model happens at go-live)
+        _ = tier or tier_for(cap)  # tier selection (the provider resolves the chain from this)
         if schema is None:
-            return self.provider.execute(cap, context, None, render(cap, context, None))
+            return self.provider.execute(cap, context, None, render(cap, context, None), tier)
         # generate → repair-retry (same provider, repair hint) → fallback provider (Ch 9). Each attempt gets
         # its fully-rendered prompt. If none produce schema-valid JSON, produce_valid raises → nothing persists.
         repair_ctx = {**context, "_repair": True}
         return produce_valid(
             schema,
             [
-                lambda: self.provider.execute(cap, context, schema, render(cap, context, schema)),
-                lambda: self.provider.execute(cap, repair_ctx, schema, render(cap, repair_ctx, schema)),
-                lambda: self.fallback.execute(cap, context, schema, render(cap, context, schema)),
+                lambda: self.provider.execute(cap, context, schema, render(cap, context, schema), tier),
+                lambda: self.provider.execute(cap, repair_ctx, schema, render(cap, repair_ctx, schema), tier),
+                lambda: self.fallback.execute(cap, context, schema, render(cap, context, schema), tier),
             ],
         )

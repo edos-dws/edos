@@ -77,7 +77,7 @@ def test_construction_is_lazy_no_sdk_needed():
     # Constructing a provider must not import the vendor SDK or touch the network.
     p = GeminiProvider(api_key="k")
     assert p._client is None
-    assert p._models[Tier.frontier]  # model map resolved from config
+    assert p._chains[Tier.frontier]  # per-tier fallback chain resolved from config
 
 
 def test_build_providers_offline_under_stub_env():
