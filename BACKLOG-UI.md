@@ -20,6 +20,9 @@ decisions · no fabrication · every ticket test-green (backend) · PDF is the v
 
 ## 🗺️ UI CHECKPOINT SEQUENCE (canonical)
 
+**✅ ALL UI-CP-0..10 complete — the UI backlog is fully built (product layer + UI on the Phase-1/2 engine).**
+
+
 | CP | Name | Core | PDF |
 |---|---|---|---|
 | **UI-CP-0** | Workspace shell | left nav + project open/create/delete + Project Brain scaffold (kill chat UI) | p2 |
@@ -223,17 +226,40 @@ assumptions + findings. JSON + copyable text.
 generator (standards×regions×cost×timeline) as a finding/tool; research workspace = documents/sources linked
 to a decision (reuse items `item_type=document` + decision link).
 **UI:** timeline rail (day-by-day + coverage badge), cert matrix table, research workspace panel per decision.
-- [ ] 10.1 timeline events. 10.2 cert matrix. 10.3 research workspace links. 10.4 UI for each.
+- [x] 10.1 timeline events. 10.2 cert matrix. 10.3 research workspace links. 10.4 UI for each.
+  `engines/timeline.py` (`build` — deterministic, no LLM): ordered event rail from decision versions
+  (v1=created / v>1=updated), first-class assumptions (created + last status-change at `updated_at`), project
+  items (documents / coverage answers / saved context), and decision outcomes; each event
+  `{when, kind, label, coverage}`. **Per-event coverage is HONESTLY reconstructed** via
+  `coverage_report(as_of=when)` — coverage is a pure, monotone function of append-only, timestamped rows
+  (domain-tagged items + answered questions) with static constants and no item mutation, so the `as_of`
+  snapshot is exact, not a guess; it grows monotonically and the latest event is pinned to current coverage.
+  (The one place it is NOT a per-instant literal: a coverage answer's bookkeeping row can land microseconds
+  after its context item, so the last as_of snapshot could trail "now" by a hair — the latest event is pinned
+  to current per spec.) `engines/cert_matrix.py` (`build`): reuses the Execution-Context standards vocabulary
+  to detect standards, maps each to regions via a static real-world REGION_MAP (AIS 156→India, ECE R100/CE/
+  RoHS/REACH→Europe, ISO 26262/UN 38.3/IEC 62619/…→both), and attaches Cost/Timeline **only when a `$…` /
+  `… weeks` figure co-occurs with the standard in the project text** (never invented; blank otherwise); empty
+  `standards` == empty-state. `engines/sources.py` (`for_decision`/`for_project`): Research Workspace =
+  `item_type='document'` project items + the decision's `evidence[].source` entries. Endpoints:
+  `GET /projects/{id}/timeline`, `GET /projects/{id}/cert-matrix`, `GET /decisions/{id}/sources`,
+  `GET /projects/{id}/sources`. `coverage.coverage_report` gained an optional `as_of` for the reconstruction.
+  UI: new **Timeline** tab = vertical replay rail (kind-colored dots, date, coverage badge, PDF p23) + the
+  Certification Matrix table (regions ✓/—, Cost/Timeline, TOTAL, PDF p8); Research Workspace panel on the
+  Decision Card (datasheets/documents + evidence sources, PDF p7). `tests/test_timeline_cert_sources.py`
+  (11 tests).
 **AC:** replay shows the project's decision history with coverage growth; sources visible per decision. **Resume:** timeline+matrix+sources.
 
 ---
 
 ## Backend additions summary (new work beyond Phase-2)
 `engines/coverage.py` · `engines/findings.py` · `engines/challenge.py` · `engines/execution_context.py` ·
-`Assumption` table (first-class) · ProjectItem `domain` tag · decision envelope extras (comparison_matrix,
-decision_impact, impacted_components, review_conditions) · endpoints: `/brain`, `/coverage(+answer)`,
-`/review`, `/deepdive(+decide)`, `/decisions/{id}/challenge`, `/graph`, `/decisions/{id}/diff`,
-`/execution-context`, `/timeline`. All LLM parts stub→heuristic fallback (tests green offline), real LLM live.
+`engines/timeline.py` · `engines/cert_matrix.py` · `engines/sources.py` · `Assumption` table (first-class) ·
+ProjectItem `domain` tag · decision envelope extras (comparison_matrix, decision_impact, impacted_components,
+review_conditions) · endpoints: `/brain`, `/coverage(+answer)`, `/review`, `/deepdive(+decide)`,
+`/decisions/{id}/challenge`, `/graph`, `/decisions/{id}/diff`, `/execution-context`, `/timeline`,
+`/cert-matrix`, `/decisions/{id}/sources`, `/projects/{id}/sources`. All LLM parts stub→heuristic fallback
+(tests green offline), real LLM live.
 
 ## Sequence
 ```

@@ -30,6 +30,7 @@ from edos.engines import (
 )
 from edos.engines import (
     auth,
+    cert_matrix,
     coverage,
     decay,
     decision_store,
@@ -43,6 +44,8 @@ from edos.engines import (
     ingestion,
     resolution,
     retrieval,
+    sources,
+    timeline,
     watchdog,
     writeback,
 )
@@ -575,6 +578,46 @@ def project_execution_context_text(project_id: str, session: Session = Depends(g
         raise HTTPException(status_code=404, detail="project not found")
     ctx = execution_context.build(session, project_id, now=dt.datetime.now(dt.UTC))
     return PlainTextResponse(execution_context.to_text(ctx))
+
+
+# ---------- Timeline / Cert Matrix / Research Workspace (UI-CP-10) ----------
+@app.get("/v1/projects/{project_id}/timeline")
+def project_timeline(project_id: str, session: Session = Depends(get_session)) -> dict:
+    """Project Timeline / Replay (PDF p23): the ordered event rail (decisions, assumptions, documents,
+    coverage answers, outcomes) with an honestly-reconstructed coverage snapshot on each event (coverage is a
+    monotone function of timestamped rows, so `as_of` reconstruction is exact — never fabricated)."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return timeline.build(session, project_id)
+
+
+@app.get("/v1/projects/{project_id}/cert-matrix")
+def project_cert_matrix(project_id: str, session: Session = Depends(get_session)) -> dict:
+    """Certification Matrix (PDF p8): detected standards × regions (India/Europe), with Cost/Timeline attached
+    only when such a figure co-occurs with the standard in the project text (never invented). Empty
+    `standards` == no standards mentioned yet."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return cert_matrix.build(session, project_id)
+
+
+@app.get("/v1/projects/{project_id}/sources")
+def project_sources(project_id: str, session: Session = Depends(get_session)) -> dict:
+    """Research Workspace (PDF p7) for a project: document/datasheet items + the union of evidence sources
+    across the project's decisions."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return sources.for_project(session, project_id)
+
+
+@app.get("/v1/decisions/{decision_id}/sources")
+def decision_sources(decision_id: str, session: Session = Depends(get_session)) -> dict:
+    """Research Workspace (PDF p7) for a decision: the project's document/datasheet items + this decision's
+    `evidence[].source` entries ("referenced by DR-001")."""
+    result = sources.for_decision(session, decision_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+    return result
 
 
 # ---------- project items / graph ingestion (CP-12) ----------

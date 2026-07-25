@@ -21,6 +21,8 @@ persisted config yet (that is a later ticket); documenting them here keeps the f
 """
 from __future__ import annotations
 
+import datetime as dt
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -90,22 +92,27 @@ def question_set(domain: str) -> list[dict[str, str]]:
     return QUESTION_SETS.get(domain, [])
 
 
-def answered_ids(session: Session, project_id: str, domain: str) -> set[str]:
-    rows = session.scalars(
-        select(CoverageAnswer.question_id).where(
-            CoverageAnswer.project_id == project_id, CoverageAnswer.domain == domain
-        )
-    ).all()
-    return set(rows)
+def answered_ids(
+    session: Session, project_id: str, domain: str, *, as_of: dt.datetime | None = None
+) -> set[str]:
+    stmt = select(CoverageAnswer.question_id).where(
+        CoverageAnswer.project_id == project_id, CoverageAnswer.domain == domain
+    )
+    if as_of is not None:
+        stmt = stmt.where(CoverageAnswer.created_at <= as_of)
+    return set(session.scalars(stmt).all())
 
 
-def _domain_counts(session: Session, project_id: str) -> dict[str, dict[str, int]]:
+def _domain_counts(
+    session: Session, project_id: str, *, as_of: dt.datetime | None = None
+) -> dict[str, dict[str, int]]:
     """Per-domain (items, docs) counts from the project's tagged items."""
-    rows = session.execute(
-        select(ProjectItem.domain, ProjectItem.item_type).where(
-            ProjectItem.project_id == project_id, ProjectItem.domain.is_not(None)
-        )
-    ).all()
+    stmt = select(ProjectItem.domain, ProjectItem.item_type).where(
+        ProjectItem.project_id == project_id, ProjectItem.domain.is_not(None)
+    )
+    if as_of is not None:
+        stmt = stmt.where(ProjectItem.created_at <= as_of)
+    rows = session.execute(stmt).all()
     counts = {d: {"items": 0, "docs": 0} for d in DOMAINS}
     for domain, item_type in rows:
         if domain not in counts:
@@ -127,8 +134,16 @@ def _domain_coverage(items: int, docs: int, answered: int, total_questions: int)
     return _clamp01(raw)
 
 
-def coverage_report(session: Session, project_id: str) -> dict:
+def coverage_report(
+    session: Session, project_id: str, *, as_of: dt.datetime | None = None
+) -> dict:
     """Compute overall + per-domain coverage (0-100, rounded) plus the raw inputs/unanswered questions.
+
+    ``as_of`` (optional) computes the coverage **as it stood at that instant** — counting only the
+    domain-tagged items and question answers created at-or-before ``as_of``. Because coverage is a pure,
+    monotone function of those append-only, timestamped rows (items are never mutated, the formula constants
+    are static), this reconstruction is exact and non-fabricated — it is the honest basis for the Timeline's
+    per-step coverage badge (UI-CP-10). Omitting ``as_of`` reports current coverage.
 
     Returns:
         {
@@ -138,7 +153,7 @@ def coverage_report(session: Session, project_id: str) -> dict:
                               "answered": [ids], "unanswered": [{id,q}, ...], "total_questions": n}}
         }
     """
-    counts = _domain_counts(session, project_id)
+    counts = _domain_counts(session, project_id, as_of=as_of)
     by_domain: dict[str, int] = {}
     detail: dict[str, dict] = {}
     weighted_sum = 0.0
@@ -146,7 +161,7 @@ def coverage_report(session: Session, project_id: str) -> dict:
 
     for d in DOMAINS:
         qs = question_set(d)
-        answered = answered_ids(session, project_id, d)
+        answered = answered_ids(session, project_id, d, as_of=as_of)
         items, docs = counts[d]["items"], counts[d]["docs"]
         cov = _domain_coverage(items, docs, len(answered), len(qs))
         pct = round(cov * 100)
