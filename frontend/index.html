@@ -589,6 +589,10 @@ function renderDeepDive(){
 
   if(DD.questions){
     html+=`<div class="userinput"><div class="l">USER INPUT</div><div style="margin-top:.3rem">"${esc(DD.topic)}"</div></div>`;
+    if(DD.generatedBy==='heuristic'){
+      html+=`<div class="ignore" style="border-color:#e5891a;background:#fdf3e8"><div class="h" style="color:#b26a12">⚠ LLM UNAVAILABLE — SHOWING TEMPLATE QUESTIONS</div>
+        <div style="margin-top:.2rem">The live model isn't responding (no key or quota/429), so these are generic fallback questions, not model-generated ones. Connect a working LLM key to get topic-specific questions. Check <code>/health</code> for provider status.</div></div>`;
+    }
     // UI-CP-11: "already known" hint — concerns the project context already answers (not re-asked)
     if(DD.skipped&&DD.skipped.length){
       html+=`<div class="skipped"><div class="sh">✓ Already known (skipped ${DD.skipped.length}) — the project context already answers:</div>
@@ -634,7 +638,7 @@ async function ddAsk(){
   DD.busy=true; DD.questions=null; DD.skipped=[]; DD.note=''; DD.answers={}; DD.followups=null; DD.fuAnswers={}; DD.envelope=null; renderDeepDive();
   try{
     const r=await api(`/v1/projects/${PID}/deepdive`,{method:'POST',body:JSON.stringify({topic:DD.topic})});
-    DD.questions=r.questions; DD.skipped=r.skipped||[]; DD.note=r.note||'';
+    DD.questions=r.questions; DD.skipped=r.skipped||[]; DD.note=r.note||''; DD.generatedBy=r.generated_by||'';
   }catch(e){ alert('deep dive: '+e.message); }
   DD.busy=false; renderDeepDive();
 }

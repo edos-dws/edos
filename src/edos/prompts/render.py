@@ -16,6 +16,9 @@ CAPABILITY_PROMPT: dict[str, str] = {
     "verification": "verification_prompt:v1",
     "intent": "planner_prompt:v1",
     "knowledge_extraction": "knowledge_extraction_prompt:v1",
+    "deepdive": "deepdive_prompt:v1",
+    "findings": "findings_prompt:v1",
+    "challenge": "challenge_prompt:v1",
 }
 
 
