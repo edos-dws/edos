@@ -5,62 +5,206 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>EDOS — Engineering Decision OS</title>
 <style>
-  /* ---- design system (matches EDOS_v3 walkthrough: light theme, navy brain bar, purple accent) ---- */
+  /* ---- Claude design system (getdesign.md/claude): warm cream canvas · coral accent · warm-dark surfaces ·
+         Fraunces serif display + Inter body + JetBrains Mono. Class names preserved from the prior build. ---- */
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
   :root{
-    --bg:#eef1f7; --surface:#ffffff; --ink:#1a2030; --ink2:#5a6478; --line:#e3e7f0;
-    --accent:#6d5efc; --accent2:#8b7bff; --navy:#0f1629; --navy2:#1a2340;
-    /* finding categories */
-    --contradiction:#e5484d; --hiddendep:#e5891a; --assumption:#e0b400; --optimization:#3b82f6; --bestpractice:#22a565;
-    /* coverage gradient */
-    --cov:linear-gradient(90deg,#e5484d,#e5891a,#e0b400,#22a565);
-    --radius:12px; --shadow:0 1px 3px rgba(20,30,60,.08),0 1px 2px rgba(20,30,60,.04);
+    /* surfaces */
+    --canvas:#faf9f5; --surface:#ffffff; --surface-soft:#f5f0e8; --surface-card:#efe9de; --cream-strong:#e8e0d2;
+    --bg:#faf9f5;
+    /* text */
+    --ink:#141413; --body:#3d3d3a; --body-strong:#252523; --ink2:#6c6a64; --muted-soft:#8e8b82;
+    /* lines */
+    --line:#e6dfd8; --line-soft:#ebe6df;
+    /* brand */
+    --accent:#cc785c; --accent2:#a9583e; --accent-soft:#f3e3db; --teal:#5db8a6; --amber:#e8a55a;
+    /* warm-dark product surfaces (replaces the old cool navy) */
+    --navy:#181715; --navy2:#252320; --dark-soft:#1f1e1b; --on-dark:#faf9f5; --on-dark-soft:#a09d96;
+    /* finding categories (warm-tuned) */
+    --contradiction:#c64545; --hiddendep:#e8a55a; --assumption:#d4a017; --optimization:#5db8a6; --bestpractice:#5db872;
+    --success:#5db872; --warning:#d4a017; --error:#c64545;
+    --cov:linear-gradient(90deg,#c64545,#e8a55a,#d4a017,#5db872);
+    /* type */
+    --serif:'Fraunces',Georgia,'Times New Roman',serif;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px;
+    --shadow:0 1px 3px rgba(20,20,19,.05),0 1px 2px rgba(20,20,19,.03);
+    --shadow-lg:0 12px 40px rgba(20,20,19,.10),0 3px 10px rgba(20,20,19,.05);
   }
   *{box-sizing:border-box}
-  body{margin:0;font:14px/1.55 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex}
-  h1,h2,h3,h4{margin:0}
-  button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:.5rem .85rem;background:var(--accent);color:#fff;font-weight:500}
-  button.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
-  button.sm{padding:.25rem .5rem;font-size:12px}
-  button:disabled{opacity:.5;cursor:default}
-  input,textarea,select{width:100%;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem}
+  body{margin:0;font:15px/1.55 var(--sans);background:var(--canvas);color:var(--body);height:100vh;display:flex;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  h1,h2,h3,h4{margin:0;color:var(--ink)}
+  h1,h2,h3{font-family:var(--serif);font-weight:500;letter-spacing:-.01em}
+  /* Standard button: a 1px border on EVERY variant (transparent on primary) so a primary and a ghost sitting
+     side by side are the exact same height — border-box + same padding = identical box. inline-flex centres
+     the label so multi-item labels (icon + text) stay aligned. Card-style buttons re-declare display below. */
+  /* Standard control height (var(--ctl)) so a button and an input sitting together are always the SAME height
+     — box-sizing:border-box means the 1px border is included, so both are exactly --ctl tall. */
+  :root{--ctl:42px}
+  button{font:inherit;font-weight:500;font-size:14px;line-height:1;cursor:pointer;height:var(--ctl);
+    border:1px solid transparent;border-radius:var(--radius-sm);padding:0 1.1rem;
+    background:var(--accent);color:#fff;transition:background .15s,border-color .15s,transform .05s;
+    display:inline-flex;align-items:center;justify-content:center;gap:.4rem;white-space:nowrap;vertical-align:middle}
+  button:hover:not(:disabled){background:var(--accent2)}
+  button:active:not(:disabled){transform:translateY(1px)}
+  button.ghost{background:var(--surface);color:var(--ink);border-color:var(--line)}
+  button.ghost:hover:not(:disabled){background:var(--surface-soft);border-color:var(--muted-soft)}
+  button.sm{height:34px;padding:0 .7rem;font-size:13px}
+  button:disabled{opacity:.45;cursor:default}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* card- / control-style buttons manage their own size — don't force the standard control height on them */
+  .projcard,.sessitem,.pc-del,.stat{height:auto}
+  /* button rows: a shared class so two buttons side by side are always aligned + evenly gapped */
+  .btnrow{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+  .btnrow.end{justify-content:flex-end}
+  input,textarea,select{width:100%;font:inherit;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:var(--radius-sm);padding:.6rem .75rem;transition:border-color .15s,box-shadow .15s}
+  input,select{height:var(--ctl);padding:0 .75rem}  /* single-line controls match the button height exactly */
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(204,120,92,.15)}
+  ::selection{background:var(--accent-soft)}
   a{color:var(--accent);text-decoration:none}
   .muted{color:var(--ink2)} .row{display:flex;gap:.6rem;align-items:center} .wrap{flex-wrap:wrap} .grow{flex:1}
   .hide{display:none}
 
-  /* left rail */
-  .rail{width:250px;background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:1rem}
-  .brand{font-weight:800;font-size:20px;letter-spacing:.12em;background:linear-gradient(90deg,var(--accent),#c084fc);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .brand-sub{font-size:10px;letter-spacing:.18em;color:var(--ink2);margin:.1rem 0 1rem}
-  .proj{padding:.5rem .55rem;border-radius:8px;cursor:pointer;display:flex;gap:.4rem;align-items:center}
-  .proj:hover,.proj.active{background:#f0f2f9}
-  .proj .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* ---- Sidebar navigation (replaces top tabs) ---- */
+  .rail{width:256px;flex:none;background:var(--surface-soft);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:1.2rem .9rem;overflow:visible;position:relative;z-index:5}
+  .brand{font-family:var(--serif);font-weight:600;font-size:24px;letter-spacing:-.01em;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:.4rem;padding:0 .3rem;margin-bottom:1.1rem}
+  .brand::before{content:"◆";color:var(--accent);font-size:15px}
+  /* project switcher */
+  .navproj-wrap{position:relative;margin-bottom:1.1rem}
+  .navproj{width:100%;display:flex;align-items:center;gap:.5rem;background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:var(--radius-sm);padding:.6rem .7rem;font-weight:500;box-shadow:var(--shadow)}
+  .navproj:hover{background:var(--surface);border-color:var(--cream-strong)}
+  .navproj .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+  .navproj .cap{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .navproj .cv{font-size:11px;color:var(--muted-soft);font-weight:600}
+  /* nav items */
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .navlbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-soft);font-weight:600;padding:.3rem .6rem .5rem}
+  .navitem{display:flex;align-items:center;justify-content:flex-start;gap:.6rem;width:100%;text-align:left;background:transparent;color:var(--body);border-radius:var(--radius-sm);padding:.55rem .6rem;font-weight:450;font-size:14.5px;transition:background .12s,color .12s}
+  /* hover + active both use the primary (coral) bg → white text/icon for readability (active is bolder) */
+  .navitem:hover{background:var(--accent);color:#fff}
+  .navitem:hover .ni-ic{color:#fff}
+  .navitem.active{background:var(--accent);color:#fff;font-weight:600}
+  .navitem.active:hover{background:var(--accent2);color:#fff}
+  .navitem .ni-ic{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted-soft);flex:none}
+  .ni-ic svg{width:17px;height:17px}
+  .navitem.active .ni-ic{color:#fff}
+  .cv{display:inline-flex;align-items:center;color:var(--muted-soft)}
+  .cv svg{width:15px;height:15px}
+  .nav-foot{margin-top:auto;padding-top:.8rem;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+  .nav-foot .navitem{font-size:13.5px;color:var(--ink2)}
 
   /* main */
-  .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-  .tabs{display:flex;gap:.2rem;padding:.5rem 1.2rem 0;background:var(--surface);border-bottom:1px solid var(--line)}
-  .tab{background:transparent;color:var(--ink2);border-radius:0;border-bottom:2px solid transparent;padding:.6rem .8rem;font-weight:500}
-  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
-  .view{flex:1;overflow:auto;padding:1.4rem;max-width:1080px;width:100%;margin:0 auto}
+  .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+  /* full-width scroller so the scrollbar sits at the far right of the window (Claude-style); content is
+     centred by the inner page wrappers (.page / .bpage), not by the scroller itself. */
+  .view{flex:1;overflow-y:scroll;overflow-x:hidden;padding:2.2rem 2.4rem 3rem;width:100%}
+  .view>*{max-width:1040px;margin-left:auto;margin-right:auto}
+  /* thin, warm, always-present scrollbars */
+  .view::-webkit-scrollbar,.chatthread::-webkit-scrollbar,.histrow::-webkit-scrollbar{width:10px;height:8px}
+  .view::-webkit-scrollbar-thumb,.chatthread::-webkit-scrollbar-thumb,.histrow::-webkit-scrollbar-thumb{background:var(--cream-strong);border-radius:10px;border:2px solid var(--canvas)}
+  .view::-webkit-scrollbar-thumb:hover,.chatthread::-webkit-scrollbar-thumb:hover{background:var(--muted-soft)}
+  *{scrollbar-width:thin;scrollbar-color:var(--cream-strong) transparent}
 
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem;margin-bottom:1.1rem}
-  .eyebrow{font-size:11px;letter-spacing:.14em;color:var(--ink2);font-weight:700;text-transform:uppercase;margin-bottom:.5rem}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.4rem;margin-bottom:1.2rem}
+  .eyebrow{font-size:12px;letter-spacing:.14em;color:var(--muted-soft);font-weight:600;text-transform:uppercase;margin-bottom:.6rem}
+
+  /* ---- Shared editorial page header (every section) ---- */
+  .page{max-width:1040px;margin:0 auto}  /* same measure as .bpage → content width is identical on every tab */
+  .pagehead{margin-bottom:1.6rem}
+  .pagehead .ph-top{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap}
+  .pagehead h1{font-family:var(--serif);font-size:clamp(28px,3.6vw,36px);font-weight:500;letter-spacing:-.02em;color:var(--ink);line-height:1.1}
+  .pagehead .ph-sub{color:var(--ink2);margin-top:.5rem;font-size:15px;max-width:64ch;line-height:1.5}
+
+  /* ---- Landing / project gallery ---- */
+  body.home{display:block;overflow:auto}
+  body.home .rail,body.home .main{display:none}
+  #home{display:none} body.home #home{display:block}
+  .landing{min-height:100vh;background:
+    radial-gradient(1000px 460px at 88% -12%,rgba(204,120,92,.10),transparent 60%),
+    radial-gradient(720px 460px at -5% 110%,rgba(232,165,90,.08),transparent 55%),var(--canvas)}
+  .landtop{max-width:960px;margin:0 auto;padding:1.5rem 1.8rem;display:flex;align-items:center;justify-content:space-between}
+  .landwrap{max-width:960px;margin:0 auto;padding:1.2rem 1.8rem 5rem}
+  .hero{padding:1.4rem 0 2.2rem}
+  .hero-eyebrow{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:1rem}
+  .hero-h1{font-family:var(--serif);font-weight:500;font-size:clamp(34px,5.5vw,56px);line-height:1.06;letter-spacing:-.02em;color:var(--ink)}
+  .hero-sub{font-size:18px;line-height:1.55;color:var(--body);max-width:60ch;margin-top:1.1rem}
+  /* create-project row */
+  .newproj{display:flex;align-items:stretch;gap:.7rem;max-width:560px;margin-bottom:3rem}
+  .newproj input{flex:1;font-size:15px}
+  .newproj button{flex:none;height:46px;padding:0 1.3rem}
+  /* projects section */
+  .landsec-h{display:flex;align-items:center;gap:.55rem;font-family:var(--serif);font-size:22px;font-weight:500;color:var(--ink);margin-bottom:1.1rem}
+  .landsec-h .cnt{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--muted-soft);background:var(--surface-card);border-radius:9999px;padding:.12rem .55rem}
+  .landempty{color:var(--ink2);font-size:15px;padding:.5rem 0}
+  .projgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:1rem}
+  .projcard{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:1.3rem;cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .14s;text-align:left;color:var(--body);display:flex;flex-direction:column;min-height:158px}
+  .projcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--cream-strong)}
+  .pc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem}
+  .pc-mark{width:40px;height:40px;border-radius:11px;background:var(--accent-soft);color:var(--accent2);font-family:var(--serif);font-size:20px;font-weight:600;display:flex;align-items:center;justify-content:center}
+  .pc-del{background:transparent;color:var(--muted-soft);border:0;padding:.25rem;opacity:0;transition:opacity .12s,color .12s;font-size:14px}
+  .projcard:hover .pc-del{opacity:1}
+  .pc-del:hover{color:var(--error);background:transparent}
+  .pc-name{font-family:var(--serif);font-size:21px;font-weight:500;color:var(--ink);letter-spacing:-.01em;line-height:1.2}
+  .pc-meta{margin-top:.35rem;color:var(--ink2);font-size:13.5px}
+  .pc-foot{margin-top:auto;padding-top:1rem;display:flex;align-items:center;gap:.35rem;color:var(--accent);font-weight:500;font-size:14px}
+  .pc-arw{transition:transform .15s}
+  .projcard:hover .pc-arw{transform:translateX(3px)}
+  .section-label{font-family:var(--serif);font-size:22px;font-weight:500;color:var(--ink);margin:2rem 0 .35rem}
+  .section-note{color:var(--ink2);margin-bottom:1rem;font-size:15px}
 
   /* project brain */
-  .brainbar{background:var(--navy);color:#fff;border-radius:var(--radius) var(--radius) 0 0;padding:.9rem 1.2rem;display:flex;align-items:center;gap:.6rem;font-weight:600}
-  .brainbar .dot{width:9px;height:9px;border-radius:50%;background:#3ddc97}
-  .brainbody{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);padding:1.2rem;box-shadow:var(--shadow)}
-  .covwrap{display:flex;align-items:center;gap:1rem;margin-bottom:1.1rem}
-  .covtrack{flex:1;height:12px;border-radius:20px;background:#e7eaf3;overflow:hidden}
+  .brainbar{background:var(--navy);color:var(--on-dark);border-radius:var(--radius) var(--radius) 0 0;padding:1.1rem 1.4rem;display:flex;align-items:center;gap:.6rem;font-weight:500;font-size:15px}
+  .brainbar .dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px rgba(93,184,114,.2)}
+  .brainbody{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);padding:1.5rem;box-shadow:var(--shadow)}
+  .covwrap{display:flex;align-items:center;gap:1rem;margin-bottom:1.3rem}
+  .covtrack{flex:1;height:12px;border-radius:20px;background:var(--surface-card);overflow:hidden}
   .covfill{height:100%;background:var(--cov);border-radius:20px;transition:width .5s}
-  .covpct{font-size:26px;font-weight:800;color:var(--accent);min-width:70px;text-align:right}
-  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.1rem}
-  .tile{border:1px solid var(--line);border-radius:10px;padding:.9rem;text-align:center}
-  .tile .n{font-size:28px;font-weight:800} .tile .l{font-size:11px;letter-spacing:.1em;color:var(--ink2);text-transform:uppercase;margin-top:.2rem}
+  .covpct{font-family:var(--serif);font-size:30px;font-weight:500;color:var(--accent);min-width:74px;text-align:right}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.3rem}
+  .tile{border:1px solid var(--line);border-radius:var(--radius-sm);padding:1rem;text-align:center;background:var(--surface-soft);transition:border-color .12s,transform .1s}
+  .tile[onclick]:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .tile .n{font-family:var(--serif);font-size:32px;font-weight:500;color:var(--ink)} .tile .l{font-size:11px;letter-spacing:.08em;color:var(--ink2);text-transform:uppercase;margin-top:.2rem}
   .domains{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
-  .domain{border:1px solid var(--line);border-radius:10px;padding:.7rem .8rem}
+  .domain{border:1px solid var(--line);border-radius:var(--radius-sm);padding:.85rem .9rem;background:var(--surface-soft)}
   .domain .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:.4rem}
-  .dtrack{height:7px;border-radius:20px;background:#e7eaf3;overflow:hidden}
-  .dfill{height:100%;background:linear-gradient(90deg,var(--accent),#4ec5ff);border-radius:20px}
+  .dtrack{height:7px;border-radius:20px;background:var(--surface-card);overflow:hidden}
+  .dfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--amber));border-radius:20px}
+
+  /* ---- Editorial Project Brain dashboard ---- */
+  .bpage{max-width:1040px;margin:0 auto}
+  .bhead{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:1.6rem;flex-wrap:wrap}
+  .b-title{font-family:var(--serif);font-size:clamp(28px,3.6vw,36px);font-weight:500;letter-spacing:-.02em;color:var(--ink);line-height:1.1}
+  .b-sub{color:var(--ink2);margin-top:.5rem;font-size:15px;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .b-sub .iso{display:inline-flex;align-items:center;gap:.35rem;background:var(--surface-card);border-radius:var(--radius-pill,9999px);padding:.15rem .6rem;font-size:12px;color:var(--body-strong)}
+  .b-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+  .covpanel{display:grid;grid-template-columns:auto 1fr;gap:2.2rem;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:1.9rem 2.1rem;box-shadow:var(--shadow);margin-bottom:1.2rem}
+  .donut{position:relative;width:150px;height:150px;flex:none}
+  .donut svg{transform:rotate(-90deg)}
+  .donut .track{fill:none;stroke:var(--surface-card);stroke-width:13}
+  .donut .prog{fill:none;stroke:var(--accent);stroke-width:13;stroke-linecap:round;transition:stroke-dashoffset .7s ease}
+  .donut .dlabel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .dpct{font-family:var(--serif);font-size:38px;color:var(--ink);line-height:1}
+  .donut .dcap{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-soft);margin-top:.25rem}
+  .covmeta .interp{font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:.35rem;letter-spacing:-.01em}
+  .covmeta .cnote{color:var(--body);font-size:15px;line-height:1.55;max-width:52ch}
+  .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-bottom:2rem}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem 1.2rem}
+  .stat.click{cursor:pointer;transition:border-color .12s,transform .1s}
+  .stat.click:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow)}
+  .stat .sn{font-family:var(--serif);font-size:36px;font-weight:500;color:var(--ink);line-height:1}
+  .stat .sl{font-size:12.5px;color:var(--ink2);margin-top:.35rem;display:flex;align-items:center;gap:.3rem}
+  .stat.warn .sn{color:var(--warning)} .stat.bad .sn{color:var(--error)}
+  .domcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .domrow{display:grid;grid-template-columns:160px 1fr 52px 16px;gap:1rem;align-items:center;padding:.95rem 1.3rem;cursor:pointer;transition:background .12s;border-top:1px solid var(--line-soft)}
+  .domrow:first-child{border-top:0}
+  .domrow:hover{background:var(--surface-soft)}
+  .domrow .dn{font-weight:500;color:var(--ink)}
+  .domrow .dbar{height:8px;border-radius:20px;background:var(--surface-card);overflow:hidden}
+  .domrow .dbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--amber));border-radius:20px;transition:width .6s}
+  .domrow .dv{text-align:right;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .domrow .dchev{color:var(--muted-soft)}
+  @media(max-width:720px){.covpanel{grid-template-columns:1fr;text-align:center;justify-items:center}.statgrid{grid-template-columns:repeat(2,1fr)}.domrow{grid-template-columns:110px 1fr 44px}}
 
   /* reusable finding / severity primitives (used by later UI-CPs) */
   .cat{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.12rem .5rem;border-radius:5px;color:#fff}
@@ -68,43 +212,60 @@
   .cat.assumption{background:var(--assumption);color:#3a2e00} .cat.optimization{background:var(--optimization)} .cat.best_practice{background:var(--bestpractice)}
   .pill{display:inline-block;font-size:11px;padding:.1rem .5rem;border-radius:20px;border:1px solid var(--line)}
   .pill.critical{background:#e5484d;color:#fff;border-color:#e5484d} .pill.high{background:#e5891a;color:#fff;border-color:#e5891a}
-  .pill.medium{background:#f2d675;color:#3a2e00;border-color:#e0b400} .pill.low{background:#dbe4f5;color:#2c3e66;border-color:#c3d2ec}
+  .pill.medium{background:#f2d675;color:#3a2e00;border-color:#e0b400} .pill.low{background:#d8d3c8;color:#2c2a26;border-color:#b8b2a6}
   .finding{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:8px;padding:.9rem 1rem;margin-bottom:.8rem}
   .finding.contradiction{border-left-color:var(--contradiction)} .finding.hidden_dependency{border-left-color:var(--hiddendep)}
   .finding.assumption{border-left-color:var(--assumption)} .finding.optimization{border-left-color:var(--optimization)} .finding.best_practice{border-left-color:var(--bestpractice)}
   .ignore{background:#fdf0f0;border:1px dashed #f2c3c3;border-radius:8px;padding:.6rem .8rem;margin-top:.6rem;font-size:13px}
   .ignore .h{color:var(--contradiction);font-weight:700;font-size:11px;letter-spacing:.08em}
-  .chip{display:inline-block;font-size:11px;background:#eef0f8;border:1px solid var(--line);border-radius:6px;padding:.15rem .5rem;margin:.15rem .2rem 0 0}
+  .chip{display:inline-block;font-size:11px;background:#f5f0e8;border:1px solid var(--line);border-radius:6px;padding:.15rem .5rem;margin:.15rem .2rem 0 0}
 
   .empty{color:var(--ink2);text-align:center;padding:2rem}
 
   /* ---- UI-CP-4: Deep Dive Q&A ---- */
-  .userinput{background:var(--navy);color:#dfe6f5;border-left:3px solid #3ddc97;border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1.1rem}
-  .userinput .l{font-size:10px;letter-spacing:.16em;color:#9fb0d0;font-weight:700}
+  .userinput{background:var(--navy);color:#e6e0d5;border-left:3px solid #5db872;border-radius:10px;padding:.9rem 1.1rem;margin-bottom:1.1rem}
+  .userinput .l{font-size:10px;letter-spacing:.16em;color:#a09d96;font-weight:700}
   .qcard{border:1px solid var(--line);border-radius:10px;padding:.9rem 1rem;margin-bottom:.8rem;background:var(--surface)}
   .qcard .qh{color:var(--accent);font-weight:700;margin-bottom:.5rem}
-  .whybox{background:#f3f1fe;border:1px solid #e2ddfb;border-radius:8px;padding:.6rem .8rem;margin-bottom:.6rem}
-  .whybox .h{color:#6d5efc;font-weight:700;font-size:10px;letter-spacing:.1em}
-  .whybox .t{font-size:13px;color:#3a3560;margin-top:.2rem}
+  .whybox{background:var(--accent-soft);border:1px solid #e8cdbf;border-radius:8px;padding:.6rem .8rem;margin-bottom:.6rem}
+  .whybox .h{color:var(--accent2);font-weight:700;font-size:10px;letter-spacing:.1em}
+  .whybox .t{font-size:13px;color:#7a4a38;margin-top:.2rem}
   /* UI-CP-11: already-known (skipped) hint + adaptive follow-up */
   .skipped{background:#eafaf1;border:1px solid #bfe8d2;border-radius:10px;padding:.7rem .9rem;margin-bottom:1rem}
   .skipped .sh{color:#0d7a45;font-weight:700;font-size:12px}
   .skipped ul{margin:.4rem 0 0;padding-left:1.1rem;font-size:13px;color:#2f4a3c}
   .skipped li{margin:.15rem 0}
-  .fuhead{color:#6d5efc;font-weight:700;font-size:12px;letter-spacing:.04em;margin:.2rem 0 .5rem}
-  .qcard.followup{border-color:#c9bffb;background:#faf9ff}
+  .fuhead{color:var(--accent2);font-weight:700;font-size:12px;letter-spacing:.04em;margin:.2rem 0 .5rem}
+  .qcard.followup{border-color:#e0b9a8;background:#fdf6f2}
+  /* zero-question confirmation (Q2) */
+  /* answered coverage question — stays visible + editable, distinct "answered" look */
+  /* compact coverage question/answer card + input with an embedded submit arrow (no button label) */
+  .qcov{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-sm);padding:.7rem .85rem;margin-bottom:.6rem}
+  .qcov.answered{border-left:3px solid var(--success);background:var(--surface-soft)}
+  .qcov .qq{font-weight:600;font-size:14px;line-height:1.4;color:var(--ink);margin-bottom:.4rem}
+  .qinput{position:relative}
+  .qinput textarea{padding-right:2.6rem;margin:0;min-height:0}
+  .qsend{position:absolute;right:.4rem;bottom:.4rem;width:30px;height:30px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center}
+  .qsend svg{width:15px;height:15px}
+  .qa-badge{display:inline-block;font-size:11px;font-weight:600;color:#3f8f56;background:#e9f4ec;border:1px solid #cbe6d3;border-radius:20px;padding:.05rem .55rem;margin-bottom:.35rem}
+  .confirmbox{border:1px solid var(--line);border-left:3px solid var(--success);border-radius:10px;padding:1rem 1.1rem;background:var(--surface)}
+  .confirmbox .cb-h{color:#3f8f56;font-weight:600;font-size:14px}
+  .confirmbox .cb-note{color:var(--ink2);font-size:13.5px;margin-top:.2rem}
+  .confirmbox .cb-understanding{margin-top:.8rem;background:var(--surface-soft);border-radius:8px;padding:.7rem .85rem;font-size:14.5px;color:var(--ink)}
+  .confirmbox .cb-lbl{display:block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-soft);font-weight:600;margin-bottom:.25rem}
 
   /* ---- UI-CP-4: Decision Card ---- */
   .deccard{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:1.1rem;background:var(--surface)}
-  .dechead{background:linear-gradient(120deg,#5b3fd6,#7c5cff 60%,#8b6bff);color:#fff;padding:1.1rem 1.2rem}
-  .dechead .eye{font-size:11px;letter-spacing:.16em;font-weight:700;opacity:.85}
+  .dechead{background:linear-gradient(120deg,#252320,#181715);color:var(--on-dark);padding:1.3rem 1.4rem}
+  .dechead .eye{font-size:11px;letter-spacing:.16em;font-weight:700;color:var(--accent);opacity:1}
+  .dechead h2{font-family:var(--serif);font-weight:500;letter-spacing:-.01em}
   .dechead h2{font-size:22px;margin:.15rem 0 .6rem}
   .dechead .meta{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;font-size:13px}
   .decstatus{font-size:11px;font-weight:800;letter-spacing:.08em;padding:.2rem .6rem;border-radius:5px;text-transform:uppercase}
   .decstatus.proposed,.decstatus.recommended{background:#f0d264;color:#3a2e00}
-  .decstatus.accepted,.decstatus.verified{background:#3ddc97;color:#06331f}
-  .decstatus.frozen{background:#dbe4f5;color:#2c3e66}
-  .dechead .missing{color:#e7ddff}
+  .decstatus.accepted,.decstatus.verified{background:#5db872;color:#06331f}
+  .decstatus.frozen{background:#d8d3c8;color:#2c2a26}
+  .dechead .missing{color:#f0ddd2}
   .decbody{padding:1.2rem}
 
   /* comparison matrix */
@@ -112,10 +273,10 @@
   table.matrix{border-collapse:collapse;width:100%;font-size:13px}
   table.matrix th,table.matrix td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left;vertical-align:top}
   table.matrix thead th{background:var(--navy);color:#fff;font-weight:600;white-space:nowrap}
-  table.matrix tbody th{background:#f6f7fb;font-weight:600;white-space:nowrap}
+  table.matrix tbody th{background:#f5f0e8;font-weight:600;white-space:nowrap}
   table.matrix td.rec,table.matrix th.rec{background:#eafaf1}
   table.matrix thead th.rec{background:#1f9d61;color:#fff}
-  table.matrix tbody tr:nth-child(even) td:not(.rec){background:#fafbfe}
+  table.matrix tbody tr:nth-child(even) td:not(.rec){background:#faf9f5}
 
   /* recommendation block */
   .recblock{background:#eefaf2;border:1px solid #bfe9cf;border-radius:10px;padding:1rem 1.1rem;margin-top:1rem}
@@ -123,6 +284,30 @@
   .recblock h3{font-size:18px;color:#0d6b3f;margin:.2rem 0 .5rem}
   .recblock ul{margin:.3rem 0;padding-left:1.1rem}
   .recblock .elim{color:var(--ink2);font-size:12px;margin-top:.5rem}
+  .runnerup{margin-top:.6rem;padding:.6rem .8rem;border:1px dashed var(--line);border-radius:8px;font-size:13px;background:var(--card2,#faf9f7)}
+  .runnerup .rulabel{font-size:10px;letter-spacing:.1em;font-weight:700;color:var(--ink2);text-transform:uppercase;margin-right:.35rem}
+  .runnerup .rugap{font-size:11px;color:var(--ink2);margin-left:.4rem}
+  .runnerup .rugap.narrow{color:#c2410c;font-weight:700}
+  .runnerup .rutip{color:var(--ink2);font-size:12px;margin-top:.3rem}
+  .compwrap{display:flex;flex-direction:column;gap:.3rem;margin-top:.3rem}
+  .comprow{display:flex;align-items:center;gap:.5rem;font-size:13px}
+  .comprow code{background:var(--chipbg,#eef1ee);padding:.05rem .35rem;border-radius:4px;font-size:12px}
+  .comprow .cq{color:var(--ink2);min-width:120px}
+  .ck{font-weight:800;width:1.1em;text-align:center}
+  .ck.ok{color:#1f9d61}.ck.bad{color:#c0392b}.ck.na{color:var(--ink2)}
+  .ckmis{color:#c0392b;font-size:12px}
+  .framepanel{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:.8rem 1rem;background:var(--card2,#faf9f7)}
+  .framepanel .fp-h{font-size:11px;letter-spacing:.1em;font-weight:700;color:var(--accent)}
+  .framepanel .fp-u{font-size:13px;color:var(--ink);margin:.4rem 0 .2rem}
+  .framepanel .fp-lbl{font-size:10px;letter-spacing:.08em;font-weight:700;color:var(--ink2);text-transform:uppercase;margin:.7rem 0 .35rem}
+  .spinewrap,.scanwrap{display:flex;flex-wrap:wrap;gap:.35rem}
+  .spinechip{font-size:11px;padding:.15rem .5rem;border-radius:20px;background:var(--chipbg,#eef1ee);color:var(--ink)}
+  .spinechip b{color:var(--ink2);font-weight:600;text-transform:capitalize}
+  .lenswrap{display:flex;flex-direction:column;gap:.3rem}
+  .lensrow.deep{display:flex;align-items:center;gap:.5rem;font-size:13px}
+  .lensrow .lw{display:inline-block;min-width:26px;text-align:center;font-size:11px;font-weight:700;color:#fff;background:var(--accent);border-radius:5px;padding:.05rem .25rem}
+  .lenschip{font-size:11px;padding:.15rem .5rem;border-radius:6px;border:1px dashed var(--line);color:var(--ink2)}
+  .framepanel .fp-asks{font-size:12px;color:var(--ink2);font-style:italic}
 
   /* decision impact grid */
   .impactgrid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem}
@@ -130,24 +315,108 @@
   .impactcell b{color:var(--accent)}
 
   /* decision explorer (dark panel) */
-  .explorer{background:var(--navy);color:#cdd7ee;border-radius:10px;padding:1rem 1.1rem;margin-top:1.1rem}
+  .explorer{background:var(--navy);color:#cfc9bd;border-radius:10px;padding:1rem 1.1rem;margin-top:1.1rem}
   .explorer .eh{color:#fff;font-size:11px;letter-spacing:.16em;font-weight:700;margin-bottom:.7rem}
   .exprow{display:grid;grid-template-columns:150px 1fr;gap:.6rem;padding:.35rem 0;font-size:13px;border-top:1px solid #24304f}
   .exprow:first-of-type{border-top:0}
-  .exprow .k{color:#8ea0c6}
-  .chip.dark{background:#1e2947;border-color:#2c3a5f;color:#c9d5ef}
+  .exprow .k{color:#a09d96}
+  .chip.dark{background:#1e2947;border-color:#33302b;color:#b8b2a6}
   /* assumption lifecycle status chips (UI-CP-6): created=neutral, validated=green, challenged=amber, invalidated=red */
   .achip{display:inline-block;font-size:12px;border-radius:6px;padding:.2rem .55rem;margin:.15rem .25rem .15rem 0;border:1px solid var(--line);font-weight:600}
   .achip .aid{font-weight:800;opacity:.85;margin-right:.35rem}
-  .achip.created{background:#eef0f8;color:#2c3e66;border-color:#c3d2ec}
+  .achip.created{background:#f5f0e8;color:#2c2a26;border-color:#b8b2a6}
   .achip.validated{background:#e3f6ec;color:#0f6b3d;border-color:#9bd8b6}
   .achip.challenged{background:#fdf0d9;color:#8a5a00;border-color:#eccf86}
   .achip.invalidated{background:#fde3e3;color:#a5231f;border-color:#f0b3b1}
   .arow{border:1px solid var(--line);border-radius:10px;padding:.75rem .9rem;margin-bottom:.6rem}
   .arow .asrc{font-size:12px;color:var(--ink2);margin-top:.25rem}
-  .achip.dark{border-color:#2c3a5f}
+  .achip.dark{border-color:#33302b}
   .challenge{background:#ef8b2c;color:#fff;font-weight:700;margin-top:1rem}
   .challenge:hover{background:#e07d1d}
+
+  /* Deep Dive sessions strip — past decisions in this project (each decision = a session/chat) */
+  .sessions{background:#fff;border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem}
+  .sesslist{display:flex;flex-wrap:wrap;gap:.5rem}
+  .sessitem{display:block;text-align:left;background:#f5f0e8;border:1px solid var(--line);border-radius:10px;
+    padding:.5rem .7rem;min-width:200px;max-width:320px;cursor:pointer;color:var(--ink);font:inherit;font-weight:400}
+  .sessitem:hover{border-color:var(--navy);background:#f5f0e8}
+  .sessitem.active{border-color:var(--navy);background:#eafaf1;box-shadow:0 0 0 1px var(--navy) inset}
+  .sessitem .st{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sessitem .sm{display:flex;align-items:center;gap:.4rem;margin-top:.3rem;font-size:11px}
+
+  /* ---- Deep Dive as a chat (Claude-style thread + composer with a PROJECT selector) ---- */
+  /* chatmode: the view becomes a fixed-height flex column — thread scrolls, composer is pinned to the very
+     bottom with no gap below it, and the whole conversation column is a touch narrower than other pages. */
+  .view.chatmode{padding:0;overflow:hidden;display:flex;flex-direction:column}
+  .chatmode .chatshell{flex:1;min-height:0;height:auto;padding:0;width:100%;max-width:900px}
+  .chatmode .chattop{padding:1.4rem 1.8rem 1rem}
+  .chatmode .histrow{padding-left:1.8rem;padding-right:1.8rem;margin-bottom:0}
+  .chatmode .chatthread{flex:1;min-height:0;overflow-y:auto;padding:1.2rem 1.8rem 1rem}
+  .chatmode .composer{position:static;padding:.6rem 1.8rem .9rem;background:var(--canvas);border-top:1px solid var(--line);flex:none}
+  .chatshell{display:flex;flex-direction:column;min-height:calc(100vh - 130px)}
+  .chattop{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-bottom:1rem;margin-bottom:.4rem;border-bottom:1px solid var(--line)}
+  .chattop .ct-title{font-family:var(--serif);font-size:22px;color:var(--ink)}
+  .chattop .ct-title small{font-family:var(--sans);font-size:13px;color:var(--ink2);font-weight:400}
+  .histrow{display:flex;gap:.5rem;overflow-x:auto;padding:.2rem 0 .3rem;margin-bottom:.6rem}
+  .histrow::-webkit-scrollbar{height:6px} .histrow::-webkit-scrollbar-thumb{background:var(--cream-strong);border-radius:6px}
+  .chattop .ct-hist svg{width:15px;height:15px}
+  .chattop .ct-hist.active{background:var(--surface-card);border-color:var(--muted-soft)}
+  /* decision history panel (opened via the history icon) */
+  .histpanel{flex:1;min-height:0;overflow-y:auto;padding:1.4rem 1.8rem}
+  .hp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+  .histlist{display:flex;flex-direction:column;gap:.6rem;max-width:720px}
+  .histitem{display:flex;align-items:center;justify-content:space-between;gap:1rem;width:100%;height:auto;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1.1rem;color:var(--body);transition:border-color .12s,transform .1s}
+  .histitem:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .histitem.active{border-color:var(--accent);background:var(--accent-soft)}
+  .histitem .hi-title{font-weight:500;color:var(--ink)}
+  .histitem .hi-meta{display:flex;align-items:center;gap:.5rem;margin-top:.3rem;font-size:12px}
+  .histitem .hi-arw{color:var(--muted-soft);flex:none}
+  .chatthread{flex:1;display:flex;flex-direction:column;gap:1.2rem;padding:.8rem 0 1.4rem}
+  .msg{display:flex;gap:.8rem;align-items:flex-start;max-width:100%}
+  .msg.user{flex-direction:row-reverse}
+  .msg .av{flex:none;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;margin-top:.1rem}
+  .msg.asst .av{background:var(--accent);color:#fff;font-family:var(--serif)}
+  .msg.user .av{background:var(--surface-card);color:var(--ink)}
+  .bubble{border-radius:var(--radius-lg);padding:1rem 1.2rem;line-height:1.55;max-width:min(760px,88%)}
+  .msg.asst .bubble{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+  .msg.user .bubble{background:var(--surface-card);color:var(--body-strong)}
+  .bubble .b-lead{font-family:var(--serif);font-size:17px;color:var(--ink);margin-bottom:.3rem}
+  .bubble.wide{max-width:100%;width:100%}
+  .thinking{display:inline-flex;gap:.3rem;align-items:center;color:var(--ink2)}
+  .thinking i{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;animation:blink 1.2s infinite}
+  .thinking i:nth-child(2){animation-delay:.2s} .thinking i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+  /* composer */
+  .composer{position:sticky;bottom:0;padding:.6rem 0 .3rem;background:linear-gradient(180deg,transparent,var(--canvas) 22%)}
+  .composer-inner{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:.7rem .8rem .6rem;transition:border-color .15s,box-shadow .15s}
+  .composer-inner:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(204,120,92,.12),var(--shadow-lg)}
+  .composer textarea{border:0;box-shadow:none;background:transparent;resize:none;padding:.3rem .4rem;max-height:180px;font-size:15px}
+  .composer textarea:focus{box-shadow:none}
+  .composer-bar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.3rem}
+  .sendbtn{width:36px;height:36px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;font-size:17px}
+  .sendbtn svg{width:17px;height:17px}
+  .av svg{width:15px;height:15px}
+  .pc-del svg,.projmenu .pm-item button svg{width:15px;height:15px}
+  /* project selector (where the model picker would be) */
+  .projsel-wrap{position:relative}
+  .projsel{display:inline-flex;align-items:center;gap:.45rem;background:var(--surface-soft);border:1px solid var(--line);color:var(--ink);border-radius:var(--radius-sm);padding:.4rem .7rem;font-weight:500;font-size:13px}
+  .projsel:hover{background:var(--surface-card)}
+  .projsel .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .projsel .cap{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .projmenu{position:absolute;bottom:calc(100% + 8px);left:0;min-width:260px;max-height:min(320px,60vh);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:.4rem;display:none;z-index:30}
+  /* the SIDEBAR project switcher sits at the top of the rail → open DOWNWARD (the composer one stays upward) */
+  #navmenu{top:calc(100% + 6px);bottom:auto;left:0;right:0;min-width:0}
+  .projmenu.open{display:block}
+  .projmenu .pm-lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-soft);padding:.4rem .6rem .2rem}
+  .projmenu .pm-item{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-radius:var(--radius-sm);cursor:pointer}
+  .projmenu .pm-item:hover{background:var(--surface-soft)}
+  .projmenu .pm-item.active{background:var(--accent-soft)}
+  .projmenu .pm-item .chk{color:var(--accent);margin-left:auto}
+
+  /* verifiable reference links (trust) */
+  .reflink{color:var(--accent);text-decoration:none;border-bottom:1px dotted currentColor}
+  .reflink:hover{border-bottom-style:solid}
+  .reflink .rlext{font-size:.85em;opacity:.7;margin-left:.15em}
 
   /* challenge panel (UI-CP-5) — EDOS argues against its own recommendation */
   .challengecard{border:1px solid #f0c9a4;border-top:4px solid #ef8b2c;border-radius:12px;
@@ -173,16 +442,16 @@
   .ch-actions{padding:1rem 1.2rem;display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
   .ch-actions .markchg{background:#c23b30;color:#fff;font-weight:700}
   .ch-actions .markchg:hover{background:#a82e25}
-  .monitored{padding:.9rem 1.2rem;background:#f4eefe;border-top:1px solid #ddd0f5;
-    color:#5a2ea6;font-size:13px;font-weight:600;display:flex;gap:.5rem;align-items:center}
+  .monitored{padding:.9rem 1.2rem;background:#f3e3db;border-top:1px solid #e8cdbf;
+    color:#a9583e;font-size:13px;font-weight:600;display:flex;gap:.5rem;align-items:center}
   @media(max-width:720px){.ch-cols{grid-template-columns:1fr}.ch-col.cost{border-right:0;border-bottom:1px solid #f3ddc6}}
 
   /* ---- UI-CP-7: Decision Graph (inline SVG) ---- */
-  .graphwrap{overflow-x:auto;background:#0f1629;border-radius:var(--radius);padding:.6rem}
+  .graphwrap{overflow-x:auto;background:#181715;border-radius:var(--radius);padding:.6rem}
   svg.graph{display:block}
   svg.graph .n-label{font:600 12px system-ui,sans-serif;fill:#fff}
-  svg.graph .n-label.dark{fill:#dfe6f5}
-  svg.graph .e-label{font:600 10px system-ui,sans-serif;fill:#9fb0d0;letter-spacing:.02em}
+  svg.graph .n-label.dark{fill:#e6e0d5}
+  svg.graph .e-label{font:600 10px system-ui,sans-serif;fill:#a09d96;letter-spacing:.02em}
   svg.graph .e-label.conflict{fill:#ff7a7d}
   .glegend{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.7rem;font-size:12px;color:var(--ink2)}
   .glegend .k{display:inline-flex;align-items:center;gap:.4rem}
@@ -191,7 +460,7 @@
   /* ---- UI-CP-7: Decision Diff ---- */
   .diffcard{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);background:var(--surface);overflow:hidden;margin-top:1rem}
   .diffhead{background:var(--navy);color:#fff;padding:.8rem 1.1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
-  .diffhead .vtag{font-size:11px;font-weight:800;letter-spacing:.06em;background:#26324f;color:#c9d5ef;padding:.15rem .5rem;border-radius:5px}
+  .diffhead .vtag{font-size:11px;font-weight:800;letter-spacing:.06em;background:#26324f;color:#b8b2a6;padding:.15rem .5rem;border-radius:5px}
   .diffbody{padding:1.1rem}
   .diff-summ{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;font-size:15px}
   .diff-summ .old{text-decoration:line-through;color:var(--ink2);background:#fbeaea;border:1px solid #f2c8c2;border-radius:6px;padding:.25rem .55rem}
@@ -204,46 +473,46 @@
   @media(max-width:720px){.diffcols{grid-template-columns:1fr}}
 
   /* UI-CP-9: Execution Context — the dark spec card (PDF p24) */
-  .ec-card{background:var(--navy);color:#e7ecf7;border:1px solid #26304d;border-radius:14px;
+  .ec-card{background:var(--navy);color:#ece7dc;border:1px solid #2c2a26;border-radius:14px;
     box-shadow:0 8px 30px rgba(10,15,35,.35);padding:0 0 1.4rem;overflow:hidden}
   .ec-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
-    padding:1.2rem 1.4rem;background:linear-gradient(120deg,#161d36,#1f2547);border-bottom:1px solid #2b3556}
+    padding:1.2rem 1.4rem;background:linear-gradient(120deg,#161d36,#1f2547);border-bottom:1px solid #33302b}
   .ec-title{font-weight:800;letter-spacing:.16em;font-size:15px;color:#fff}
-  .ec-tag{font-size:12px;letter-spacing:.04em;color:#a99bff;font-weight:600;margin-top:.15rem}
-  .ec-meta{display:flex;align-items:center;gap:.8rem;font-size:12px;color:#9fb0d0}
+  .ec-tag{font-size:12px;letter-spacing:.04em;color:#d69a80;font-weight:600;margin-top:.15rem}
+  .ec-meta{display:flex;align-items:center;gap:.8rem;font-size:12px;color:#a09d96}
   .ec-copy{background:var(--accent);color:#fff;border-radius:8px;padding:.45rem .8rem;font-size:12px;font-weight:600}
   .ec-copy:hover{background:var(--accent2)}
-  .ec-subhead{padding:.9rem 1.4rem .2rem;font-size:12.5px;color:#93a2c4}
-  .ec-prov{display:inline-block;background:#3a2e5f;color:#e7deff;border:1px solid #5a4a8f;
+  .ec-subhead{padding:.9rem 1.4rem .2rem;font-size:12.5px;color:#a09d96}
+  .ec-prov{display:inline-block;background:#2c2a26;color:#f0ddd2;border:1px solid #5a4a3a;
     border-radius:20px;padding:.1rem .55rem;font-size:11px;font-weight:600;margin-left:.4rem}
   .ec-prov.sm{margin-left:.5rem}
   .ec-sec{padding:1rem 1.4rem 0}
-  .ec-h{font-size:11px;letter-spacing:.16em;font-weight:800;text-transform:uppercase;color:#7f8ff5;
-    border-bottom:1px solid #2b3556;padding-bottom:.4rem;margin-bottom:.7rem}
-  .ec-empty{color:#6f7ea0;font-size:13px;font-style:italic;padding:.1rem 0 .3rem}
+  .ec-h{font-size:11px;letter-spacing:.16em;font-weight:800;text-transform:uppercase;color:#cc785c;
+    border-bottom:1px solid #33302b;padding-bottom:.4rem;margin-bottom:.7rem}
+  .ec-empty{color:#8e8b82;font-size:13px;font-style:italic;padding:.1rem 0 .3rem}
   .ec-list{list-style:none;margin:0;padding:0}
-  .ec-list li{font-size:13px;line-height:1.5;padding:.35rem 0;border-bottom:1px dashed #232c48;color:#dbe3f4}
+  .ec-list li{font-size:13px;line-height:1.5;padding:.35rem 0;border-bottom:1px dashed #33302b;color:#d8d3c8}
   .ec-list li:last-child{border-bottom:0}
-  .ec-ref{display:inline-block;margin-left:.5rem;font-size:10.5px;color:#8ea0c6;background:#1a2340;
-    border:1px solid #2b3556;border-radius:5px;padding:0 .35rem;font-family:ui-monospace,Menlo,monospace}
-  .ec-dec{border:1px solid #2b3556;border-radius:10px;padding:.7rem .85rem;margin-bottom:.65rem;background:#141b33}
+  .ec-ref{display:inline-block;margin-left:.5rem;font-size:10.5px;color:#a09d96;background:#252320;
+    border:1px solid #33302b;border-radius:5px;padding:0 .35rem;font-family:ui-monospace,Menlo,monospace}
+  .ec-dec{border:1px solid #33302b;border-radius:10px;padding:.7rem .85rem;margin-bottom:.65rem;background:#1f1e1b}
   .ec-dec-top{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}
-  .ec-id{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#0f1629;background:#8b7bff;
+  .ec-id{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#fff;background:#cc785c;
     border-radius:5px;padding:.08rem .4rem;font-weight:700}
   .ec-summ{font-weight:700;color:#fff;font-size:13.5px}
-  .ec-rec{color:#c3cfe8;font-size:13px;margin:.4rem 0 .1rem;line-height:1.5}
+  .ec-rec{color:#cfc9bd;font-size:13px;margin:.4rem 0 .1rem;line-height:1.5}
   .ec-kp{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
-  .ec-kpi{font-size:11.5px;color:#cdd8f0;background:#1c2444;border:1px solid #313c63;border-radius:6px;padding:.15rem .5rem}
+  .ec-kpi{font-size:11.5px;color:#cfc9bd;background:#252320;border:1px solid #2c2a26;border-radius:6px;padding:.15rem .5rem}
   .ec-chips{display:flex;flex-wrap:wrap;gap:.45rem}
   .ec-iface{font-size:12px;border-radius:7px;padding:.22rem .55rem;font-weight:600;display:inline-flex;align-items:center;gap:.35rem}
-  .ec-iface.proto{background:#123536;color:#7ff0e0;border:1px solid #1f5a58}
-  .ec-iface.comp{background:#1c2444;color:#b9c4e6;border:1px solid #313c63}
-  .ec-iface em{font-style:normal;font-size:10px;color:#7d8cb0;font-family:ui-monospace,Menlo,monospace}
+  .ec-iface.proto{background:#123536;color:#7fd8c8;border:1px solid #1f5a58}
+  .ec-iface.comp{background:#252320;color:#d8d3c8;border:1px solid #2c2a26}
+  .ec-iface em{font-style:normal;font-size:10px;color:#a09d96;font-family:ui-monospace,Menlo,monospace}
   .ec-std{font-size:12px;background:#33280f;color:#f0cf7f;border:1px solid #5c4820;border-radius:7px;padding:.22rem .55rem;font-weight:600}
   .ec-rk{font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;border-radius:5px;
     padding:.05rem .4rem;margin-right:.45rem}
   .ec-rk.assumption{background:#3a3410;color:#e8d67a} .ec-rk.contradiction{background:#43181a;color:#f19a9d}
-  .ec-rk.freeze_blocker,.ec-rk.risk{background:#3a2e5f;color:#d8ccff}
+  .ec-rk.freeze_blocker,.ec-rk.risk{background:#2c2a26;color:#e8cdbf}
 
   /* ---- UI-CP-10: Timeline / Replay rail (PDF p23) ---- */
   .tl{position:relative;margin:.4rem 0 .2rem;padding-left:1.4rem}
@@ -254,13 +523,13 @@
     border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
   .tldot.decision{background:var(--accent)} .tldot.outcome{background:var(--bestpractice)}
   .tldot.assumption{background:var(--assumption)} .tldot.assumption_status{background:var(--hiddendep)}
-  .tldot.document{background:#3b82f6} .tldot.coverage{background:#22a565} .tldot.context{background:var(--ink2)}
+  .tldot.document{background:#5db8a6} .tldot.coverage{background:#22a565} .tldot.context{background:var(--ink2)}
   .tlmeta{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin-bottom:.15rem}
   .tlkind{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:#fff;
     border-radius:5px;padding:.08rem .45rem}
   .tlkind.decision{background:var(--accent)} .tlkind.outcome{background:var(--bestpractice)}
   .tlkind.assumption{background:var(--assumption);color:#3a2e00} .tlkind.assumption_status{background:var(--hiddendep)}
-  .tlkind.document{background:#3b82f6} .tlkind.coverage{background:#22a565} .tlkind.context{background:var(--ink2)}
+  .tlkind.document{background:#5db8a6} .tlkind.coverage{background:#22a565} .tlkind.context{background:var(--ink2)}
   .tldate{font-size:11px;color:var(--ink2);font-family:ui-monospace,Menlo,monospace}
   .tlcov{margin-left:auto;font-size:11px;font-weight:700;color:#1f7a4d;background:#e6f7ee;
     border:1px solid #bfe9cf;border-radius:20px;padding:.08rem .5rem}
@@ -268,7 +537,7 @@
 
   /* ---- UI-CP-10: Certification Matrix (PDF p8) ---- */
   table.certmx td.reg{text-align:center;font-weight:700}
-  table.certmx td.yes{background:#eafaf1;color:#1f9d61} table.certmx td.no{color:#c3ccdd}
+  table.certmx td.yes{background:#eafaf1;color:#1f9d61} table.certmx td.no{color:#b8b2a6}
   .certtot{font-weight:700;text-align:center}
 
   /* ---- UI-CP-10: Research Workspace (PDF p7) ---- */
@@ -276,35 +545,66 @@
   .rw .rwh{font-size:11px;letter-spacing:.12em;font-weight:700;text-transform:uppercase;color:var(--ink2);margin-bottom:.5rem}
   .rwdoc{display:flex;gap:.5rem;align-items:flex-start;padding:.35rem 0;border-bottom:1px dashed var(--line);font-size:13px}
   .rwdoc:last-child{border-bottom:0}
-  .rwsrc{display:inline-block;font-size:11px;background:#eef0f8;border:1px solid var(--line);border-radius:6px;
+  .rwsrc{display:inline-block;font-size:11px;background:#f5f0e8;border:1px solid var(--line);border-radius:6px;
     padding:.15rem .5rem;margin:.15rem .25rem 0 0}
-  .rwtag{font-size:10px;font-weight:700;letter-spacing:.05em;color:#fff;background:#3b82f6;border-radius:5px;padding:.05rem .4rem;white-space:nowrap}
-  .rwtag.ext{background:#8b7bff}
+  .rwtag{font-size:10px;font-weight:700;letter-spacing:.05em;color:#fff;background:#5db8a6;border-radius:5px;padding:.05rem .4rem;white-space:nowrap}
+  .rwtag.ext{background:#cc785c}
+
+  /* ---- Custom action UI: toasts + confirm modal (replaces native alert()/confirm()) ---- */
+  /* Toast stack — non-blocking notifications, top-right, colour-coded by type, auto-dismiss with a progress bar. */
+  .toast-host{position:fixed;top:1.1rem;right:1.1rem;z-index:1000;display:flex;flex-direction:column;gap:.6rem;
+    max-width:min(400px,calc(100vw - 2rem));pointer-events:none}
+  .toast{pointer-events:auto;display:flex;align-items:flex-start;gap:.7rem;background:var(--surface);
+    border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--radius-sm);
+    box-shadow:var(--shadow-lg);padding:.8rem .9rem;position:relative;overflow:hidden;
+    opacity:0;transform:translateX(16px);transition:opacity .18s ease,transform .18s ease}
+  .toast.show{opacity:1;transform:translateX(0)}
+  .toast.hide{opacity:0;transform:translateX(16px)}
+  .toast-ic{width:20px;height:20px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+    color:var(--accent);margin-top:1px}
+  .toast-ic svg{width:18px;height:18px}
+  .toast-body{flex:1;font-size:13.5px;line-height:1.45;color:var(--body-strong);word-break:break-word}
+  .toast-body .tt{display:block;font-weight:600;color:var(--ink);margin-bottom:.1rem}
+  .toast-x{all:unset;cursor:pointer;color:var(--muted-soft);font-size:17px;line-height:1;padding:.1rem .2rem;
+    border-radius:5px;flex:none;height:auto}
+  .toast-x:hover{color:var(--ink);background:var(--surface-soft)}
+  .toast-bar{position:absolute;left:0;bottom:0;height:2px;background:var(--accent);width:100%;transform-origin:left;
+    animation:toastbar linear forwards}
+  @keyframes toastbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .toast-error{border-left-color:var(--error)} .toast-error .toast-ic{color:var(--error)} .toast-error .toast-bar{background:var(--error)}
+  .toast-success{border-left-color:var(--success)} .toast-success .toast-ic{color:var(--success)} .toast-success .toast-bar{background:var(--success)}
+  .toast-info{border-left-color:var(--accent)} .toast-info .toast-ic{color:var(--accent)}
+  @media (prefers-reduced-motion:reduce){.toast{transition:opacity .12s} .toast-bar{animation:none}}
+
+  /* Confirm modal — blocking dialog with Cancel + action; returns a Promise<boolean> from confirmBox(). */
+  .modal-ov{position:fixed;inset:0;z-index:1001;display:flex;align-items:center;justify-content:center;
+    background:rgba(20,20,19,.42);backdrop-filter:blur(2px);padding:1.5rem;
+    opacity:0;transition:opacity .16s ease}
+  .modal-ov.show{opacity:1}
+  .modal-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg);padding:1.6rem 1.6rem 1.3rem;max-width:440px;width:100%;
+    transform:translateY(10px) scale(.98);transition:transform .16s ease}
+  .modal-ov.show .modal-box{transform:translateY(0) scale(1)}
+  .modal-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    margin-bottom:.9rem;background:var(--accent-soft);color:var(--accent)}
+  .modal-icon svg{width:22px;height:22px}
+  .modal-box.danger .modal-icon{background:#fbeaea;color:var(--error)}
+  .modal-title{font-family:var(--serif);font-weight:500;font-size:20px;letter-spacing:-.01em;color:var(--ink);margin-bottom:.4rem}
+  .modal-msg{color:var(--body);font-size:14px;line-height:1.5;margin-bottom:1.3rem}
+  .modal-actions{display:flex;justify-content:flex-end;gap:.6rem}
+  button.danger{background:var(--error);color:#fff;border-color:transparent}
+  button.danger:hover:not(:disabled){background:#a93636}
+  button.danger:focus-visible{outline-color:var(--error)}
 </style>
 </head>
 <body>
-  <aside class="rail">
-    <div class="brand">EDOS</div>
-    <div class="brand-sub">ENGINEERING DECISION OS</div>
-    <div class="row" style="margin-bottom:.6rem">
-      <input id="newProj" placeholder="New project" onkeydown="if(event.key==='Enter')createProject()"/>
-      <button onclick="createProject()">+</button>
-    </div>
-    <div id="projects" class="grow" style="overflow:auto"></div>
-    <div class="muted" style="font-size:11px;margin-top:.6rem"><a href="/docs" target="_blank">API docs</a> · decision memory, not chat</div>
-  </aside>
+  <aside class="rail" id="rail"></aside>
 
   <main class="main">
-    <div class="tabs" id="tabs">
-      <button class="tab active" data-tab="brain"  onclick="tab('brain')">Project Brain</button>
-      <button class="tab" data-tab="review" onclick="tab('review')">Engineering Review</button>
-      <button class="tab" data-tab="deepdive" onclick="tab('deepdive')">Deep Dive</button>
-      <button class="tab" data-tab="graph" onclick="tab('graph')">Decision Graph</button>
-      <button class="tab" data-tab="timeline" onclick="tab('timeline')">Timeline</button>
-      <button class="tab" data-tab="execution" onclick="tab('execution')">Execution Context</button>
-    </div>
     <div class="view" id="view"></div>
   </main>
+
+  <div id="home"></div>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -316,32 +616,249 @@ async function api(path,opts={}){
   return r.status===204?null:r.json();
 }
 const esc=s=>(s??'').toString().replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+// inline-SVG helper — defined early because both the toast icons and the ICONS map below depend on it.
+const _sic=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 
-/* ---- projects (left rail) ---- */
+/* ---- Custom action UI (replaces native alert()/confirm()) ----
+   toast(msg,type)         → non-blocking notification (type: 'error' | 'success' | 'info'), auto-dismisses.
+   confirmBox({...})       → Promise<boolean>; a real modal with Cancel + action buttons (Esc = cancel, Enter = ok).
+   Both are self-contained (no markup / external deps) and follow the app's design tokens. */
+const _TOAST_IC={
+  error:_sic('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/>'),
+  success:_sic('<circle cx="12" cy="12" r="9"/><polyline points="8.5 12.2 11 14.6 15.8 9.4"/>'),
+  info:_sic('<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.6" x2="12" y2="7.6"/>'),
+};
+function toast(msg,type='info',{title='',duration=type==='error'?6000:4200}={}){
+  let host=document.getElementById('toastHost');
+  if(!host){ host=document.createElement('div'); host.id='toastHost'; host.className='toast-host'; document.body.appendChild(host); }
+  const el=document.createElement('div');
+  el.className='toast toast-'+type;
+  el.setAttribute('role',type==='error'?'alert':'status');
+  el.innerHTML=`<span class="toast-ic">${_TOAST_IC[type]||_TOAST_IC.info}</span>`+
+    `<div class="toast-body">${title?`<span class="tt">${esc(title)}</span>`:''}${esc(msg)}</div>`+
+    `<button class="toast-x" aria-label="Dismiss">×</button>`+
+    (duration?`<span class="toast-bar" style="animation-duration:${duration}ms"></span>`:'');
+  host.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  let timer;
+  const dismiss=()=>{ if(!el.isConnected)return; clearTimeout(timer); el.classList.remove('show'); el.classList.add('hide');
+    setTimeout(()=>el.remove(),200); };
+  el.querySelector('.toast-x').addEventListener('click',dismiss);
+  if(duration) timer=setTimeout(dismiss,duration);
+  return dismiss;
+}
+function confirmBox({title='Are you sure?',message='',confirmLabel='Confirm',cancelLabel='Cancel',danger=false}={}){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div'); ov.className='modal-ov';
+    ov.innerHTML=`<div class="modal-box ${danger?'danger':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="modal-icon">${danger?ICONS.trash:_TOAST_IC.info}</div>
+      <div class="modal-title">${esc(title)}</div>
+      ${message?`<div class="modal-msg">${esc(message)}</div>`:''}
+      <div class="modal-actions">
+        <button class="ghost" data-act="cancel">${esc(cancelLabel)}</button>
+        <button class="${danger?'danger':''}" data-act="ok">${esc(confirmLabel)}</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const done=v=>{ document.removeEventListener('keydown',key); ov.classList.remove('show');
+      setTimeout(()=>ov.remove(),160); resolve(v); };
+    const key=e=>{ if(e.key==='Escape'){e.preventDefault();done(false);} else if(e.key==='Enter'){e.preventDefault();done(true);} };
+    ov.addEventListener('click',e=>{ if(e.target===ov){done(false);return;} const a=e.target.closest('[data-act]'); if(a)done(a.dataset.act==='ok'); });
+    document.addEventListener('keydown',key);
+    requestAnimationFrame(()=>{ ov.classList.add('show'); const b=ov.querySelector('[data-act="ok"]'); if(b)b.focus(); });
+  });
+}
+
+// Self-contained inline-SVG icon set (Lucide-style, single-stroke, currentColor) — replaces the ad-hoc
+// unicode glyphs so the UI reads consistent. No external requests. Colour follows the surrounding text.
+const ICONS={
+  brain:_sic('<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>'),
+  deepdive:_sic('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+  review:_sic('<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>'),
+  graph:_sic('<circle cx="18" cy="5" r="2.4"/><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="19" r="2.4"/><line x1="8.1" y1="10.8" x2="15.9" y2="6.2"/><line x1="8.1" y1="13.2" x2="15.9" y2="17.8"/>'),
+  timeline:_sic('<circle cx="12" cy="12" r="8.5"/><polyline points="12 7 12 12 15.5 14"/>'),
+  execution:_sic('<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>'),
+  back:_sic('<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'),
+  docs:_sic('<path d="M2 4a1 1 0 0 1 1-1h5a3.5 3.5 0 0 1 3.5 3.5v13A2.5 2.5 0 0 0 9 17H2z"/><path d="M22 4a1 1 0 0 0-1-1h-5a3.5 3.5 0 0 0-3.5 3.5v13A2.5 2.5 0 0 1 15 17h7z"/>'),
+  plus:_sic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  chevron:_sic('<polyline points="6 9 12 15 18 9"/>'),
+  send:_sic('<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>'),
+  trash:_sic('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+  external:_sic('<line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>'),
+  pencil:_sic('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'),
+  check:_sic('<polyline points="20 6 9 17 4 12"/>'),
+  spark:_sic('<line x1="12" y1="2.5" x2="12" y2="21.5"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><line x1="5.3" y1="5.3" x2="18.7" y2="18.7"/><line x1="5.3" y1="18.7" x2="18.7" y2="5.3"/>'),
+};
+
+// Shared editorial page header used by every section (eyebrow + serif title + optional sub + right actions).
+function pageHead(eyebrow,title,sub,actions){
+  return `<div class="pagehead"><div class="ph-top">
+    <div><div class="hero-eyebrow" style="margin-bottom:.5rem">${esc(eyebrow)}</div><h1>${esc(title)}</h1></div>
+    ${actions?`<div class="b-actions">${actions}</div>`:''}</div>
+    ${sub?`<div class="ph-sub">${sub}</div>`:''}</div>`;
+}
+
+/* ---- References → verifiable links (trust) ----
+   A reference becomes a clickable link ONLY when we can resolve a real destination without fabricating one:
+   an explicit/inline URL links directly; a recognised public standard (ISO/IEC/IEEE/…) links to an official
+   lookup for that exact identifier; internal sources (deep-dive / engineer-answer / decision ids) stay plain
+   text. We never invent a specific page — a wrong link would erode trust more than no link. */
+const STD_RE=/\b(ISO|IEC|IEEE|SAE|EN|UL|DO|MIL(?:-STD)?|AEC-Q|JEDEC|JESD|CISPR|ASTM|ANSI|ETSI)\s?-?\s?\d[\w.\-]*/i;
+function refURL(text,url){
+  const t=(text||'').toString().trim();
+  if(url&&/^https?:\/\//i.test(url)) return url;
+  if(/^https?:\/\//i.test(t)) return t;
+  if(/^www\./i.test(t)) return 'https://'+t;
+  const m=t.match(STD_RE);
+  if(m) return 'https://www.google.com/search?q='+encodeURIComponent(m[0].replace(/\s+/g,' ').trim()+' standard');
+  return null;
+}
+function refLink(text,url){
+  const t=(text||'').toString();
+  const href=refURL(t,url);
+  if(!href) return esc(t);
+  return `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer" class="reflink">${esc(t)}<span class="rlext">↗</span></a>`;
+}
+
+/* ---- sidebar navigation ---- */
+const NAV=[
+  ['brain','Brain','brain'],['deepdive','Deep Dive','deepdive'],['review','Engineering Review','review'],
+  ['timeline','Timeline','timeline'],['execution','Execution Context','execution'],
+];
+function paintSidebar(){
+  const rail=$('#rail'); if(!rail) return;
+  const cur=PROJECTS.find(p=>p.id===PID)||{name:'Select project'};
+  const menu=PROJECTS.map(p=>`
+    <div class="pm-item ${p.id===PID?'active':''}" onclick="switchProjectNav('${p.id}')">
+      <span style="width:7px;height:7px;border-radius:50%;background:${p.id===PID?'var(--accent)':'var(--cream-strong)'}"></span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>
+      ${p.id===PID?'<span class="chk">✓</span>':`<button class="ghost sm" title="Delete" onclick="event.stopPropagation();delProject('${p.id}','${esc(p.name)}')" style="padding:.1rem .35rem">${ICONS.trash}</button>`}
+    </div>`).join('');
+  rail.innerHTML=`
+    <div class="brand" onclick="goHome()" title="All projects">EDOS</div>
+    <div class="navproj-wrap">
+      <button class="navproj" onclick="toggleNavMenu(event)">
+        <span class="dot"></span><span class="cap">${esc(cur.name)}</span><span class="cv">${ICONS.chevron}</span></button>
+      <div class="projmenu" id="navmenu">
+        <div class="pm-lbl">Projects · isolated</div>${menu}
+        <div class="pm-item" onclick="goHome()" style="color:var(--accent)">＋ New / all projects…</div>
+      </div>
+    </div>
+    <div class="navlbl">Workspace</div>
+    <nav class="nav">
+      ${NAV.map(([t,label,ic])=>`<button class="navitem ${t===TAB?'active':''}" onclick="tab('${t}')"><span class="ni-ic">${ICONS[ic]}</span>${label}</button>`).join('')}
+    </nav>
+    <div class="nav-foot">
+      <button class="navitem" onclick="goHome()"><span class="ni-ic">${ICONS.back}</span>All projects</button>
+      <a class="navitem" href="/docs" target="_blank"><span class="ni-ic">${ICONS.docs}</span>API docs</a>
+    </div>`;
+}
+function toggleNavMenu(e){ if(e) e.stopPropagation(); const m=$('#navmenu'); if(m) m.classList.toggle('open'); }
+async function switchProjectNav(id){ const m=$('#navmenu'); if(m) m.classList.remove('open'); if(id!==PID) await openProject(id); }
+
 async function loadProjects(){
   PROJECTS=await api('/v1/projects');
-  $('#projects').innerHTML=PROJECTS.map(p=>`
-    <div class="proj ${p.id===PID?'active':''}" onclick="openProject('${p.id}')">
-      <span class="nm">${esc(p.name)}</span>
-      <button class="ghost sm" title="Delete" onclick="event.stopPropagation();delProject('${p.id}','${esc(p.name)}')">🗑</button>
-    </div>`).join('')||'<div class="muted" style="font-size:12px">No projects yet</div>';
+  paintSidebar();
 }
-async function createProject(){
-  const name=$('#newProj').value.trim(); if(!name)return;
+async function createProject(name){
+  name=(name||'').trim(); if(!name)return;
   const p=await api('/v1/projects',{method:'POST',body:JSON.stringify({name})});
-  $('#newProj').value=''; await loadProjects(); openProject(p.id);
+  await loadProjects(); openProject(p.id);
 }
 async function delProject(id,name){
-  if(!confirm(`Delete project "${name}" and all its data?`))return;
+  if(!await confirmBox({title:`Delete “${name}”?`,message:'This project and all of its data will be permanently removed. This cannot be undone.',confirmLabel:'Delete project',danger:true}))return;
   await api(`/v1/projects/${id}`,{method:'DELETE'});
   if(PID===id)PID=null;
-  await loadProjects(); render();
+  await loadProjects();
+  if(document.body.classList.contains('home')) renderHome();
+  else if(!PID) showHome();
+  else render();
 }
-async function openProject(id){ PID=id; REVIEWTEXT=''; REVIEWFINDINGS=null; DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]}; GRAPH={data:null,contradictions:null,decisions:null,diff:null,diffId:'',busy:false}; loadProjects(); tab('brain'); }
+async function openProject(id,target){
+  PID=id; HOME=false; document.body.classList.remove('home');
+  REVIEWTEXT=''; REVIEWFINDINGS=null;
+  DD={topic:'',questions:null,answers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[],sessions:null,reviseOpen:false,revising:false,reviseText:''};
+  GRAPH={data:null,contradictions:null,decisions:null,diff:null,diffId:'',busy:false};
+  loadProjects(); tab(target||'brain');
+}
 
-/* ---- tab routing ---- */
-function tab(t){ TAB=t; document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===t)); render(); }
+/* ---- landing / project gallery ---- */
+let HOME=false;
+function goHome(){ showHome(); }
+function showHome(){ PID=null; HOME=true; document.body.classList.add('home'); renderHome(); pushURL(); }
+
+/* ---- URL routing (hash-based) — refresh + link-sharing work; single /app serving stays intact.
+   #/                              → landing
+   #/p/{projectId}/{tab}          → a project + tab (brain|deepdive|review|timeline|execution)
+   #/p/{projectId}/deepdive/d/{decisionId} → a specific decision (conversation) inside Deep Dive       */
+let ROUTING=false;  // true while restoring FROM the url → suppresses re-push (no loops)
+function routeString(){
+  if(HOME||!PID) return '';
+  let r='p/'+PID+'/'+TAB;
+  if(TAB==='deepdive' && DD.envelope) r+='/d/'+DD.envelope.id;
+  return r;
+}
+function pushURL(){
+  if(ROUTING) return;
+  const h='#/'+routeString();
+  if(location.hash!==h) history.pushState({}, '', h);
+}
+async function routeFromURL(){
+  ROUTING=true;
+  try{
+    const parts=(location.hash||'').replace(/^#\/?/,'').split('/').filter(Boolean);
+    if(parts[0]!=='p' || !parts[1]){ showHome(); return; }
+    const pid=parts[1], tab=parts[2]||'brain', did=(parts[3]==='d')?parts[4]:null;
+    if(!PROJECTS.length){ try{ PROJECTS=await api('/v1/projects'); }catch{} }
+    if(!PROJECTS.find(p=>p.id===pid)){ showHome(); return; }  // unknown/deleted project → landing
+    await openProject(pid, tab);
+    if(tab==='deepdive' && did){ await ddLoadSession(did); }
+  } finally { ROUTING=false; }
+}
+window.addEventListener('popstate', routeFromURL);
+async function renderHome(){
+  try{ PROJECTS=await api('/v1/projects'); }catch{}
+  const initial=n=>((n||'?').trim().charAt(0)||'?').toUpperCase();
+  const cards=PROJECTS.map(p=>`
+    <div class="projcard" role="button" tabindex="0" onclick="openProject('${p.id}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProject('${p.id}')}">
+      <div class="pc-top">
+        <span class="pc-mark">${esc(initial(p.name))}</span>
+        <button class="pc-del sm" title="Delete project" onclick="event.stopPropagation();delProject('${p.id}','${esc(p.name)}')">${ICONS.trash}</button>
+      </div>
+      <div class="pc-name">${esc(p.name)}</div>
+      <div class="pc-meta">Isolated decision workspace</div>
+      <div class="pc-foot">Open <span class="pc-arw">→</span></div>
+    </div>`).join('');
+  const hasProjects=PROJECTS.length>0;
+  document.getElementById('home').innerHTML=`
+    <div class="landing">
+      <header class="landtop">
+        <div class="brand" onclick="goHome()">EDOS</div>
+        <a class="reflink" href="/docs" target="_blank">API docs ↗</a>
+      </header>
+      <div class="landwrap">
+        <div class="hero">
+          <div class="hero-eyebrow">Engineering Decision OS</div>
+          <h1 class="hero-h1">Every engineering decision,<br>remembered and defensible.</h1>
+          <p class="hero-sub">EDOS reasons over your project's own knowledge — surfacing contradictions, hidden dependencies, and the assumptions a decision quietly rests on. Not a chatbot: a decision memory that sharpens as the project grows.</p>
+        </div>
+        <div class="newproj">
+          <input id="newProjHome" placeholder="Name a new project…" onkeydown="if(event.key==='Enter')createProject(this.value)"/>
+          <button onclick="createProject(document.getElementById('newProjHome').value)">Create project</button>
+        </div>
+        ${hasProjects
+          ? `<div class="landsec-h">Your projects <span class="cnt">${PROJECTS.length}</span></div><div class="projgrid">${cards}</div>`
+          : `<div class="landempty">No projects yet — name one above to create your first isolated workspace.</div>`}
+      </div>
+    </div>`;
+  const inp=document.getElementById('newProjHome'); if(inp&&!hasProjects) inp.focus();
+}
+
+/* ---- section routing (sidebar) ---- */
+function tab(t){ TAB=t; paintSidebar(); render(); pushURL(); }
 function render(){
+  // Deep Dive uses a full-height chat layout (inner-scrolling thread + pinned composer); other tabs scroll normally.
+  const v=$('#view'); if(v) v.classList.toggle('chatmode', TAB==='deepdive');
   if(!PID){ $('#view').innerHTML='<div class="empty">Pick or create a project on the left to open its <b>Project Brain</b>.</div>'; return; }
   if(TAB==='brain') return renderBrain();
   if(TAB==='review') return renderReview();
@@ -365,32 +882,62 @@ async function renderBrain(){
   try{ decay=await api(`/v1/projects/${PID}/decay-alerts`); }catch(e){ console.warn('decay',e); }
   const c=brain.counts, cov=brain.coverage||0;
   const DOMAINS=['Architecture','Hardware','Firmware','Manufacturing','Testing','Certification'];
+  // coverage donut geometry
+  const R=66, C=2*Math.PI*R, off=C*(1-cov/100);
+  // coverage interpretation — honest, actionable
+  const interp = cov>=75?['Well-covered','This project has enough grounded context for confident decisions. Deep-dive freely — EDOS will lean on what it already knows.']
+    : cov>=45?['Taking shape','A solid base is in place. Raise the thinner domains below to sharpen every decision that follows.']
+    : cov>=20?['Early days','EDOS can still reason, but it will assume more. Answer a few domain questions or attach a datasheet to reduce guesswork.']
+    : ['Just getting started',`${items? 'Add context — ':'Nothing here yet. Start by '} answering domain questions or attaching a datasheet, and coverage climbs as the brain learns this project.`];
+  const decayN=(decay||[]).length;
   $('#view').innerHTML=`
-    <div class="brainbar"><span class="dot"></span> PROJECT BRAIN · ${esc(p.name)} <span class="grow"></span>
-      <span class="muted" style="color:#9fb0d0;font-size:12px">${items} context items</span></div>
-    <div class="brainbody">
-      <div class="eyebrow">Coverage <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— how complete this project's engineering context is</span></div>
-      <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${cov}%"></div></div><div class="covpct">${cov}%</div></div>
-      <div class="tiles">
-        <div class="tile"><div class="n">${c.decisions}</div><div class="l">Decisions</div></div>
-        <div class="tile" style="cursor:pointer" onclick="openAssumptions()" title="View &amp; manage assumptions">
-          <div class="n">${c.assumptions}</div><div class="l">Assumptions ›</div></div>
-        <div class="tile"><div class="n">${c.contradictions}</div><div class="l">Contradictions</div></div>
-        <div class="tile"><div class="n">${c.open_risks}</div><div class="l">Open Risks</div></div>
+    <div class="bpage">
+      <div class="bhead">
+        <div>
+          <div class="hero-eyebrow" style="margin-bottom:.5rem">Project Brain</div>
+          <h1 class="b-title">${esc(p.name)}</h1>
+          <div class="b-sub"><span class="iso">◆ isolated knowledge base</span><span>${items} context item${items===1?'':'s'}${decayN?` · <span style="color:var(--warning)">${decayN} background alert${decayN>1?'s':''}</span>`:''}</span></div>
+        </div>
+        <div class="b-actions">
+          <button class="ghost" onclick="tab('review')">Engineering Review</button>
+          <button onclick="tab('deepdive')">Deep Dive →</button>
+        </div>
       </div>
-      <div class="eyebrow">Decision coverage <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— click a domain to raise it</span></div>
-      <div class="domains">
+
+      <div class="covpanel">
+        <div class="donut">
+          <svg width="150" height="150" viewBox="0 0 150 150">
+            <circle class="track" cx="75" cy="75" r="${R}"></circle>
+            <circle class="prog" cx="75" cy="75" r="${R}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"></circle>
+          </svg>
+          <div class="dlabel"><div class="dpct">${cov}%</div><div class="dcap">Coverage</div></div>
+        </div>
+        <div class="covmeta">
+          <div class="interp">${interp[0]}</div>
+          <div class="cnote">${interp[1]}</div>
+        </div>
+      </div>
+
+      <div class="statgrid">
+        <div class="stat click" onclick="tab('deepdive')"><div class="sn">${c.decisions}</div><div class="sl">Decisions</div></div>
+        <div class="stat click" onclick="openAssumptions()"><div class="sn">${c.assumptions}</div><div class="sl">Assumptions →</div></div>
+        <div class="stat ${c.contradictions?'bad':''}"><div class="sn">${c.contradictions}</div><div class="sl">Contradictions</div></div>
+        <div class="stat ${c.open_risks?'warn':''}"><div class="sn">${c.open_risks}</div><div class="sl">Open risks</div></div>
+      </div>
+
+      <div class="section-label" style="font-size:22px;margin:0 0 .2rem">Coverage by domain</div>
+      <div class="section-note">Click a domain to answer its questions or attach a datasheet — nothing is mandatory, each addition raises coverage.</div>
+      <div class="domcard">
         ${DOMAINS.map(d=>{const v=brain.coverage_by_domain[d]||0;return `
-          <div class="domain" style="cursor:pointer" onclick="openCoverage('${d}')" title="Answer questions / attach datasheets to raise ${d} coverage">
-            <div class="top"><span>${d}</span><b>${v}%</b></div>
-            <div class="dtrack"><div class="dfill" style="width:${v}%"></div></div>
+          <div class="domrow" onclick="openCoverage('${d}')">
+            <div class="dn">${d}</div>
+            <div class="dbar"><i style="width:${v}%"></i></div>
+            <div class="dv">${v}%</div>
+            <div class="dchev">›</div>
           </div>`;}).join('')}
       </div>
+
       ${decayFeed(decay)}
-      <div class="row" style="margin-top:1.2rem">
-        <button onclick="tab('review')">Start Engineering Review</button>
-        <button class="ghost" onclick="tab('deepdive')">Deep Dive</button>
-      </div>
     </div>`;
 }
 
@@ -403,7 +950,6 @@ function decayFeed(alerts){
     const kind=a.type==='cross_decision_contradiction'?'contradiction':'';
     return `<div class="finding ${kind}">
       <div class="row wrap" style="margin-bottom:.35rem;align-items:center">
-        <span class="pill" style="background:#3a2e5f;color:#e7deff;border-color:#5a4a8f">⚠ Background review</span>
         <span class="cat ${kind||'assumption'}">${DECAYLABEL[a.type]||a.type}</span>
         <span class="pill ${esc(a.severity)}">${esc(a.severity)}</span>
         <span class="chip">${esc(a.subject)}</span>
@@ -411,42 +957,59 @@ function decayFeed(alerts){
       <div>${esc(a.message)}</div>
     </div>`;
   }).join('');
-  return `<div class="eyebrow" style="margin-top:1.3rem">Background review <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— assumption decay + cross-decision contradictions caught automatically</span></div>
-    <div class="card" style="padding:.8rem 1rem">${rows}</div>`;
+  return `<div class="section-label" style="font-size:22px;margin:2.4rem 0 .2rem">Background review</div>
+    <div class="section-note">Assumption decay + cross-decision contradictions EDOS caught automatically — no action required to see them, but each is worth a look.</div>
+    <div class="card" style="padding:.9rem 1.1rem;margin-bottom:0">${rows}</div>`;
 }
 
 /* ---- UI-CP-2: coverage detail panel for one domain (nudges + attach datasheet) ---- */
 async function openCoverage(domain){
   COVDOMAIN=domain;
   let data;
-  try{ data=await api(`/v1/projects/${PID}/coverage`); }catch(e){ alert('coverage: '+e.message); return; }
+  try{ data=await api(`/v1/projects/${PID}/coverage`); }catch(e){ toast('coverage: '+e.message,'error'); return; }
   const d=data.domains[domain]||{coverage:0,items:0,docs:0,unanswered:[],total_questions:0,answered:[]};
   const answered=(d.answered||[]).length;
   $('#view').innerHTML=`
-    <div class="brainbar"><span class="dot"></span> COVERAGE · ${esc(domain)} <span class="grow"></span>
-      <button class="ghost sm" onclick="renderBrain()">← Project Brain</button></div>
-    <div class="brainbody">
-      <div class="covwrap"><div class="covtrack"><div class="covfill" style="width:${d.coverage}%"></div></div><div class="covpct">${d.coverage}%</div></div>
-      <div class="muted" style="margin-bottom:1rem">${d.items} context item(s) · ${d.docs} document(s) · ${answered}/${d.total_questions} questions answered. Nothing here is mandatory — each addition raises this domain's coverage.</div>
+    <div class="bpage">
+      <button class="ghost sm" onclick="renderBrain()" style="margin-bottom:1.1rem">← Project Brain</button>
+      <div class="hero-eyebrow" style="margin-bottom:.4rem">Coverage · ${esc(domain)}</div>
+      <h1 class="b-title">${esc(domain)}</h1>
+      <div class="covwrap" style="margin-top:1.2rem"><div class="covtrack"><div class="covfill" style="width:${d.coverage}%"></div></div><div class="covpct">${d.coverage}%</div></div>
+      <div class="b-sub" style="margin-bottom:1.6rem">${d.items} context item(s) · ${d.docs} document(s) · ${answered}/${d.total_questions} questions answered — each addition raises this domain's coverage.</div>
 
-      <div class="eyebrow">Attach a datasheet / document</div>
-      <div class="card" style="box-shadow:none">
-        <textarea id="covdoc" rows="2" placeholder="Paste datasheet text, spec, or a reference for ${esc(domain)}…"></textarea>
-        <div class="row" style="margin-top:.5rem;justify-content:flex-end">
-          <button onclick="attachDoc('${domain}')">Attach document</button>
+      <div class="section-label" style="font-size:20px;margin:0 0 .5rem">Attach a datasheet or document</div>
+      <div class="qcov">
+        <div class="qinput">
+          <textarea id="covdoc" rows="2" placeholder="Paste datasheet text, spec, or a reference for ${esc(domain)}…"></textarea>
+          <button class="qsend" title="Attach document" onclick="attachDoc('${domain}')">${ICONS.send}</button>
         </div>
       </div>
 
-      <div class="eyebrow">Answer these to raise coverage</div>
-      ${d.unanswered.length? d.unanswered.map(q=>`
-        <div class="card" style="box-shadow:none">
-          <div style="font-weight:600;margin-bottom:.4rem">${esc(q.q)}</div>
-          <textarea id="q-${q.id}" rows="2" placeholder="Your answer…"></textarea>
-          <div class="row" style="margin-top:.5rem;justify-content:flex-end">
-            <button onclick="answerCoverage('${domain}','${q.id}')">Save answer</button>
-          </div>
-        </div>`).join('')
-        : '<div class="muted" style="padding:.5rem">All question-set questions answered for this domain. 🎉</div>'}
+      ${d.unanswered.length?`
+        <div class="section-label" style="font-size:20px;margin:1.8rem 0 .5rem">Answer these to raise coverage</div>
+        ${d.unanswered.map(q=>`
+          <div class="qcov">
+            <div class="qq">${esc(q.q)}</div>
+            <div class="qinput">
+              <textarea id="q-${q.id}" rows="2" placeholder="Your answer…"></textarea>
+              <button class="qsend" title="Save answer" onclick="answerCoverage('${domain}','${q.id}')">${ICONS.send}</button>
+            </div>
+          </div>`).join('')}`:''}
+
+      ${(d.answered||[]).length?`
+        <div class="section-label" style="font-size:20px;margin:1.8rem 0 .5rem">Answered
+          <span class="muted" style="font-size:13px;font-weight:400">— stays here; edit any answer to update the project's knowledge</span></div>
+        ${d.answered.map(a=>`
+          <div class="qcov answered">
+            <div class="qa-badge">✓ answered</div>
+            <div class="qq">${esc(a.q)}</div>
+            <div class="qinput">
+              <textarea id="q-${a.id}" rows="2" placeholder="Your answer…">${esc(a.answer)}</textarea>
+              <button class="qsend" title="Update answer" onclick="answerCoverage('${domain}','${a.id}')">${ICONS.send}</button>
+            </div>
+          </div>`).join('')}`:''}
+
+      ${(!d.unanswered.length && !(d.answered||[]).length)?'<div class="muted" style="padding:.5rem;margin-top:1rem">No question-set questions for this domain.</div>':''}
     </div>`;
 }
 
@@ -472,7 +1035,7 @@ const ASLABEL={created:'Created',validated:'Validated',challenged:'Challenged',i
 
 async function openAssumptions(){
   let rows=[];
-  try{ rows=await api(`/v1/projects/${PID}/assumptions`); }catch(e){ alert('assumptions: '+e.message); return; }
+  try{ rows=await api(`/v1/projects/${PID}/assumptions`); }catch(e){ toast('assumptions: '+e.message,'error'); return; }
   const p=PROJECTS.find(x=>x.id===PID)||{name:'Project'};
   const counts=ASTATUS.map(s=>`${rows.filter(r=>r.status===s).length} ${ASLABEL[s].toLowerCase()}`).join(' · ');
   const body = rows.length ? rows.map(a=>`
@@ -490,11 +1053,12 @@ async function openAssumptions(){
     </div>`).join('')
     : '<div class="empty">No assumptions yet. They appear here once a decision is persisted (its inline assumptions become first-class A-ids), or add them via Deep Dive.</div>';
   $('#view').innerHTML=`
-    <div class="brainbar"><span class="dot"></span> ASSUMPTIONS · ${esc(p.name)} <span class="grow"></span>
-      <button class="ghost sm" onclick="renderBrain()">← Project Brain</button></div>
-    <div class="brainbody">
-      <div class="eyebrow">Lifecycle <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— Created → Validated → Challenged → Invalidated</span></div>
-      <div class="muted" style="margin-bottom:1rem">${rows.length} assumption(s) · ${counts}</div>
+    <div class="bpage">
+      <button class="ghost sm" onclick="renderBrain()" style="margin-bottom:1.1rem">← Project Brain</button>
+      <div class="hero-eyebrow" style="margin-bottom:.4rem">Assumptions · ${esc(p.name)}</div>
+      <h1 class="b-title">What this project is betting on</h1>
+      <div class="b-sub" style="margin-bottom:.4rem">${rows.length} assumption(s) · ${counts}</div>
+      <div class="section-note" style="margin-bottom:1.4rem">Lifecycle: Created → Validated → Challenged → Invalidated. Every assumption a decision rests on lives here with a stable A-id — track it instead of letting it decay silently.</div>
       ${body}
     </div>`;
 }
@@ -502,7 +1066,7 @@ async function openAssumptions(){
 async function setAssumptionStatus(aid,status){
   try{
     await api(`/v1/assumptions/${aid}/status`,{method:'POST',body:JSON.stringify({status,project_id:PID})});
-  }catch(e){ alert('status: '+e.message); return; }
+  }catch(e){ toast('status: '+e.message,'error'); return; }
   // refresh the assumptions panel; if a decision card is open its chips refresh on next render
   if(DD&&DD.envelope){ try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{} }
   openAssumptions();
@@ -514,15 +1078,19 @@ let REVIEWTEXT='', REVIEWFINDINGS=null, REVIEWBUSY=false;
 
 function renderReview(){
   const findings=REVIEWFINDINGS;
+  const p=PROJECTS.find(x=>x.id===PID)||{name:'this project'};
   $('#view').innerHTML=`
-    <div class="card">
-      <div class="eyebrow">Engineering Review <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— a fast scan, no questions asked</span></div>
-      <textarea id="revtext" rows="4" placeholder="Describe what you're working on… e.g. &quot;14S 100A BMS for an LFP pack in an EV — charging, discharging, cell balancing, CAN. Priority: safety, reliability, cost.&quot;">${esc(REVIEWTEXT)}</textarea>
-      <div class="row" style="margin-top:.6rem;justify-content:flex-end">
-        <button ${REVIEWBUSY?'disabled':''} onclick="runReview()">${REVIEWBUSY?'Scanning…':'Run Engineering Review'}</button>
+    <div class="page">
+      ${pageHead('Engineering Review','Scan before you commit',
+        `A fast principal-engineer pass over what you describe — surfacing contradictions, hidden dependencies, silent assumptions, and missed best practices. No questions asked. Findings can be saved into <b>${esc(p.name)}</b>'s brain.`)}
+      <div class="card">
+        <textarea id="revtext" rows="4" placeholder="Describe what you're working on… e.g. &quot;14S 100A BMS for an LFP pack in an EV — charging, discharging, cell balancing, CAN. Priority: safety, reliability, cost.&quot;">${esc(REVIEWTEXT)}</textarea>
+        <div class="row" style="margin-top:.7rem;justify-content:flex-end">
+          <button ${REVIEWBUSY?'disabled':''} onclick="runReview()">${REVIEWBUSY?'Scanning…':'Run Engineering Review'}</button>
+        </div>
       </div>
-    </div>
-    ${findings===null?'':renderFindings(findings)}`;
+      ${findings===null?'':renderFindings(findings)}
+    </div>`;
 }
 
 function renderFindings(findings){
@@ -540,11 +1108,11 @@ function renderFindings(findings){
           <div class="h">IF YOU IGNORE THIS</div>
           <ul style="margin:.35rem 0 0;padding-left:1.1rem">${f.if_ignored.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
         </div>`:''}
-      ${(f.evidence&&f.evidence.length)?`<div style="margin-top:.5rem">${f.evidence.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`:''}
+      ${(f.evidence&&f.evidence.length)?`<div style="margin-top:.5rem">${f.evidence.map(x=>`<span class="chip">${refLink(typeof x==='string'?x:(x&&(x.source||x.claim)),x&&x.url)}</span>`).join('')}</div>`:''}
     </div>`).join('');
   return `
-    <div class="row" style="justify-content:space-between;margin:.2rem 0 .8rem">
-      <div class="eyebrow" style="margin:0">${findings.length} finding${findings.length===1?'':'s'}</div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin:1.6rem 0 .8rem">
+      <div class="section-label" style="font-size:22px;margin:0">${findings.length} finding${findings.length===1?'':'s'}</div>
       <button class="ghost sm" onclick="saveReview()">Save to Project Brain</button>
     </div>
     ${cards}`;
@@ -557,7 +1125,7 @@ async function runReview(){
   try{
     const r=await api(`/v1/projects/${PID}/review`,{method:'POST',body:JSON.stringify({text:REVIEWTEXT})});
     REVIEWFINDINGS=r.findings;
-  }catch(e){ alert('review: '+e.message); }
+  }catch(e){ toast('review: '+e.message,'error'); }
   REVIEWBUSY=false; renderReview();
 }
 
@@ -565,89 +1133,253 @@ async function saveReview(){
   if(!REVIEWTEXT) return;
   try{
     await api(`/v1/projects/${PID}/review`,{method:'POST',body:JSON.stringify({text:REVIEWTEXT,save:true})});
-    alert('Saved to Project Brain — this input is now project context (feeds coverage + counts).');
-  }catch(e){ alert('save: '+e.message); }
+    toast('This input is now project context (feeds coverage + counts).','success',{title:'Saved to Project Brain'});
+  }catch(e){ toast('save: '+e.message,'error'); }
 }
 
 /* ---- UI-CP-4 / UI-CP-11: Deep Dive → (context-grounded questions + adaptive follow-up) → Decision Card ---- */
-let DD={topic:'',questions:null,skipped:[],note:'',answers:{},followups:null,fuAnswers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[]};
+let DD={topic:'',questions:null,skipped:[],note:'',answers:{},followups:null,fuAnswers:{},envelope:null,busy:false,challenge:null,challenging:false,challenged:false,assumptions:[],sessions:null,reviseOpen:false,revising:false,showHistory:false};
+
+// A Deep Dive "session" = one decision lineage. Start fresh, or reopen any past decision in this project.
+function ddNewDecision(){
+  DD.topic=''; DD.questions=null; DD.skipped=[]; DD.note=''; DD.answers={}; DD.followups=null; DD.fuAnswers={};
+  DD.envelope=null; DD.challenge=null; DD.challenged=false; DD.reviseOpen=false; DD.generatedBy=''; DD.showHistory=false;
+  renderDeepDive();
+  const t=$('#ddtopic'); if(t) t.focus();
+}
+async function loadSessions(){
+  if(!PID) return;
+  try{ DD.sessions=await api(`/v1/projects/${PID}/decisions`); }catch{ DD.sessions=[]; }
+  renderDeepDive();
+}
+async function ddLoadSession(id){
+  DD.busy=true; renderDeepDive();
+  try{
+    DD.envelope=await api(`/v1/decisions/${id}`);
+    DD.questions=null; DD.challenge=null; DD.challenged=false; DD.reviseOpen=false; DD.showHistory=false;
+    DD.topic=(DD.envelope.decision_detail&&DD.envelope.decision_detail.topic)||'';
+    try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
+  }catch(e){ toast('open decision: '+e.message,'error'); }
+  DD.busy=false; renderDeepDive();
+  const card=$('#deccard'); if(card) card.scrollIntoView({behavior:'smooth'});
+}
+function sessionTitle(s){
+  const det=s.decision_detail||{}, d=s.decision||{};
+  return det.topic || (d.summary||'').split(' — recommend ')[0] || d.summary || s.id;
+}
+// Decision history lives on its own screen, opened via the history icon in the Deep Dive top bar.
+function ddToggleHistory(){ DD.showHistory=!DD.showHistory; renderDeepDive(); }
+function renderHistoryPanel(){
+  const cur=DD.envelope?DD.envelope.id:null;
+  const items=DD.sessions===null ? '<div class="muted">Loading…</div>' :
+    (DD.sessions||[]).map(s=>{
+      const conf=Math.round((s.confidence||(s.decision&&s.decision.confidence)||0)*100);
+      return `<button class="histitem ${s.id===cur?'active':''}" onclick="ddLoadSession('${s.id}')">
+        <div><div class="hi-title">${esc(sessionTitle(s))}</div>
+          <div class="hi-meta"><span class="decstatus ${esc(s.status||'recommended')}">${esc(s.status||'recommended')}</span>
+            <span class="muted">v${s.version||1} · ${conf}% coverage</span></div></div>
+        <span class="hi-arw">→</span></button>`;
+    }).join('') || '<div class="empty">No decisions yet — start one from the composer.</div>';
+  return `<div class="histpanel">
+    <div class="hp-head"><div class="section-label" style="margin:0;font-size:20px">Decision history</div>
+      <button class="ghost sm" onclick="ddToggleHistory()">← Back to chat</button></div>
+    <div class="histlist">${items}</div>
+  </div>`;
+}
+
+// Chat composer with the PROJECT selector (sits where a chat app puts its model picker).
+function renderComposer(){
+  const cur=PROJECTS.find(p=>p.id===PID)||{name:'Project'};
+  const menu=PROJECTS.map(p=>`
+    <div class="pm-item ${p.id===PID?'active':''}" onclick="switchProject('${p.id}')">
+      <span class="dot" style="width:7px;height:7px;border-radius:50%;background:${p.id===PID?'var(--accent)':'var(--cream-strong)'}"></span>
+      <span>${esc(p.name)}</span>${p.id===PID?'<span class="chk">✓</span>':''}</div>`).join('');
+  const ph = DD.envelope&&!DD.questions
+    ? 'Ask a new decision in this project…'
+    : 'Describe the decision you\'re facing — e.g. "Cell balancing: passive vs active for a 14S LFP pack, cost-first"';
+  return `<div class="composer">
+    <div class="composer-inner">
+      <textarea id="ddtopic" rows="1" oninput="autoGrow(this)" placeholder="${ph}"
+        onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();ddAsk()}">${(DD.questions||DD.envelope)?'':esc(DD.topic)}</textarea>
+      <div class="composer-bar">
+        <div class="projsel-wrap">
+          <button class="projsel" onclick="toggleProjMenu(event)">
+            <span class="dot"></span><span class="cap">${esc(cur.name)}</span><span class="cv">${ICONS.chevron}</span></button>
+          <div class="projmenu" id="projmenu">
+            <div class="pm-lbl">Deep dive in project</div>${menu}
+            <div class="pm-item" onclick="goHome()" style="color:var(--accent)">＋ New project…</div>
+          </div>
+        </div>
+        <button class="sendbtn" ${DD.busy?'disabled':''} title="Send (⌘/Ctrl+Enter)" onclick="ddAsk()">${DD.busy?'…':ICONS.send}</button>
+      </div>
+    </div>
+    <div class="muted" style="font-size:11px;text-align:center;margin-top:.4rem">Context comes only from <b>${esc(cur.name)}</b> — projects stay isolated. ⌘/Ctrl+Enter to send.</div>
+  </div>`;
+}
+
+function bubble(role,inner,lead){
+  const av = role==='asst' ? ICONS.spark : 'You';
+  return `<div class="msg ${role}"><div class="av">${av}</div><div class="bubble ${role==='asst'?'':''}">${lead?`<div class="b-lead">${esc(lead)}</div>`:''}${inner}</div></div>`;
+}
 
 function renderDeepDive(){
-  // preserve any in-progress topic/answers typed into the DOM before re-render
-  const tEl=$('#ddtopic'); if(tEl) DD.topic=tEl.value;
+  if(DD.sessions===null) loadSessions();
+  const tEl=$('#ddtopic'); if(tEl && !DD.questions && !DD.envelope) DD.topic=tEl.value;
   if(DD.questions) DD.questions.forEach(q=>{const a=$('#a-'+q.id); if(a) DD.answers[q.id]=a.value;});
   if(DD.followups) DD.followups.forEach(q=>{const a=$('#fa-'+q.id); if(a) DD.fuAnswers[q.id]=a.value;});
+  const rEl=$('#reviseinput'); if(rEl) DD.reviseText=rEl.value;
 
-  let html=`
-    <div class="card">
-      <div class="eyebrow">Deep Dive <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— context-grounded questions (each with a rationale), then a Decision Card</span></div>
-      <textarea id="ddtopic" rows="2" placeholder="What decision are you diving into? e.g. &quot;Cell balancing strategy — passive vs active for 14S LFP&quot;">${esc(DD.topic)}</textarea>
-      <div class="row" style="margin-top:.6rem;justify-content:flex-end">
-        <button ${DD.busy?'disabled':''} onclick="ddAsk()">${DD.busy?'Thinking…':(DD.questions?'New topic':'Ask targeted questions')}</button>
-      </div>
-    </div>`;
+  const cur=PROJECTS.find(p=>p.id===PID)||{name:'Project'};
+  let thread='';
 
+  // empty state — nothing started yet
+  if(!DD.questions && !DD.envelope && !DD.busy){
+    thread+=`<div class="msg asst"><div class="av">${ICONS.spark}</div><div class="bubble">
+      <div class="b-lead">What decision are we working through?</div>
+      Describe it below. I'll pull what <b>${esc(cur.name)}</b> already knows, ask only what's still missing, then produce a defensible Decision Card — with a comparison matrix, the assumptions it rests on, and the risks if you're wrong.
+    </div></div>`;
+  }
+
+  // the user's topic as a user message
+  if(DD.topic && (DD.questions||DD.busy)){
+    thread+=bubble('user',esc(DD.topic));
+  }
+
+  // reasoning frame (spine + project-weighted lenses) — shown before questions/card so reasoning is visible
+  if(DD.frame){
+    thread+=`<div class="msg asst"><div class="av">${ICONS.spark}</div><div class="bubble wide">${renderFramePanel(DD.frame)}</div></div>`;
+  }
+
+  // questions as an assistant message
   if(DD.questions){
-    html+=`<div class="userinput"><div class="l">USER INPUT</div><div style="margin-top:.3rem">"${esc(DD.topic)}"</div></div>`;
+    let qinner='';
     if(DD.generatedBy==='heuristic'){
-      html+=`<div class="ignore" style="border-color:#e5891a;background:#fdf3e8"><div class="h" style="color:#b26a12">⚠ LLM UNAVAILABLE — SHOWING TEMPLATE QUESTIONS</div>
-        <div style="margin-top:.2rem">The live model isn't responding (no key or quota/429), so these are generic fallback questions, not model-generated ones. Connect a working LLM key to get topic-specific questions. Check <code>/health</code> for provider status.</div></div>`;
+      qinner+=`<div class="ignore" style="border-color:var(--amber);background:#fbf1e3;margin-bottom:.7rem"><div class="h" style="color:#a5691a">⚠ LLM unavailable — template questions</div>
+        <div style="margin-top:.2rem;font-size:13px">The live model isn't responding (no key or quota). These are generic fallbacks. Check <code>/health</code>.</div></div>`;
     }
-    // UI-CP-11: "already known" hint — concerns the project context already answers (not re-asked)
     if(DD.skipped&&DD.skipped.length){
-      html+=`<div class="skipped"><div class="sh">✓ Already known (skipped ${DD.skipped.length}) — the project context already answers:</div>
+      qinner+=`<div class="skipped"><div class="sh">✓ Already known (skipped ${DD.skipped.length}) — ${esc(cur.name)} already answers:</div>
         <ul>${DD.skipped.map(s=>`<li><b>${esc(s.q)}</b> <span class="muted">— ${esc(s.reason)}</span></li>`).join('')}</ul></div>`;
     }
     if(!DD.questions.length){
-      html+=`<div class="qcard"><div class="muted">${esc(DD.note||'The project already has enough context — go straight to a decision.')}</div>
-        <div class="row" style="justify-content:flex-end;margin-top:.6rem"><button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button></div></div>`;
+      // Q2 zero-question path: no questions needed → confirm EDOS's understanding, then continue.
+      qinner+=`<div class="confirmbox">
+        <div class="cb-h">✓ No questions needed</div>
+        <div class="cb-note">${esc(DD.note||'I have enough context on this topic.')}</div>
+        <div class="cb-understanding"><span class="cb-lbl">My understanding</span>${esc(DD.understanding||('You\'re deciding: '+DD.topic))}</div>
+        <div class="btnrow end" style="margin-top:.9rem">
+          <button class="ghost" onclick="ddNewDecision()">No, let me rephrase</button>
+          <button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Agree & generate decision'}</button>
+        </div></div>`;
     }else{
-      html+=DD.questions.map((q,i)=>`
+      qinner+=`<div style="margin-bottom:.5rem">I have <b>${DD.questions.length}</b> targeted question${DD.questions.length>1?'s':''}. Answer what you can — nothing is mandatory.</div>`;
+      qinner+=DD.questions.map((q,i)=>`
         <div class="qcard">
           <div class="qh">Q${i+1} · ${esc(q.q)}</div>
           <div class="whybox"><div class="h">WHY AM I ASKING?</div><div class="t">${esc(q.why)}</div></div>
           <textarea id="a-${q.id}" rows="2" placeholder="Your answer…">${esc(DD.answers[q.id]||'')}</textarea>
         </div>`).join('');
-      // adaptive follow-ups (0–2) — shown only after the batch answers reveal a gap/contradiction
       if(DD.followups&&DD.followups.length){
-        html+=`<div class="fuhead">Based on your answers, one more:</div>`;
-        html+=DD.followups.map((q,i)=>`
+        qinner+=`<div class="fuhead">Based on your answers, one more:</div>`;
+        qinner+=DD.followups.map((q,i)=>`
           <div class="qcard followup">
             <div class="qh">Follow-up ${i+1} · ${esc(q.q)}</div>
             <div class="whybox"><div class="h">WHY AM I ASKING?</div><div class="t">${esc(q.why)}</div></div>
             <textarea id="fa-${q.id}" rows="2" placeholder="Your answer…">${esc(DD.fuAnswers[q.id]||'')}</textarea>
           </div>`).join('');
       }
-      // nothing mandatory: the engineer can always skip straight to a decision
-      const primary = DD.followups===null
-        ? `<button ${DD.busy?'disabled':''} onclick="ddFollowup()">${DD.busy?'Checking…':'Continue'}</button>`
-        : `<button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button>`;
-      html+=`<div class="row" style="justify-content:flex-end;margin-bottom:1.1rem;gap:.6rem">
-        <button class="ghost" ${DD.busy?'disabled':''} onclick="ddDecide()" title="Nothing is mandatory — decide with what you have">Skip to decision</button>
-        ${primary}</div>`;
     }
+    const primary = (!DD.questions.length)
+      ? `<button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button>`
+      : (DD.followups===null
+          ? `<button ${DD.busy?'disabled':''} onclick="ddFollowup()">${DD.busy?'Checking…':'Continue'}</button>`
+          : `<button ${DD.busy?'disabled':''} onclick="ddDecide()">${DD.busy?'Generating…':'Generate Decision'}</button>`);
+    const skip = DD.questions.length? `<button class="ghost" ${DD.busy?'disabled':''} onclick="ddDecide()" title="Decide with what you have">Skip to decision</button>`:'';
+    qinner+=`<div class="row" style="justify-content:flex-end;gap:.6rem;margin-top:.4rem">${skip}${primary}</div>`;
+    thread+=`<div class="msg asst"><div class="av">${ICONS.spark}</div><div class="bubble wide">${qinner}</div></div>`;
   }
-  if(DD.envelope) html+=renderDecisionCard(DD.envelope);
-  $('#view').innerHTML=html;
+
+  // busy thinking indicator
+  if(DD.busy){
+    thread+=`<div class="msg asst"><div class="av">${ICONS.spark}</div><div class="bubble"><span class="thinking"><i></i><i></i><i></i> EDOS is reasoning…</span></div></div>`;
+  }
+
+  // the decision card as a wide assistant message
+  if(DD.envelope){
+    thread+=`<div class="msg asst"><div class="av">${ICONS.spark}</div><div class="bubble wide" style="padding:0;border:0;box-shadow:none;background:transparent">${renderDecisionCard(DD.envelope)}</div></div>`;
+  }
+
+  $('#view').innerHTML=`
+    <div class="chatshell">
+      <div class="chattop">
+        <div class="ct-title">Deep Dive <small>· ${esc(cur.name)}</small></div>
+        <div class="btnrow">
+          <button class="ghost sm ct-hist ${DD.showHistory?'active':''}" title="Decision history" onclick="ddToggleHistory()">${ICONS.timeline}History</button>
+          <button class="ghost" onclick="ddNewDecision()">＋ New decision</button>
+        </div>
+      </div>
+      ${DD.showHistory
+        ? renderHistoryPanel()
+        : `<div class="chatthread" id="chatthread">${thread}</div>${renderComposer()}`}
+    </div>`;
+  const ta=$('#ddtopic'); if(ta){ autoGrow(ta); }
   if(DD.envelope) loadResearchWorkspace(DD.envelope.id);
+  pushURL();  // reflect the loaded/created decision id in the URL
+  // keep the newest message in view
+  const th=$('#chatthread'); if(th && (DD.busy||DD.envelope)) th.scrollIntoView({block:'end'});
 }
+
+// reasoning-first FRAME: EDOS reflects back the project direction (spine) and the lenses it will weigh for
+// THIS decision, so the reasoning is visible and the engineer can see the emphasis before any card.
+function renderFramePanel(fr){
+  const spine=(fr.spine||[]).filter(s=>!s.startsWith('unknown')).map(s=>{
+    const [k,v]=s.split(':'); return `<span class="spinechip"><b>${esc((k||'').trim())}</b> ${esc((v||'').trim())}</span>`;
+  }).join('');
+  const lenses=(fr.lenses||[]);
+  const deep=lenses.filter(l=>l.deep).slice(0,6).map(l=>`
+    <div class="lensrow deep" title="${esc(l.reason||'')}"><span class="lw">${Math.round((l.weight||0)*100)}</span><b>${esc(l.title)}</b></div>`).join('');
+  const scan=lenses.filter(l=>!l.deep).slice(0,6).map(l=>`<span class="lenschip" title="${esc(l.reason||'')}">${esc(l.title.split('(')[0].trim())}</span>`).join('');
+  const asks=(fr.framing_questions||[]).map(q=>esc(q.q)).join(' · ');
+  return `<div class="framepanel">
+    <div class="fp-h">◇ HOW I'M FRAMING THIS</div>
+    ${fr.understanding?`<div class="fp-u">${esc(fr.understanding)}</div>`:''}
+    ${spine?`<div class="fp-lbl">Project direction</div><div class="spinewrap">${spine}</div>`:''}
+    ${deep?`<div class="fp-lbl">I'll reason hardest about</div><div class="lenswrap">${deep}</div>`:''}
+    ${scan?`<div class="fp-lbl">Also scanning for blind spots</div><div class="scanwrap">${scan}</div>`:''}
+    ${asks?`<div class="fp-lbl">To sharpen the frame I still need</div><div class="fp-asks">${asks}</div>`:''}
+  </div>`;
+}
+
+function autoGrow(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,180)+'px'; }
+function toggleProjMenu(e){ if(e) e.stopPropagation(); const m=$('#projmenu'); if(m) m.classList.toggle('open'); }
+async function switchProject(id){ const m=$('#projmenu'); if(m) m.classList.remove('open'); if(id!==PID){ await openProject(id,'deepdive'); } }
+document.addEventListener('click',e=>{
+  const pm=$('#projmenu'); if(pm&&pm.classList.contains('open')&&!e.target.closest('.projsel-wrap')) pm.classList.remove('open');
+  const nm=$('#navmenu'); if(nm&&nm.classList.contains('open')&&!e.target.closest('.navproj-wrap')) nm.classList.remove('open');
+});
 
 async function ddAsk(){
   DD.topic=($('#ddtopic').value||'').trim();
   if(!DD.topic){ $('#ddtopic').focus(); return; }
-  DD.busy=true; DD.questions=null; DD.skipped=[]; DD.note=''; DD.answers={}; DD.followups=null; DD.fuAnswers={}; DD.envelope=null; renderDeepDive();
+  DD.busy=true; DD.questions=null; DD.skipped=[]; DD.note=''; DD.answers={}; DD.followups=null; DD.fuAnswers={}; DD.envelope=null; DD.frame=null; renderDeepDive();
   try{
-    const r=await api(`/v1/projects/${PID}/deepdive`,{method:'POST',body:JSON.stringify({topic:DD.topic})});
-    DD.questions=r.questions; DD.skipped=r.skipped||[]; DD.note=r.note||''; DD.generatedBy=r.generated_by||'';
-  }catch(e){ alert('deep dive: '+e.message); }
+    // reasoning-first: fetch the questions AND the reasoning frame (spine + weighted lenses) together, so
+    // the engineer sees HOW EDOS is framing this decision before any card — the card is the closing move.
+    const [r,fr]=await Promise.all([
+      api(`/v1/projects/${PID}/deepdive`,{method:'POST',body:JSON.stringify({topic:DD.topic})}),
+      api(`/v1/projects/${PID}/deepdive/frame`,{method:'POST',body:JSON.stringify({topic:DD.topic})}).catch(()=>null)
+    ]);
+    DD.questions=r.questions; DD.skipped=r.skipped||[]; DD.note=r.note||''; DD.generatedBy=r.generated_by||''; DD.understanding=r.understanding||'';
+    DD.frame=fr;
+  }catch(e){ toast('deep dive: '+e.message,'error'); }
   DD.busy=false; renderDeepDive();
 }
 
 function ddCollectAnswers(){
   DD.questions.forEach(q=>{const a=$('#a-'+q.id); if(a) DD.answers[q.id]=a.value;});
   if(DD.followups) DD.followups.forEach(q=>{const a=$('#fa-'+q.id); if(a) DD.fuAnswers[q.id]=a.value;});
-  const base=DD.questions.map(q=>({id:q.id,answer:(DD.answers[q.id]||'').trim()})).filter(a=>a.answer);
-  const fu=(DD.followups||[]).map(q=>({id:q.id,answer:(DD.fuAnswers[q.id]||'').trim()})).filter(a=>a.answer);
+  const base=DD.questions.map(q=>({id:q.id,q:q.q,answer:(DD.answers[q.id]||'').trim()})).filter(a=>a.answer);
+  const fu=(DD.followups||[]).map(q=>({id:q.id,q:q.q,answer:(DD.fuAnswers[q.id]||'').trim()})).filter(a=>a.answer);
   return base.concat(fu);
 }
 
@@ -662,7 +1394,7 @@ async function ddFollowup(){
     DD.busy=false;
     if(!DD.followups.length){ return ddDecide(); }  // nothing warranted → decide now
     renderDeepDive();
-  }catch(e){ DD.busy=false; DD.followups=[]; alert('follow-up: '+e.message); renderDeepDive(); }
+  }catch(e){ DD.busy=false; DD.followups=[]; toast('follow-up: '+e.message,'error'); renderDeepDive(); }
 }
 
 async function ddDecide(){
@@ -672,7 +1404,8 @@ async function ddDecide(){
     DD.envelope=await api(`/v1/projects/${PID}/deepdive/decide`,{method:'POST',
       body:JSON.stringify({topic:DD.topic,answers})});
     try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
-  }catch(e){ alert('decide: '+e.message); }
+    loadSessions();  // a new decision becomes a new session in the list
+  }catch(e){ toast('decide: '+e.message,'error'); }
   DD.busy=false; renderDeepDive();
   const card=$('#deccard'); if(card) card.scrollIntoView({behavior:'smooth'});
 }
@@ -703,7 +1436,23 @@ function renderDecisionCard(env){
       <ul>${recReasons||'<li>'+esc(d.recommendation||'')+'</li>'}</ul>
       ${elim?`<div class="elim">${elim}</div>`:''}</div>`;
 
+  // runner-up — the #2 option it beat, how narrow, and what tipped it (show the line, not a lone verdict)
+  const ru=det.runner_up;
+  const runnerBlock=(ru&&ru.option)?`<div class="runnerup">
+      <span class="rulabel">Runner-up</span> <b>${esc(ru.option)}</b>
+      <span class="rugap ${esc(ru.gap||'')}">${esc(ru.gap||'')} gap</span>
+      ${(ru.tipped_by&&ru.tipped_by.length)?`<div class="rutip">Tipped by: ${ru.tipped_by.map(esc).join(' · ')}</div>`:''}
+    </div>`:'';
+
   // decision impact
+  // computed checks (#8): EDOS re-evaluated the model's own arithmetic — ✓ verified, ✗ mismatch, ○ unchecked
+  const comps=(det.computations||[]).map(c=>{
+    const badge=c.verified===true?'<span class="ck ok">✓</span>':c.verified===false?'<span class="ck bad">✗</span>':'<span class="ck na">○</span>';
+    const mism=(c.verified===false)?` <span class="ckmis">stated ${esc(c.claimed)}, computes ${esc(c.computed)}</span>`:'';
+    return `<div class="comprow">${badge}<span class="cq">${esc(c.quantity||'')}</span><code>${esc(c.expression||'')}</code>${(c.computed!=null)?` = <b>${esc(c.computed)}</b>`:''}${mism}</div>`;
+  }).join('');
+  const compBlock=comps?`<div class="eyebrow" style="margin-top:1.1rem">Computed checks — EDOS re-verified the arithmetic</div><div class="compwrap">${comps}</div>`:'';
+
   const impact=(det.decision_impact||[]).map(x=>`<div class="impactcell"><b>${esc(x.area)}:</b> ${esc(x.change)}</div>`).join('');
   const impactBlock=impact?`<div class="eyebrow" style="margin-top:1.1rem">Decision Impact — if this changes, what else changes?</div>
       <div class="impactgrid">${impact}</div>`:'';
@@ -717,7 +1466,15 @@ function renderDecisionCard(env){
       </div>
       ${r.mitigation?`<div class="muted" style="font-size:13px">Mitigation: ${esc(r.mitigation)}</div>`:''}
     </div>`).join('');
-  const risksBlock=risks?`<div class="eyebrow" style="margin-top:1.1rem">Risks &amp; Blind Spots</div>${risks}`:'';
+  const risksBlock=risks?`<div class="eyebrow" style="margin-top:1.1rem">Risks — how the chosen path can fail</div>${risks}`:'';
+
+  // blind spots — DISTINCT from risks: what the question itself didn't ask (outside its frame)
+  const blind=(det.blind_spots||[]).map(b=>`
+    <div class="finding hidden_dependency">
+      <div class="row wrap" style="margin-bottom:.3rem"><span class="pill high">blind spot</span><b>${esc(b.description||'')}</b></div>
+      ${b.why_it_matters?`<div class="muted" style="font-size:13px">Why it matters: ${esc(b.why_it_matters)}</div>`:''}
+    </div>`).join('');
+  const blindBlock=blind?`<div class="eyebrow" style="margin-top:1.1rem">Blind Spots — what the question didn't ask</div>${blind}`:'';
 
   // decision explorer (dark)
   // UI-CP-6: render assumptions as first-class status chips (match by source decision or statement).
@@ -727,42 +1484,42 @@ function renderDecisionCard(env){
     const m=byStmt[(a.statement||'').trim().toLowerCase()];
     const st=m?m.status:'created'; const aid=m?`<span class="aid">${esc(m.id)}</span>`:'';
     return `<span class="achip dark ${st}" title="${esc(ASLABEL[st]||st)}">${aid}${esc(a.statement)}</span>`;
-  }).join('') || fc.map(a=>`<span class="achip dark ${a.status}"><span class="aid">${esc(a.id)}</span>${esc(a.statement)}</span>`).join('') || '<span class="muted">—</span>';
-  const compChips=(det.impacted_components||[]).join(' · ')||'—';
-  const related=(det.related_decisions||[]).filter(r=>r.id!==env.id).map(r=>`${esc(r.id)} (${esc(r.status)})`).join(', ')||'None';
-  const deps=(det.dependencies||[]).length?det.dependencies.map(x=>esc(x)).join(' · '):'None (first decision)';
-  const reviewConds=(det.review_conditions||[]).map(x=>esc(x)).join(' · ')||'—';
-  const explorer=`<div class="explorer">
-      <div class="eh">DECISION EXPLORER</div>
-      <div class="exprow"><div class="k">Dependencies</div><div>${deps}</div></div>
-      <div class="exprow"><div class="k">Related decisions</div><div>${related}</div></div>
-      <div class="exprow"><div class="k">Assumptions</div><div>${assumChips}</div></div>
-      <div class="exprow"><div class="k">Impacted components</div><div>${esc(compChips)}</div></div>
-      <div class="exprow"><div class="k">Review conditions</div><div>${reviewConds}</div></div>
-    </div>`;
+  }).join('') || fc.map(a=>`<span class="achip dark ${a.status}"><span class="aid">${esc(a.id)}</span>${esc(a.statement)}</span>`).join('');
+  const compChips=(det.impacted_components||[]).join(' · ');
+  const related=(det.related_decisions||[]).filter(r=>r.id!==env.id).map(r=>`${esc(r.id)} (${esc(r.status)})`).join(', ');
+  const deps=(det.dependencies||[]).length?det.dependencies.map(x=>esc(x)).join(' · '):'';
+  const reviewConds=(det.review_conditions||[]).map(x=>esc(x)).join(' · ');
+  // Only rows with real content are shown — nothing is padded with "—" / "None".
+  const exprow=(k,v)=>v?`<div class="exprow"><div class="k">${k}</div><div>${v}</div></div>`:'';
+  const exBody=exprow('Dependencies',deps)+exprow('Related decisions',related)+exprow('Assumptions',assumChips)
+    +exprow('Impacted components',esc(compChips))+exprow('Tripwires — what would change this',reviewConds);
+  const explorer=exBody?`<div class="explorer"><div class="eh">DECISION EXPLORER</div>${exBody}</div>`:'';
 
   const accepted=(st==='accepted');
-  const hasAssumptions=(d.assumptions||[]).length>0;
   const actions=`<div class="row" style="margin-top:1rem;gap:.6rem">
       <button ${accepted?'disabled':''} onclick="ddAccept('${env.id}')">${accepted?'✓ Accepted':'Accept Decision'}</button>
-      <button class="challenge" ${(!hasAssumptions||DD.challenging)?'disabled':''} onclick="ddChallenge('${env.id}')" title="${hasAssumptions?'':'This decision states no assumptions to challenge'}">${DD.challenging?'Challenging…':'⚡ Challenge This Decision'}</button>
+      <button class="challenge" ${DD.revising?'disabled':''} onclick="ddToggleRevise()">✎ Revise Decision</button>
     </div>
-    ${renderChallenge(env.id)}
+    ${renderRevise(env.id)}
     <div class="muted" style="font-size:12px;margin-top:.5rem">Share: edos.dev/d/${esc(env.id)}</div>`;
 
   return `<div class="deccard" id="deccard">
     <div class="dechead">
-      <div class="eye">DECISION CARD · ${esc(env.id)}</div>
+      <div class="eye">DECISION CARD · ${esc(env.id)} · v${env.version||1}</div>
       <h2>${esc(d.summary||det.recommendation?.chosen||'Decision')}</h2>
       <div class="meta"><span class="decstatus ${st}">${esc(st)}</span>
         <span>Coverage <b>${conf}%</b></span>
+        ${(env.version>1)?`<span class="muted">revised · v${env.version}</span>`:''}
         ${det.missing?`<span class="missing">Missing: ${esc(det.missing)}</span>`:''}</div>
     </div>
     <div class="decbody">
       ${matrix}
       ${recBlock}
+      ${runnerBlock}
+      ${compBlock}
       ${impactBlock}
       ${risksBlock}
+      ${blindBlock}
       ${explorer}
       <div id="rw-${esc(env.id)}" class="rw-slot"></div>
       ${actions}
@@ -785,7 +1542,7 @@ async function loadResearchWorkspace(id){
   const docRows=docs.map(d=>`<div class="rwdoc"><span class="rwtag">doc</span>
     <div><b>${esc(trunc(d.content,120))}</b>${d.domain?` <span class="chip">${esc(d.domain)}</span>`:''}</div></div>`).join('')
     || '<div class="muted" style="font-size:13px">No document/datasheet items in this project.</div>';
-  const evChips=ev.map(e=>`<span class="rwsrc" title="${esc(e.claim||'')}"><span class="rwtag ext">${esc(e.kind||'src')}</span> ${esc(e.source)}</span>`).join('')
+  const evChips=ev.map(e=>`<span class="rwsrc" title="${esc(e.claim||'')}"><span class="rwtag ext">${esc(e.kind||'src')}</span> ${refLink(e.source,e.url)}</span>`).join('')
     || '<span class="muted" style="font-size:13px">No evidence sources cited.</span>';
   slot.innerHTML=`<div class="rw">
     <div class="rwh">Research Workspace — sources referenced by ${esc(id)}</div>
@@ -803,56 +1560,47 @@ async function ddAccept(id){
     DD.envelope=await api(`/v1/decisions/${id}`);
     try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
     renderDeepDive();
-  }catch(e){ alert('accept: '+e.message); }
+  }catch(e){ toast('accept: '+e.message,'error'); }
 }
 
-/* ---- Challenge My Decision (UI-CP-5) ---- */
-function renderChallenge(id){
-  const c=DD.challenge; if(!c) return '';
-  const a=c.assumption||{};
-  const costs=(c.this_costs||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-  const offers=(c.alternative_offers||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-  const conf=(a.confidence!=null)?` · confidence ${Math.round(a.confidence*100)}%`:'';
-  const risk=a.risk_if_wrong?` · <span style="color:#c23b30">risk if wrong: ${esc(a.risk_if_wrong)}</span>`:'';
-  const footer=DD.challenged
-    ? `<div class="monitored">✓ Assumption marked <b>Challenged</b> — now a monitored risk on this decision, not a silent assumption.</div>`
-    : `<div class="ch-actions">
-         <button class="markchg" onclick="ddMarkChallenged('${id}')">Mark assumption as Challenged</button>
-         <span class="muted" style="font-size:12px">Flips it from a silent assumption to a tracked, monitored risk.</span>
-       </div>`;
+/* ---- Revise Decision (re-evaluate → new version) ---- */
+function renderRevise(id){
+  if(!DD.reviseOpen) return '';
   return `<div class="challengecard">
     <div class="ch-head">
-      <div class="eye">⚡ CHALLENGE — EDOS ARGUES AGAINST ITS OWN RECOMMENDATION</div>
-      <h3>The load-bearing assumption</h3>
-      <div class="asmp"><b>${esc(a.statement||'')}</b><span class="muted" style="font-size:12px">${conf}${risk}</span></div>
+      <div class="eye">✎ REVISE — RE-EVALUATE THIS DECISION WITH NEW INPUT</div>
+      <h3>What should EDOS update or clarify?</h3>
+      <div class="muted" style="font-size:13px;margin-top:.2rem">Add a constraint, tighten a target, or correct a premise. EDOS re-reasons and produces a new, sharper <b>version</b> of this decision — the previous version stays in history.</div>
     </div>
-    <div class="ch-cols">
-      <div class="ch-col cost"><h4>What this assumption is costing you</h4><ul>${costs}</ul></div>
-      <div class="ch-col offer"><h4>What ${esc(c.alternative||'the alternative')} offers</h4><ul>${offers}</ul></div>
+    <div style="padding:0 1.2rem 1.1rem">
+      <textarea id="reviseinput" rows="3" placeholder="e.g. &quot;Peak current is actually 250A, not 200A&quot; · &quot;Cost target moved to under $1.50&quot; · &quot;Must also pass CISPR 25 class 5&quot;" ${DD.revising?'disabled':''}>${esc(DD.reviseText||'')}</textarea>
+      <div class="row" style="justify-content:flex-end;gap:.6rem;margin-top:.6rem">
+        <button class="ghost" ${DD.revising?'disabled':''} onclick="ddToggleRevise()">Cancel</button>
+        <button ${DD.revising?'disabled':''} onclick="ddRevise('${id}')">${DD.revising?'Re-evaluating…':'Revise & re-evaluate'}</button>
+      </div>
     </div>
-    <div class="cost-callout"><span class="ic">▲</span><span>${esc(c.cost_callout||'')}</span></div>
-    ${footer}
   </div>`;
 }
 
-async function ddChallenge(id){
-  DD.challenging=true; DD.challenge=null; DD.challenged=false; renderDeepDive();
-  try{
-    DD.challenge=await api(`/v1/decisions/${id}/challenge`,{method:'POST',body:JSON.stringify({})});
-  }catch(e){ alert('challenge: '+e.message); }
-  DD.challenging=false; renderDeepDive();
-  const el=document.querySelector('.challengecard'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+function ddToggleRevise(){
+  const ta=$('#reviseinput'); if(ta) DD.reviseText=ta.value;
+  DD.reviseOpen=!DD.reviseOpen; renderDeepDive();
+  const ta2=$('#reviseinput'); if(ta2) ta2.focus();
 }
 
-async function ddMarkChallenged(id){
-  if(!DD.challenge||!DD.challenge.assumption) return;
+async function ddRevise(id){
+  const ta=$('#reviseinput'); const instruction=((ta&&ta.value)||DD.reviseText||'').trim();
+  if(!instruction){ if(ta) ta.focus(); return; }
+  DD.revising=true; DD.reviseText=instruction; renderDeepDive();
   try{
-    DD.envelope=await api(`/v1/decisions/${id}/challenge/accept`,{method:'POST',
-      body:JSON.stringify({statement:DD.challenge.assumption.statement,note:'challenged via decision card'})});
-    DD.challenged=true;
+    DD.envelope=await api(`/v1/decisions/${id}/revise`,{method:'POST',
+      body:JSON.stringify({instruction})});
+    DD.reviseOpen=false; DD.reviseText='';
     try{ DD.assumptions=await api(`/v1/projects/${PID}/assumptions`); }catch{}
-    renderDeepDive();
-  }catch(e){ alert('mark challenged: '+e.message); }
+    loadSessions();  // refresh the session list (version bump)
+  }catch(e){ toast('revise: '+e.message,'error'); }
+  DD.revising=false; renderDeepDive();
+  const card=$('#deccard'); if(card) card.scrollIntoView({behavior:'smooth'});
 }
 
 /* ---- UI-CP-7: Decision Graph + Cross-Contradiction + Diff ---- */
@@ -873,11 +1621,11 @@ async function renderGraph(){
 
 function paintGraph(){
   const g=GRAPH.data||{nodes:[],edges:[]};
-  const svg=g.nodes.length?graphSVG(g):`<div class="empty" style="color:#9fb0d0">No decisions or assumptions yet. Persist a decision (Deep Dive) — its nodes and their relationships appear here.</div>`;
+  const svg=g.nodes.length?graphSVG(g):`<div class="empty" style="color:#a09d96">No decisions or assumptions yet. Persist a decision (Deep Dive) — its nodes and their relationships appear here.</div>`;
   const legend=`<div class="glegend">
-    <span class="k"><span class="sw" style="background:#6d5efc"></span> Decision</span>
-    <span class="k"><span class="sw" style="background:#eef0f8;border:1px solid #c3d2ec"></span> Assumption</span>
-    <span class="k"><span class="sw" style="background:#eef0f8;border:1px dashed #a5231f"></span> Challenged / invalidated</span>
+    <span class="k"><span class="sw" style="background:#cc785c"></span> Decision</span>
+    <span class="k"><span class="sw" style="background:#f5f0e8;border:1px solid #b8b2a6"></span> Assumption</span>
+    <span class="k"><span class="sw" style="background:#f5f0e8;border:1px dashed #a5231f"></span> Challenged / invalidated</span>
     <span class="k"><span class="sw" style="background:#e5484d"></span> Conflict edge</span></div>`;
 
   const cons=GRAPH.contradictions||[];
@@ -889,7 +1637,10 @@ function paintGraph(){
         <b>${esc(c.a_label)} ⇄ ${esc(c.b_label)}</b>
       </div>
       <div>${esc(c.explanation)}</div>
-      <div style="margin-top:.5rem"><span class="chip">${esc(c.a_type)} ${esc(c.a)}</span><span class="chip">${esc(c.b_type)} ${esc(c.b)}</span></div>
+      <div class="row wrap" style="margin-top:.6rem;justify-content:space-between">
+        <div><span class="chip">${esc(c.a_type)} ${esc(c.a)}</span><span class="chip">${esc(c.b_type)} ${esc(c.b)}</span></div>
+        <button class="ghost sm" onclick="resolveConflict('${esc(c.a)}','${esc(c.b)}')">Resolve conflict</button>
+      </div>
     </div>`).join('')
     : `<div class="muted" style="padding:.4rem">No cross-decision contradictions. When two decisions are linked by a <code>conflicts_with</code> edge they surface here.</div>`;
 
@@ -904,18 +1655,19 @@ function paintGraph(){
     : `<div class="muted" style="padding:.4rem">No decision has more than one version yet. Accept or edit a decision to create a new version, then its diff (struck-through old → new, why changed, affected) shows here.</div>`;
 
   $('#view').innerHTML=`
-    <div class="card">
-      <div class="eyebrow">Decision Graph <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— decisions (purple) + assumptions (dashed = challenged/invalidated); red = conflicts_with</span></div>
-      <div class="graphwrap">${svg}</div>
-      ${legend}
-    </div>
-    <div class="card">
-      <div class="eyebrow">Cross-Decision Contradictions</div>
-      ${conCards}
-    </div>
-    <div class="card">
-      <div class="eyebrow">Decision Diff <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— what changed between two versions</span></div>
-      ${diffPicker}
+    <div class="page">
+      ${pageHead('Decision Graph','How the decisions connect',
+        'The web of decisions and the assumptions they rest on. Coral nodes are decisions; cream nodes are assumptions (dashed = challenged or invalidated); red edges mark conflicts.')}
+      <div class="card">
+        <div class="graphwrap">${svg}</div>
+        ${legend}
+      </div>
+      <div class="section-label" style="font-size:22px;margin:2rem 0 .2rem">Cross-decision contradictions</div>
+      <div class="section-note">When two decisions are linked by a <code>conflicts_with</code> edge, the clash surfaces here.</div>
+      <div class="card">${conCards}</div>
+      <div class="section-label" style="font-size:22px;margin:2rem 0 .2rem">Decision diff</div>
+      <div class="section-note">What changed between two versions of a decision — struck-through old → new, why it changed, and what it affects.</div>
+      <div class="card">${diffPicker}</div>
     </div>`;
 }
 
@@ -935,7 +1687,7 @@ function graphSVG(g){
     const s=pos[e.source], t=pos[e.target]; if(!s||!t) return '';
     const conflict=e.conflict;
     const sameBand=Math.abs(s.y-t.y)<6;
-    const col=conflict?'#e5484d':'#5566a8';
+    const col=conflict?'#e5484d':'#8e8b82';
     let d, mx, my;
     if(sameBand){ // bow above the band so decision↔decision edges don't overlap the row
       const dir=(s.y<200)?-1:1; const lift=54;
@@ -950,7 +1702,7 @@ function graphSVG(g){
     const dash=conflict?'stroke-dasharray="6 4"':'';
     const lbl=conflict?'conflicts_with':e.relation;
     return `<path d="${d}" fill="none" stroke="${col}" stroke-width="${conflict?2.2:1.6}" ${dash} ${marker} opacity="${conflict?.95:.7}"/>
-      <rect x="${mx-lbl.length*3-4}" y="${my-9}" width="${lbl.length*6+8}" height="15" rx="4" fill="#0f1629" opacity=".85"/>
+      <rect x="${mx-lbl.length*3-4}" y="${my-9}" width="${lbl.length*6+8}" height="15" rx="4" fill="#181715" opacity=".85"/>
       <text class="e-label ${conflict?'conflict':''}" x="${mx}" y="${my+2}" text-anchor="middle">${esc(lbl)}</text>`;
   }).join('');
 
@@ -958,35 +1710,41 @@ function graphSVG(g){
   const trunc=(s,n)=>{s=(s||'').toString();return s.length>n?s.slice(0,n-1)+'…':s;};
   const decSVG=dec.map(n=>{
     const p=pos[n.id]; const conflicted=n.validity==='conflicted';
-    const fill=conflicted?'#7a2b3a':'#6d5efc';
-    const stroke=conflicted?'#e5484d':'#8b7bff';
+    const fill=conflicted?'#7a2b3a':'#cc785c';
+    const stroke=conflicted?'#e5484d':'#cc785c';
     return `<g>
       <rect x="${p.x-p.w/2}" y="${p.y-p.h/2}" width="${p.w}" height="${p.h}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="${conflicted?2.5:1.5}"/>
       <text class="n-label" x="${p.x}" y="${p.y-4}" text-anchor="middle">${esc(trunc(n.label,20))}</text>
-      <text class="e-label" x="${p.x}" y="${p.y+11}" text-anchor="middle" fill="#cdd7ee">${esc(n.id)} · ${esc(n.status)}</text>
+      <text class="e-label" x="${p.x}" y="${p.y+11}" text-anchor="middle" fill="#cfc9bd">${esc(n.id)} · ${esc(n.status)}</text>
     </g>`;
   }).join('');
   const asmSVG=asm.map(n=>{
     const p=pos[n.id]; const shaky=n.validity==='invalid';
-    const stroke=shaky?'#a5231f':'#c3d2ec';
+    const stroke=shaky?'#a5231f':'#b8b2a6';
     return `<g>
-      <rect x="${p.x-p.w/2}" y="${p.y-p.h/2}" width="${p.w}" height="${p.h}" rx="9" fill="#eef0f8" stroke="${stroke}" stroke-width="1.6" ${shaky?'stroke-dasharray="6 4"':''}/>
-      <text class="n-label dark" x="${p.x}" y="${p.y-3}" text-anchor="middle" fill="#2c3e66">${esc(trunc(n.label,22))}</text>
-      <text class="e-label" x="${p.x}" y="${p.y+11}" text-anchor="middle" fill="#5a6478">${esc(n.id)} · ${esc(n.status)}</text>
+      <rect x="${p.x-p.w/2}" y="${p.y-p.h/2}" width="${p.w}" height="${p.h}" rx="9" fill="#f5f0e8" stroke="${stroke}" stroke-width="1.6" ${shaky?'stroke-dasharray="6 4"':''}/>
+      <text class="n-label dark" x="${p.x}" y="${p.y-3}" text-anchor="middle" fill="#2c2a26">${esc(trunc(n.label,22))}</text>
+      <text class="e-label" x="${p.x}" y="${p.y+11}" text-anchor="middle" fill="#8e8b82">${esc(n.id)} · ${esc(n.status)}</text>
     </g>`;
   }).join('');
 
   return `<svg class="graph" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
     <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L7,3 L0,6 Z" fill="#5566a8"/></marker></defs>
+      <path d="M0,0 L7,3 L0,6 Z" fill="#8e8b82"/></marker></defs>
     ${edgeSVG}${decSVG}${asmSVG}
   </svg>`;
 }
 
+async function resolveConflict(a,b){
+  if(!await confirmBox({title:'Mark conflict resolved?',message:'This cross-decision conflict will be marked resolved and the conflicts_with edge closed.',confirmLabel:'Mark resolved'}))return;
+  try{ await api('/v1/conflicts/resolve',{method:'POST',body:JSON.stringify({node_a:a,node_b:b})}); }
+  catch(e){ toast('resolve: '+e.message,'error'); return; }
+  renderGraph();  // re-fetch graph + contradictions so the resolved pair drops off
+}
 async function loadDiff(id){
   GRAPH.diffId=id; GRAPH.diff=null;
   if(!id){ paintGraph(); return; }
-  try{ GRAPH.diff=await api(`/v1/decisions/${id}/diff`); }catch(e){ alert('diff: '+e.message); }
+  try{ GRAPH.diff=await api(`/v1/decisions/${id}/diff`); }catch(e){ toast('diff: '+e.message,'error'); }
   paintGraph();
 }
 
@@ -1053,13 +1811,13 @@ async function renderTimeline(){
   }
 
   $('#view').innerHTML=`
-    <div class="card">
-      <div class="eyebrow">Project Timeline / Replay <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— day-by-day, coverage climbs as context is added</span></div>
-      ${rail}
-    </div>
-    <div class="card">
-      <div class="eyebrow">Certification Matrix <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— detected standards × regions</span></div>
-      ${cmBody}
+    <div class="page">
+      ${pageHead('Timeline','How this project got here',
+        'A replay of the project\'s history — every decision, assumption, document and answer, in order, with coverage climbing as context is added.')}
+      <div class="card">${rail}</div>
+      <div class="section-label" style="font-size:22px;margin:2rem 0 .2rem">Certification matrix</div>
+      <div class="section-note">Standards detected in your decisions and reviews, mapped against regions — cost and timeline shown only when a real figure appears alongside, never invented.</div>
+      <div class="card">${cmBody}</div>
     </div>`;
 }
 
@@ -1075,7 +1833,7 @@ async function renderExecution(){
   const prov=m.provisional?`<span class="ec-prov">provisional — no accepted decisions yet</span>`:'';
   const sec=(title,body)=>`<div class="ec-sec"><div class="ec-h">${esc(title)}</div>${body}</div>`;
   const empty=t=>`<div class="ec-empty">${esc(t)}</div>`;
-  const refChip=r=>r?`<span class="ec-ref">${esc(r)}</span>`:'';
+  const refChip=r=>r?`<span class="ec-ref">${refLink(r)}</span>`:'';
   const lineList=(arr,emptyMsg)=>arr&&arr.length?
     `<ul class="ec-list">${arr.map(x=>`<li>${esc(x.text)}${refChip(x.source)}</li>`).join('')}</ul>`:empty(emptyMsg);
 
@@ -1102,22 +1860,26 @@ async function renderExecution(){
     :empty('No open risks. Accepted decisions have no unresolved assumptions, contradictions or freeze-blockers.');
 
   $('#view').innerHTML=`
-    <div class="ec-card">
-      <div class="ec-bar">
-        <div><div class="ec-title">EXECUTION CONTEXT</div>
-          <div class="ec-tag">EDOS decides. Agents execute.</div></div>
-        <div class="ec-meta">
-          <span>coverage ${m.coverage||0}%</span>
-          <button class="ec-copy" onclick="copyExecution(this)">⧉ Copy spec</button>
+    <div class="page">
+      ${pageHead('Execution Context','Hand it off to the builders',
+        'A clean, machine-readable spec assembled from this project\'s accepted decisions, constraints, interfaces and open risks — ready to paste into any coding agent (Claude Code, Codex, Cursor). EDOS decides; agents execute.')}
+      <div class="ec-card">
+        <div class="ec-bar">
+          <div><div class="ec-title">EXECUTION CONTEXT</div>
+            <div class="ec-tag">EDOS decides. Agents execute.</div></div>
+          <div class="ec-meta">
+            <span>coverage ${m.coverage||0}%</span>
+            <button class="ec-copy" onclick="copyExecution(this)">⧉ Copy spec</button>
+          </div>
         </div>
+        <div class="ec-subhead">Machine-readable spec for any coding agent — Claude Code, Codex, Cursor. ${prov}</div>
+        ${sec('Accepted Decisions',decBody)}
+        ${sec('Constraints',lineList(ctx.constraints,'No hard constraints captured yet — add requirements or review conditions.'))}
+        ${sec('Interfaces',ifaceBody)}
+        ${sec('Acceptance Criteria',lineList(ctx.acceptance_criteria,'No acceptance criteria yet — add next actions or measurable requirements.'))}
+        ${sec('Standards',stdBody)}
+        ${sec('Open Risks',riskBody)}
       </div>
-      <div class="ec-subhead">Machine-readable spec for any coding agent — Claude Code, Codex, Cursor. ${prov}</div>
-      ${sec('Accepted Decisions',decBody)}
-      ${sec('Constraints',lineList(ctx.constraints,'No hard constraints captured yet — add requirements or review conditions.'))}
-      ${sec('Interfaces',ifaceBody)}
-      ${sec('Acceptance Criteria',lineList(ctx.acceptance_criteria,'No acceptance criteria yet — add next actions or measurable requirements.'))}
-      ${sec('Standards',stdBody)}
-      ${sec('Open Risks',riskBody)}
     </div>`;
 }
 async function copyExecution(btn){
@@ -1134,7 +1896,14 @@ async function copyExecution(btn){
   const old=btn.textContent; btn.textContent='✓ Copied'; setTimeout(()=>btn.textContent=old,1600);
 }
 
-loadProjects().then(render);
+/* ---- boot: honour the URL first (refresh/shared link), else single project → its dashboard, else landing ---- */
+async function boot(){
+  try{ PROJECTS=await api('/v1/projects'); }catch{ PROJECTS=[]; }
+  if(location.hash && location.hash.replace(/^#\/?/,'').length){ await routeFromURL(); return; }
+  if(PROJECTS.length===1){ openProject(PROJECTS[0].id); }
+  else { showHome(); }
+}
+boot();
 </script>
 </body>
 </html>

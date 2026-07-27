@@ -11,7 +11,7 @@ def test_app_shell_served():
     assert r.status_code == 200
     body = r.text
     assert "EDOS" in body
-    assert "PROJECT BRAIN" in body            # Project Brain workspace, not chat
+    assert "Project Brain" in body            # Project Brain workspace, not chat (uppercased via CSS now)
     assert "Engineering Review" in body        # mode tabs present
     assert "Deep Dive" in body
     assert "<script" in body                   # self-contained SPA

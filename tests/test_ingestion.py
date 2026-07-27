@@ -37,3 +37,24 @@ def test_supersede_reference_marks_prior_superseded(session):
     ingestion.ingest_item(session, id="DEC-2", project_id="p1", item_type="decision",
                           content="This supersedes DEC-1 with nRF52")
     assert session.get(ProjectItem, "DEC-1").validity == "superseded"
+
+
+def test_ingest_survives_embedder_quota_failure(session):
+    """A provider/quota outage on the embedding API must NOT 500 the ingest or lose the engineer's item.
+    The item is the data; the embedding is a best-effort enhancement. On failure the item persists WITHOUT a
+    semantic chunk (retrieval degrades for it until re-embedded) — it is never rolled back."""
+    class _BrokenEmbedder:
+        name, dim = "broken", 8
+        def embed(self, text):
+            raise RuntimeError("429 RESOURCE_EXHAUSTED (simulated quota outage)")
+
+    item = ingestion.ingest_item(
+        session, id="REQ-Q", project_id="pq", item_type="requirement",
+        content="IP68 sealed enclosure requirement", embedder=_BrokenEmbedder(),
+    )
+    # the item survived
+    assert session.get(ProjectItem, "REQ-Q") is not None
+    assert item.content == "IP68 sealed enclosure requirement"
+    # but no semantic chunk was stored (skipped, not crashed)
+    chunk = session.scalars(select(DocumentChunk).where(DocumentChunk.document_id == "REQ-Q")).first()
+    assert chunk is None

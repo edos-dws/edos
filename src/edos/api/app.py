@@ -400,6 +400,43 @@ def accept_decision(
     return _decision_envelope(row)
 
 
+# ---------- Revise Decision (re-evaluate → new version) ----------
+class ReviseRequest(BaseModel):
+    instruction: str  # what the engineer specifically wants to update / clarify / correct
+
+
+@app.post("/v1/decisions/{decision_id}/revise", status_code=201)
+def revise_decision(
+    decision_id: str, body: ReviseRequest, session: Session = Depends(get_session)
+) -> dict:
+    """Re-evaluate an existing decision with the engineer's revision instruction and persist the result as a
+    NEW immutable version of the same decision lineage (the prior version stays intact for audit/diff). The
+    instruction is folded into the project context, and the reasoning engine sharpens the prior card — usually
+    into a more accurate recommendation. LLM first, deterministic heuristic fallback."""
+    instruction = (body.instruction or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=422, detail="instruction is required to revise a decision")
+    current = decision_store.get_latest(session, decision_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="decision not found")
+
+    prior_decision = decision_store.to_decision(current)
+    prior_detail = json.loads(current.decision_detail) if current.decision_detail else {}
+    decision, detail = deepdive.revise(
+        session, current.project_id, prior_decision, prior_detail, instruction
+    )
+    new_row = new_decision_version(
+        session, current,
+        title=decision.summary, rationale=decision.recommendation,
+        confidence=decision.confidence, status="recommended",
+        body_json=json.dumps(decision.to_contract_dict()),
+        decision_detail=json.dumps(detail),
+    )
+    # keep first-class assumptions in sync with the revised version
+    assumptions_engine.upsert_from_decision(session, new_row.project_id, decision, new_row.id)
+    return _decision_envelope(new_row)
+
+
 # ---------- Challenge My Decision (UI-CP-5) ----------
 class ChallengeAccept(BaseModel):
     statement: str
@@ -646,6 +683,7 @@ def ingest_item(project_id: str, body: ItemIngest, session: Session = Depends(ge
     item = ingestion.ingest_item(
         session, id=body.id or _new_id(), project_id=project_id,
         item_type=body.item_type, content=body.content, domain=body.domain,
+        extract_facts=True,  # #5: pull atomic facts out of rich items (docs/datasheets) at ingest
     )
     return _item_dict(item)
 
@@ -764,6 +802,7 @@ class DeepDiveRequest(BaseModel):
 class DeepDiveAnswer(BaseModel):
     id: str
     answer: str
+    q: str | None = None  # the question text — persisted with the answer so it's never re-asked (Q1)
 
 
 class DeepDiveDecideRequest(BaseModel):
@@ -788,6 +827,19 @@ def deepdive_questions(
         raise HTTPException(status_code=404, detail="project not found")
     plan = deepdive.plan_questions(session, project_id, body.topic)
     return {"topic": body.topic, **plan}
+
+
+@app.post("/v1/projects/{project_id}/deepdive/frame")
+def deepdive_frame(
+    project_id: str, body: DeepDiveRequest, session: Session = Depends(get_session)
+) -> dict:
+    """Deep Dive reasoning-first FRAME (Wave 3 · Step 6): before any decision, reflect back EDOS's
+    understanding — the project's direction fingerprint (spine), the lenses it will weigh for THIS decision
+    (shown so the engineer can see and override the emphasis), and framing questions for any direction it
+    can't yet establish. Makes the decision card the closing move of a visible argument, not the opening one."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return deepdive.plan_frame(session, project_id, body.topic)
 
 
 @app.post("/v1/projects/{project_id}/deepdive/followup")

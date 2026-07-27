@@ -22,6 +22,8 @@ from edos.db.graph import weight_for
 from edos.db.models import DocumentChunk, GraphEdge, ProjectItem
 from edos.engines import graph_builder
 from edos.engines.embeddings import EmbeddingProvider, default_embedder
+from edos.engines.query_expansion import get_query_expander
+from edos.engines.reranker import get_reranker
 
 _VALID_TYPES = {"project", "requirement", "decision", "assumption", "risk", "document", "external"}
 # temporal validity → confidence signal ("trust now")
@@ -117,14 +119,18 @@ def _is_hard_constraint(item: ProjectItem) -> bool:
 def retrieve(
     session: Session, *, project_id: str, question: str,
     embedder: EmbeddingProvider | None = None, k: int = 50, hop_limit: int = 2,
+    dense_query: str | None = None,
 ) -> list[dict]:
-    """Return ContextEngine-shaped candidates (`{type, ref_id, content, signals}`) for a project+question."""
+    """Return ContextEngine-shaped candidates (`{type, ref_id, content, signals}`) for a project+question.
+
+    `dense_query` overrides the text used for the dense (vector) search only — e.g. a HyDE-expanded query —
+    while lexical/anchor matching still use the original `question`."""
     embedder = embedder or default_embedder()
     items = list(session.scalars(select(ProjectItem).where(ProjectItem.project_id == project_id)))
     if not items:
         return []
 
-    qvec = embedder.embed(question)
+    qvec = embedder.embed(dense_query or question)
     dense = _dense_scores(session, project_id, qvec, k)
     lexical = _lexical_scores(question, items)
     anchors = _anchor_ids(items, question, dense)
@@ -147,6 +153,7 @@ def retrieve(
                 "recency": round(_recency_score(it.created_at, now), 6),
                 "confidence": _validity_confidence(it.validity),
                 "focus": focus,
+                "feedback": float(it.feedback_score or 0.0),  # learned usefulness (#7)
             },
         })
     return candidates
@@ -158,3 +165,63 @@ def coverage_ok(candidates: list[dict], threshold: float = 0.2) -> bool:
     return any(
         max(c["signals"]["semantic"], c["signals"]["graph"]) >= threshold for c in candidates
     )
+
+
+# Human-readable provenance label per item type — so the LLM can tell a hard requirement from a prior
+# decision from a loose note, and weight/cite accordingly (instead of one flat unlabeled blob).
+_CONTEXT_LABEL = {
+    "requirement": "REQUIREMENT", "decision": "PRIOR DECISION", "assumption": "ASSUMPTION",
+    "risk": "RISK", "document": "DOCUMENT", "external": "SOURCE", "project": "PROJECT",
+}
+
+
+def label_for(item_type: str) -> str:
+    """Provenance label for a candidate's item type (shared by assembly + the deep-dive context builder)."""
+    return _CONTEXT_LABEL.get(item_type, "CONTEXT")
+
+
+def _rank_score(signals: dict) -> float:
+    """Blend the retriever signals into one score (semantic-led, graph + recency + must-see focus), nudged by
+    the item's learned usefulness (#7 feedback). The feedback term is bounded to ±0.10 so it tunes, never
+    dominates the semantic signal."""
+    fb = max(-1.0, min(1.0, signals.get("feedback", 0.0) / 3.0))
+    return (0.45 * signals["semantic"] + 0.25 * signals["graph"] + 0.15 * signals["recency"]
+            + 0.10 * signals["focus"] + 0.05 * signals.get("confidence", 0.5) + 0.10 * fb)
+
+
+def select_context(
+    session: Session, *, project_id: str, query: str, top_k: int = 8,
+) -> list[dict]:
+    """The candidate SELECTION for a query: `expand (HyDE) → retrieve → rank → rerank (top-50 → top-K)`.
+    Returns the chosen candidate dicts (with `ref_id`) — the exact set the assembled context is built from,
+    so the eval harness measures the real thing the LLM sees.
+
+    The reranker cross-reads the query against each candidate and IS the relevance authority — it drops items
+    that merely share keywords. We trust its top-K; on a no-op/empty result we fall back to the rank_score
+    order. (We deliberately do NOT force-inject every "hard constraint": the old floor marked every
+    requirement must-see, which re-injected the very distractors the reranker had dropped.)"""
+    dense_query = get_query_expander().expand(query)  # HyDE: embed a hypothetical answer → better recall
+    cands = retrieve(session, project_id=project_id, question=query, dense_query=dense_query)
+    if not cands:
+        return []
+    for c in cands:
+        c["_score"] = _rank_score(c["signals"])
+    cands.sort(key=lambda c: -c["_score"])
+    pool = cands[:50]
+    order = get_reranker().rerank(query, [c["content"] for c in pool], top_k)
+    return [pool[i] for i in order] if order else pool[:top_k]
+
+
+def assemble_context(
+    session: Session, *, project_id: str, query: str, top_k: int = 8, budget_chars: int = 4000,
+) -> list[str]:
+    """Context Engine → LLM: the selected candidates, labeled with provenance and capped to a char budget."""
+    out: list[str] = []
+    used = 0
+    for c in select_context(session, project_id=project_id, query=query, top_k=top_k):
+        line = f"[{label_for(c['type'])}] {c['content'].strip()}"
+        if out and used + len(line) > budget_chars:
+            break
+        out.append(line)
+        used += len(line)
+    return out

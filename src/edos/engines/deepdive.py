@@ -42,12 +42,16 @@ from edos.models.decision import Decision
 
 def _persist_answers(session: Session, project_id: str, answers: list[dict]) -> None:
     """Save the engineer's deep-dive answers as project context (facts/requirements) so they ground this and
-    future reasoning — the answers are context, not assumptions."""
+    future reasoning — the answers are context, not assumptions.
+
+    We store the QUESTION alongside its answer (``Q: … — A: …``) so that skip-known (which matches on the
+    question's wording) recognises an already-answered question next time and never re-asks it (see Q1)."""
     for a in answers or []:
         ans = (a.get("answer") or "").strip()
         if not ans:
             continue
-        content = f"[deep-dive answer · {a.get('id', 'q')}] {ans}"
+        q = (a.get("q") or "").strip()
+        content = f"[deep-dive Q&A] Q: {q} — A: {ans}" if q else f"[deep-dive answer] {ans}"
         try:
             ingestion.ingest_item(session, id=f"dda-{uuid.uuid4().hex[:10]}", project_id=project_id,
                                   item_type="requirement", content=content)
@@ -197,23 +201,24 @@ def _slug(text: str) -> str:
 
 
 def _heuristic_questions(topic: str) -> list[dict]:
+    """Only the probes the topic actually triggers (need-driven), capped at 5. A vague topic that triggers
+    nothing still gets a few essentials so the engineer isn't left with zero — but 5 is the ceiling, never a
+    forced quota."""
     low = (topic or "").lower()
-    picked: list[dict] = []
-    for probe in _QUESTION_PROBES:
-        if any(t in low for t in probe["any"]):
-            picked.append({"q": probe["q"], "why": probe["why"]})
-    # top up to >= 5 targeted questions, cap at 8 (backlog: 5-8)
-    for g in _GENERIC_QUESTIONS:
-        if len(picked) >= 5:
-            break
-        if all(g["q"] != p["q"] for p in picked):
-            picked.append(g)
-    picked = picked[:8]
+    picked: list[dict] = [
+        {"q": probe["q"], "why": probe["why"]}
+        for probe in _QUESTION_PROBES if any(t in low for t in probe["any"])
+    ]
+    if not picked:  # nothing specific matched → a few generic essentials, not a full five
+        picked = [dict(g) for g in _GENERIC_QUESTIONS[:3]]
+    picked = picked[:5]
     return [{"id": f"q{i + 1}-{_slug(p['q'])}", "q": p["q"], "why": p["why"]}
             for i, p in enumerate(picked)]
 
 
-def _candidate_questions(topic: str, router: ModelRouter | None = None) -> tuple[list[dict], str]:
+def _candidate_questions(
+    topic: str, context: list[str] | None = None, router: ModelRouter | None = None,
+) -> tuple[list[dict], str]:
     """Generate the candidate question set. Returns (questions, source) where source is "llm" (topic-specific
     LLM output) or "heuristic" (the static probe fallback — used offline OR when the live LLM errors, e.g. a
     quota/429). The source lets the UI tell the engineer when questions are degraded, not silently static."""
@@ -221,16 +226,19 @@ def _candidate_questions(topic: str, router: ModelRouter | None = None) -> tuple
     try:
         # Question generation is a LIGHT task — route it to the cheap Lite chain so the good model's limited
         # quota is preserved for the heavy decision reasoning (which uses the frontier chain, see `decide`).
-        out = router.execute(Capability.deepdive, {"mode": "questions", "topic": topic},
+        # Pass the project context so the model can skip what the project already establishes (the prompt
+        # instructs it to), making the questions project-aware rather than topic-blind.
+        out = router.execute(Capability.deepdive,
+                             {"mode": "questions", "topic": topic, "context": context or []},
                              schema=QUESTIONS_SCHEMA, tier=Tier.lightweight)
         raw = out.get("questions") if isinstance(out, dict) else None
-        parsed = [
-            {"id": f"q{i + 1}-{_slug(q['q'])}", "q": q["q"].strip(), "why": q["why"].strip()}
-            for i, q in enumerate(raw or [])
-            if isinstance(q, dict) and q.get("q") and q.get("why")
-        ]
-        if len(parsed) >= 5:
-            return parsed[:8], "llm"
+        if raw is not None:  # the call succeeded and returned the schema — honour the model's count (0-5)
+            parsed = [
+                {"id": f"q{i + 1}-{_slug(q['q'])}", "q": q["q"].strip(), "why": q["why"].strip()}
+                for i, q in enumerate(raw)
+                if isinstance(q, dict) and q.get("q") and q.get("why")
+            ]
+            return parsed[:5], "llm"  # 5 is the hard max; fewer (even zero) is fine when that's enough
     except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic
         pass
     return _heuristic_questions(topic), "heuristic"
@@ -303,7 +311,7 @@ def plan_questions(
     ``note`` is non-empty only when the project already covers every question."""
     embedder = default_embedder()
     context = _retrieved_context(session, project_id, topic)
-    candidates, generated_by = _candidate_questions(topic, router)
+    candidates, generated_by = _candidate_questions(topic, context, router)
 
     kept: list[dict] = []
     skipped: list[dict] = []
@@ -314,14 +322,56 @@ def plan_questions(
             skipped.append({"q": q["q"], "reason": reason})
         else:
             kept.append(q)
+    kept = kept[:5]  # 5 is the hard maximum shown to the engineer
 
     note = ""
-    if candidates and not kept:
-        note = ("The project already has enough context on this topic — every question I would ask is "
-                "already answered. You can go straight to a decision.")
+    if not kept:
+        note = ("Nothing critical left to ask — I have enough context on this topic. Confirm my understanding "
+                "below and I'll go straight to a decision.")
     # `generated_by`: "llm" = topic-specific model questions; "heuristic" = static fallback (LLM offline or
     # quota-limited) — the UI surfaces this so static questions are never mistaken for the model's output.
-    return {"questions": kept, "skipped": skipped, "note": note, "generated_by": generated_by}
+    return {"questions": kept, "skipped": skipped, "note": note, "generated_by": generated_by,
+            "understanding": _understanding(topic, context)}
+
+
+def plan_frame(session: Session, project_id: str, topic: str) -> dict:
+    """Reasoning-first FRAME (Wave 3 · Step 6): what EDOS reflects back *before* deciding, so the card is the
+    closing move, not the opening one. Returns the project's direction fingerprint, the lenses it will weigh
+    (shown + overridable), and the framing questions for any direction it can't yet establish (ask, never
+    guess). Purely advisory — best-effort, never blocks the existing decide path.
+
+    Returns ``{topic, understanding, spine:[lines], framing_questions:[{axis,q}], lenses:[{...}]}``."""
+    try:
+        from edos.engines import spine as _spine
+        from edos.engines.reasoning_scaffold import build_scaffold
+
+        scaffold = build_scaffold(session, project_id, topic)
+        fingerprint = _spine.classify_project(session, project_id)
+        return {
+            "topic": topic,
+            "understanding": _understanding(topic, _retrieved_context(session, project_id, topic)),
+            "spine": scaffold["spine_lines"],
+            "framing_questions": _spine.framing_questions(fingerprint),
+            "lenses": [
+                {"id": w["lens_id"], "title": w["title"], "weight": w["weight"],
+                 "deep": w["deep"], "reason": w["reason"]}
+                for w in scaffold["weights"]
+            ],
+        }
+    except Exception:  # noqa: BLE001 — the frame is an enhancement; degrade to a minimal shape, never 500
+        return {"topic": topic, "understanding": _understanding(topic, []),
+                "spine": [], "framing_questions": [], "lenses": []}
+
+
+def _understanding(topic: str, context: list[str]) -> str:
+    """A one-line restatement of what EDOS takes the decision to be — shown for confirmation when no questions
+    are needed (Q2's zero-question path). Honest: it echoes the topic and how much project context grounds it."""
+    t = (topic or "").strip() or "this decision"
+    if context:
+        n = len(context)
+        noun = "thing" if n == 1 else "things"
+        return f"You're deciding: {t}. I'm grounding this in {n} {noun} this project already knows."
+    return f"You're deciding: {t}. I'll reason from standard engineering priorities where specifics aren't given."
 
 
 # ==================================================================================================
@@ -421,31 +471,141 @@ def follow_up(
 # ==================================================================================================
 # stage 2 — the Decision Card (LLM → heuristic)
 # ==================================================================================================
-def _gather_context(session: Session, project_id: str, topic: str, answers: list[dict]) -> list[str]:
-    """Retriever context (grounding) + the engineer's answers, as plain content strings."""
-    ctx: list[str] = []
+def _related_decisions_context(session: Session, project_id: str, topic: str, limit: int = 3) -> list[str]:
+    """GraphRAG: pull the project's PRIOR DECISIONS (graph nodes) most related to this topic and feed them —
+    with the premises they rest on — INTO the decision context (before reasoning, not attached after). This is
+    EDOS's edge over vector-only RAG: the new decision is reasoned for **consistency with past decisions**, so
+    a contradiction surfaces instead of being made silently. Prior decisions live in the decision store, not
+    in ProjectItem retrieval, so they'd otherwise never reach the model."""
     try:
-        for c in retrieval.retrieve(session, project_id=project_id, question=topic):
-            if c["signals"]["semantic"] >= 0.2 or c["signals"]["graph"] >= 0.2:
-                ctx.append(c["content"])
+        rows = decision_store.list_for_project(session, project_id)[:10]  # bound the embed calls
+    except Exception:  # noqa: BLE001
+        return []
+    if not rows:
+        return []
+    embedder = default_embedder()
+    tvec = embedder.embed(topic)
+    scored: list[tuple[float, object]] = []
+    for row in rows:
+        # Full-body relevance (Feature 4): rank on title + rationale, not the title alone — a decision whose
+        # title is generic ("power supply") but whose rationale is on-topic should still be pulled in.
+        body = f"{row.title or ''} {row.rationale or ''}".strip()
+        sim = _cosine(tvec, embedder.embed(body)) if body else 0.0
+        scored.append((sim, row))
+    scored.sort(key=lambda x: -x[0])
+    out: list[str] = []
+    for sim, row in scored[:limit]:
+        if sim < 0.35:  # only genuinely-related prior decisions (avoid noise from unrelated ones)
+            continue
+        try:
+            dec = decision_store.to_decision(row)
+        except Exception:  # noqa: BLE001, S112 — a malformed stored row is skipped, not fatal
+            continue
+        premises = "; ".join(a.statement for a in (dec.assumptions or [])[:2]) or "n/a"
+        out.append(f"[PRIOR DECISION {row.id}] {dec.summary} — assumes: {premises}")
+    return out
+
+
+def _gather_context(
+    session: Session, project_id: str, topic: str, answers: list[dict],
+) -> tuple[list[str], list[str]]:
+    """The assembled context package for the decision: rank → rerank → top-K → labeled-with-provenance →
+    capped (via the Context Engine), PLUS related prior decisions (GraphRAG) and the engineer's answers.
+
+    Returns `(context_strings, used_item_ids)` — the item ids feed the #7 feedback loop (a decision's outcome
+    later boosts/penalises exactly the items that fed it)."""
+    ctx: list[str] = []
+    item_ids: list[str] = []
+    try:
+        for c in retrieval.select_context(session, project_id=project_id, query=topic):
+            ctx.append(f"[{retrieval.label_for(c['type'])}] {c['content'].strip()}")
+            item_ids.append(c["ref_id"])
     except Exception:  # noqa: BLE001, S110 — retrieval is best-effort context; never blocks a decision
         pass
-    ctx += [a["answer"] for a in answers if a.get("answer")]
-    return ctx
+    try:
+        ctx += _related_decisions_context(session, project_id, topic)  # GraphRAG: prior decisions
+    except Exception:  # noqa: BLE001, S110 — best-effort; never blocks a decision
+        pass
+    ctx += [f"[ANSWER] {a['answer']}" for a in answers if a.get("answer")]
+    return ctx, item_ids
+
+
+def _reasoning_scaffold(session: Session, project_id: str, topic: str) -> dict:
+    """The project-conditioned reasoning scaffold (spine + weighted lenses) for a decision. Returns
+    ``{"text","spine","lenses"}`` — ``text`` goes into the prompt; ``spine``/``lenses`` are attached to the
+    decision detail so the UI can show (and later override) what EDOS weighted. Best-effort: any failure
+    returns an empty scaffold so the decision still runs on the ERC brain + retrieved context alone."""
+    try:
+        from edos.engines.reasoning_scaffold import build_scaffold
+        s = build_scaffold(session, project_id, topic)
+        return {"text": s["text"], "spine": s["spine_lines"], "lenses": s["weights"]}
+    except Exception:  # noqa: BLE001 — scaffold is an enhancement; never blocks a decision
+        return {"text": "", "spine": [], "lenses": []}
+
+
+def _verify_computations(computations: object) -> list:
+    """#8: recompute the model's own arithmetic deterministically so a computed number carries a real ✓ (and a
+    wrong one is caught). Best-effort — any failure returns [] and never blocks the decision."""
+    try:
+        from edos.engines.checks import verify_computations
+        return verify_computations(computations)
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _auto_compute(context: list[str]) -> list:
+    """#8 (auto-compute half): EDOS computes a budget ITSELF from quantities stated in the project context —
+    thermal ΔT and battery life, only when the inputs are unambiguous. Best-effort → [] on any failure."""
+    try:
+        from edos.engines.checks import auto_compute
+        return auto_compute(context)
+    except Exception:  # noqa: BLE001
+        return []
+
+
+_STOP_EDGE = {"a", "an", "the", "for", "of", "to", "in", "on", "with", "and", "using", "based", "its"}
+
+
+def _short_phrase(text: str, *, tail: bool) -> str:
+    """A concise 1-3 word option name from the side of a comparison nearest the separator. Focuses on the
+    clause closest to the "vs": after the last dash/colon on the left ("… strategy — passive" → "Passive"),
+    before the first comma on the right ("Hall-effect sensing, cheap" → "Hall-effect Sensing")."""
+    seg = text or ""
+    seg = re.split(r"[—–:]", seg)[-1] if tail else re.split(r"[,—–:]", seg)[0]
+    words = [w.strip(".,;:()") for w in seg.split() if w.strip(".,;:()")]
+    if not words:
+        return ""
+    # Walk inward from the separator, collecting up to 3 words, and STOP at the first interior filler word
+    # ("… bare-metal for safety-critical" → "Bare-metal", not "Bare-metal For Safety-critical").
+    ordered = list(reversed(words)) if tail else words
+    picked: list[str] = []
+    for w in ordered:
+        if w.lower() in _STOP_EDGE:
+            if picked:
+                break
+            continue  # skip leading filler
+        picked.append(w)
+        if len(picked) >= 3:
+            break
+    if tail:
+        picked.reverse()
+    return " ".join(picked).strip().title()
 
 
 def _options_from_topic(topic: str) -> list[str]:
-    """Derive candidate option names from an "A vs B" / "A or B" topic; else two generic named options."""
-    low = (topic or "").lower()
-    for sep in (" vs ", " vs. ", " versus ", " or "):
-        if sep in low:
-            head = low.split(sep)
-            left = head[0].split()[-1] if head[0].split() else "Option A"
-            right = head[1].split()[0] if head[1].split() else "Option B"
-            a, b = left.strip(".,").title(), right.strip(".,").title()
-            if a and b and a != b:
-                return [a, b, "Hybrid"]
-    return ["Baseline approach", "Alternative approach"]
+    """Real candidate option names from an explicit "A vs B" / "A or B" topic. Returns ``[]`` when the topic
+    is NOT an explicit comparison — we never fabricate generic "Baseline/Alternative" options, and never a
+    fake "Hybrid" third column. No options → the card simply shows no comparison matrix (honest over padded)."""
+    raw = (topic or "").strip()
+    low = raw.lower()
+    for sep in (" vs. ", " vs ", " versus ", " or "):
+        idx = low.find(sep)
+        if idx != -1:
+            a = _short_phrase(raw[:idx], tail=True)
+            b = _short_phrase(raw[idx + len(sep):], tail=False)
+            if a and b and a.lower() != b.lower():
+                return [a, b]
+    return []
 
 
 def _impacted_components(text: str) -> list[str]:
@@ -459,62 +619,211 @@ def _impacted_components(text: str) -> list[str]:
     return seen or ["Firmware", "Hardware", "BOM"]
 
 
+# What actually changes downstream for each impacted area (so Decision Impact reads specific, not a fixed list).
+_IMPACT_CHANGE: dict[str, str] = {
+    "Firmware": "Drivers and control-loop work track the chosen option",
+    "Hardware": "Component selection and PCB layout depend on this choice",
+    "BOM": "Bill-of-materials cost and sourcing shift with this option",
+    "Power stage": "Thermal and protection budget is derived from this decision",
+    "Architecture": "Sets an interface other subsystems build against",
+    "Mechanical": "Enclosure and thermal path are constrained by this choice",
+    "Testing": "The validation / bench-test plan must cover the chosen option",
+    "Certification": "Applicable standards and the certification path follow from this",
+}
+
+
+def _impact_change(name: str) -> str:
+    return _IMPACT_CHANGE.get(name, f"{name} design decisions follow from this choice")
+
+
+# Context-triggered risk rules — only the ones whose keywords actually appear are raised, so the risk list is
+# specific to THIS decision and varies in count/content (never a fixed three-row template).
+_RISK_RULES: list[tuple[tuple[str, ...], str, str, str]] = [
+    (("safety", "asil", "iso 26262", "sil", "functional safety", "hazard"),
+     ("The functional-safety evidence for this choice isn't established yet — a wrong pick propagates into "
+      "the whole safety case"), "high",
+     "Confirm the safety requirement and the diagnostic coverage it needs before committing"),
+    (("thermal", "temperature", "junction", "dissipation", "cooling", "ambient", "heat"),
+     ("Thermal headroom at worst-case ambient isn't proven — it can pass on the bench and fail in a sealed "
+      "enclosure"), "high",
+     "Validate with thermal measurements at the real worst-case ambient"),
+    (("emc", "emi", "noise", "interference", "snr", "cispr"),
+     "EMC / noise behaviour of the chosen option isn't characterised", "medium",
+     "Run a pre-compliance scan before the layout freeze"),
+    (("cost", "bom", "volume", "price", "unit", "usd", "$"),
+     "Unit cost at the target volume assumes pricing that may not hold — the BOM math can move the decision",
+     "medium", "Re-check pricing at the actual production volume and MOQ"),
+    (("supply", "availability", "lead time", "sourcing", "stock", "second source"),
+     "Part availability / lead-time risk on the chosen option", "medium",
+     "Confirm sourcing and qualify a second source"),
+    (("accuracy", "drift", "calibration", "resolution", "tolerance", "precision"),
+     "Long-term drift and accuracy over temperature and aging aren't established", "medium",
+     "Characterise drift across the full operating range"),
+    (("latency", "real-time", "real time", "deadline", "isr", "jitter", "khz"),
+     "Worst-case timing / latency margin under full load isn't proven", "high",
+     "Measure worst-case latency with all interrupts and tasks active"),
+]
+
+
+def _derive_risks(topic: str, answers: list[dict], context: list[str], chosen: str) -> list[dict]:
+    """Risks specific to THIS decision — matched from what the engineer described. Variable count, never a
+    fixed template. Only rules whose keywords appear are raised; a peak/fault-envelope risk is added only
+    when the engineer hasn't already pinned worst-case down."""
+    blob = " ".join([topic, *[a.get("answer", "") for a in answers if a.get("answer")], *context]).lower()
+    risks: list[dict] = []
+    for kws, desc, sev, mit in _RISK_RULES:
+        if any(k in blob for k in kws):
+            risks.append({"description": desc, "severity": sev, "likelihood": "medium", "mitigation": mit})
+    if not any(k in blob for k in ("worst-case", "worst case", "peak", "surge", "inrush", "fault", "margin")):
+        risks.append({
+            "description": "Worst-case / peak operating conditions are under-specified, so the recommendation "
+                           "may not hold at the extremes",
+            "severity": "high", "likelihood": "medium",
+            "mitigation": "Confirm the peak / fault envelope with measurements"})
+    if not risks:
+        who = chosen or "the recommended option"
+        risks.append({
+            "description": f"The core operating assumptions behind {who} aren't yet validated against real data",
+            "severity": "medium", "likelihood": "medium",
+            "mitigation": "Validate the core assumptions before committing"})
+    return risks[:4]
+
+
+# Comparison-matrix axes, keyed by what the engineer actually described. Each entry is
+# (label, trigger-keywords, (recommended_value, alternative_value, hybrid_value)). We select the axes whose
+# keywords appear in the topic/answers/context so the matrix ROWS are specific to THIS decision — not a fixed
+# five-row template that reads identically across every report. Values stay qualitative (never a fabricated
+# datasheet number), but the axis set is derived, so no two unrelated decisions get the same matrix.
+_CRITERIA_AXES: list[tuple[str, tuple[str, ...], tuple[str, str, str]]] = [
+    ("Accuracy / precision", ("accuracy", "precision", "resolution", "drift", "tolerance", "error", "% soc",
+                              "measurement"), ("Meets spec", "Higher headroom", "Balanced")),
+    ("Timing / latency", ("latency", "deadline", "real-time", "real time", "response time", "khz", "hz",
+                          "sampling", "throughput", "jitter", "isr", "loop"), ("Meets deadline",
+                          "More margin", "Balanced")),
+    ("Cost / BOM", ("cost", "bom", "price", "budget", "cheap", "usd", "$", "volume", "unit"),
+                   ("Lower", "Higher", "Medium")),
+    ("Power / efficiency", ("power", "efficiency", "consumption", "battery", "watt", "draw", "quiescent"),
+                           ("Lower draw", "Higher draw", "Medium")),
+    ("Thermal", ("thermal", "temperature", "heat", "dissipation", "cooling", "junction"),
+                ("Lower rise", "Higher rise", "Medium")),
+    ("Safety / compliance", ("safety", "asil", "iso 26262", "iec", "sil", "certification", "functional safety",
+                             "ul ", "ce ", "compliance"), ("Meets standard", "Exceeds", "Meets standard")),
+    ("Size / footprint", ("size", "footprint", "area", "space", "compact", "form factor", "pcb"),
+                         ("Smaller", "Larger", "Medium")),
+    ("EMC / noise", ("emc", "emi", "noise", "interference", "snr", "shielding"),
+                    ("Lower noise", "Higher noise", "Medium")),
+    ("Reliability / lifetime", ("reliability", "mtbf", "lifetime", "cycle", "durability", "robust", "wear"),
+                               ("Adequate", "Higher", "Balanced")),
+    ("Supply / availability", ("supply", "availability", "lead time", "sourcing", "stock", "second source"),
+                              ("Better", "Constrained", "Medium")),
+]
+# Fallback axes used ONLY to top a sparse comparison up to a usable minimum. Deliberately no "Cost" here —
+# cost/performance axes appear only when the decision actually mentions them (via _CRITERIA_AXES), so we never
+# show a cost row for a decision that isn't about cost.
+_DEFAULT_AXES: list[tuple[str, tuple[str, str, str]]] = [
+    ("Complexity / integration", ("Lower", "Higher", "Medium")),
+    ("Risk", ("Lower", "Higher", "Medium")),
+    ("Time to integrate", ("Faster", "Slower", "Medium")),
+]
+
+
+def _derive_criteria(blob: str) -> list[tuple[str, tuple[str, str, str]]]:
+    """Pick the comparison axes THIS decision is actually about (keyword match), else sensible defaults.
+    Returns 3-5 `(label, (rec_val, alt_val, hybrid_val))` axes, deterministic and topic-specific."""
+    low = blob.lower()
+    picked: list[tuple[str, tuple[str, str, str]]] = [
+        (label, vals) for label, kws, vals in _CRITERIA_AXES if any(k in low for k in kws)
+    ]
+    # Only top up when the decision gave us too few axes to compare on (<3) — never pad a rich set with
+    # generic rows, and never force a cost row onto a decision that isn't about cost.
+    i = 0
+    while len(picked) < 3 and i < len(_DEFAULT_AXES):
+        label, vals = _DEFAULT_AXES[i]
+        i += 1
+        if all(label.split(" /")[0].lower() not in p[0].lower() for p in picked):
+            picked.append((label, vals))
+    return picked[:5]
+
+
 def _heuristic_detail(topic: str, answers: list[dict], context: list[str]) -> dict:
     """Deterministic Decision-Card detail from topic + answers + context. No fabricated datasheet values —
-    options/criteria are structural, the specifics come from what the engineer actually said."""
+    options are derived from the topic and the matrix axes from what the engineer actually described."""
     options = _options_from_topic(topic)
-    chosen = options[0]
     answer_texts = [a.get("answer", "") for a in answers if a.get("answer")]
     blob = " ".join([topic, *answer_texts, *context])
 
-    # criteria: a standard engineering axis set (rows of the comparison matrix)
-    criteria = ["Cost", "Complexity", "Performance / accuracy", "Risk", "Time to integrate"]
-    # per-option qualitative values (structural, not fabricated numbers)
-    profiles = {
-        0: ["Lower", "Lower", "Meets spec", "Lower", "Faster"],
-        1: ["Higher", "Higher", "Higher headroom", "Higher", "Slower"],
-        2: ["Medium", "Medium", "Balanced", "Medium", "Medium"],
-    }
-    matrix_options = []
-    for i, name in enumerate(options):
-        matrix_options.append({
-            "name": name,
-            "values": profiles.get(i, ["Medium"] * len(criteria))[:len(criteria)],
-            "recommended": (i == 0),
-        })
+    # criteria: derived from what THIS decision is about (topic + answers), not a fixed template set
+    axes = _derive_criteria(blob)
+    criteria = [label for label, _ in axes]
+    # A comparison matrix is built ONLY when the topic is an explicit A-vs-B — otherwise we do not fabricate
+    # options/values, and the card simply carries no matrix (the frontend hides it).
+    matrix_options: list[dict] = []
+    if len(options) >= 2:
+        for i, name in enumerate(options):
+            matrix_options.append({
+                "name": name,
+                "values": [triple[min(i, 2)] for _, triple in axes],
+                "recommended": (i == 0),
+            })
+    chosen = options[0] if options else ""
 
+    reasons: list[str] = []
+    if chosen:
+        reasons.append(f"Best fits the constraints stated for '{topic.strip() or 'this decision'}'")
+    if matrix_options:
+        reasons.append(f"Leads on {', '.join(criteria[:3]).lower()} versus {options[1]}")
+    if answer_texts:
+        reasons.append(f"Grounded in the engineer's answer: \"{answer_texts[0][:90]}\"")
+    if not reasons:
+        reasons = [f"Reasoned from the available context for '{topic.strip() or 'this decision'}'"]
     recommendation = {
         "chosen": chosen,
-        "reasons": [
-            f"Satisfies the stated constraints for '{topic.strip() or 'this decision'}' at the lowest risk",
-            "Lower cost and complexity than the alternatives for the current spec",
-            "Fastest path to integration without foreclosing the expansion path",
-        ] + ([f"Directly reflects the engineer's answer: \"{answer_texts[0][:90]}\""] if answer_texts else []),
+        "reasons": reasons,
         "eliminated": [
             {"option": o["name"],
-             "reason": "Adds cost/complexity that the current requirements do not justify"}
+             "reason": f"Weaker on {criteria[0].lower() if criteria else 'the stated priorities'} "
+                       f"for the current spec"}
             for o in matrix_options[1:]
         ],
     }
 
-    decision_impact = [
-        {"area": "Firmware", "change": "Driver / control-loop work follows the chosen option"},
-        {"area": "Hardware", "change": "Component selection and PCB layout depend on this choice"},
-        {"area": "Architecture", "change": "Sets an interface other subsystems build against"},
-        {"area": "Power stage", "change": "Thermal and protection budget is derived from this decision"},
-    ]
+    # decision impact — derived from the components this decision ACTUALLY touches (not a fixed four rows)
+    impacted = _impacted_components(blob)
+    decision_impact = [{"area": c, "change": _impact_change(c)} for c in impacted[:4]]
 
-    review_conditions = [
-        f"Revisit if the priority stated for '{topic.strip() or 'this'}' changes",
-        "Revisit if peak/worst-case operating conditions exceed the assumed envelope",
-        "Revisit if the production volume or cost target moves materially",
-    ]
+    # review conditions — only the ones whose trigger isn't already pinned down by the context
+    review_conditions = []
+    if not any(k in blob.lower() for k in ("priority", "priorit")):
+        review_conditions.append(f"Revisit if the priority for '{topic.strip() or 'this'}' changes")
+    if not any(k in blob.lower() for k in ("worst-case", "worst case", "peak", "fault", "margin")):
+        review_conditions.append("Revisit if peak/worst-case operating conditions exceed the assumed envelope")
+    if any(k in blob.lower() for k in ("cost", "bom", "volume", "price")):
+        review_conditions.append("Revisit if the production volume or cost target moves materially")
+    if not review_conditions:
+        review_conditions.append("Revisit if the core requirements behind this decision change")
 
     missing = _missing_context(blob, answers)
 
+    # runner-up (Step 7 parity in the degraded path): when there is a real A-vs-B matrix, name the #2 option
+    # it beat and why — derived from the matrix the heuristic already built, so no value is fabricated. This
+    # keeps a degraded (LLM-offline) card structurally complete rather than silently poorer than the contract.
+    # blind_spots stay the LLM's job — the heuristic must not invent specific, quantified failure modes.
+    runner_up = None
+    if len(matrix_options) >= 2:
+        runner_up = {
+            "option": matrix_options[1]["name"],
+            "gap": "moderate",  # honest default — the heuristic can't gauge the margin precisely
+            "tipped_by": [
+                f"Recommended option leads on {criteria[0].lower()}" if criteria
+                else "Better fit to the stated constraints",
+            ],
+        }
+
     return {
+        "topic": topic,
         "comparison_matrix": {"criteria": criteria, "options": matrix_options},
         "recommendation": recommendation,
+        "runner_up": runner_up,
         "decision_impact": decision_impact,
         "impacted_components": _impacted_components(blob),
         "review_conditions": review_conditions,
@@ -545,17 +854,8 @@ def _heuristic_decision(topic: str, answers: list[dict], context: list[str], det
     # Assumptions = what the SYSTEM inferred to decide (gaps), NOT the engineer's answers.
     assumptions = _system_assumptions(topic, answers, context, detail)
 
-    risks = [
-        {"description": f"{chosen} adds integration work in {c}",
-         "severity": "medium", "likelihood": "medium",
-         "mitigation": f"Scope the {c} change before committing"}
-        for c in detail["impacted_components"][:2]
-    ]
-    risks.append({
-        "description": ("Under-specified worst-case operating conditions could invalidate the recommendation"),
-        "severity": "high", "likelihood": "medium",
-        "mitigation": "Confirm peak/fault envelope with bench data",
-    })
+    # Risks specific to THIS decision (variable count/content), not a fixed three-row template.
+    risks = _derive_risks(topic, answers, context, chosen)
 
     tradeoffs = [
         {"option": o["name"],
@@ -575,16 +875,22 @@ def _heuristic_decision(topic: str, answers: list[dict], context: list[str], det
 
     confidence = round(min(0.9, 0.55 + 0.05 * len(answer_texts) + 0.03 * len(context)), 2)
 
+    topic_clean = topic.strip() or "Deep dive"
+    summary = f"{topic_clean} — recommend {chosen}" if chosen else topic_clean
+    recommendation = (f"Recommend {chosen}. " + "; ".join(rec["reasons"][:3])) if chosen \
+        else "; ".join(rec["reasons"][:3])
+
     return Decision(
-        summary=f"{topic.strip() or 'Deep dive'} — recommend {chosen}",
-        recommendation=f"Recommend {chosen}. " + "; ".join(rec["reasons"][:3]),
+        summary=summary,
+        recommendation=recommendation,
         confidence=confidence,
         status="recommended",
         assumptions=assumptions,
         risks=risks,
         tradeoffs=tradeoffs,
         evidence=evidence,
-        next_actions=[f"Proceed with {chosen}", "Close the missing context: " + (detail.get("missing") or "n/a")],
+        next_actions=[(f"Proceed with {chosen}" if chosen else "Proceed with the recommendation"),
+                      "Close the missing context: " + (detail.get("missing") or "n/a")],
     )
 
 
@@ -596,6 +902,11 @@ DECISION_CARD_SCHEMA = {
         "confidence": {"type": "number"},
         "assumptions": {"type": "array"},
         "risks": {"type": "array"},
+        # Kept intentionally loose (items not constrained): the LLM sometimes labels fields its own way, and
+        # `_card_from_llm` coerces them onto the strict contract. A tight schema here would reject that output
+        # at validation time and silently drop the rich card to the heuristic — the opposite of what we want.
+        "tradeoffs": {"type": "array"},
+        "next_actions": {"type": "array"},
         "detail": {
             "type": "object",
             "properties": {
@@ -621,37 +932,187 @@ def decide(
     router = router or ModelRouter()
     answers = answers or []
     _persist_answers(session, project_id, answers)  # answers → project context (not assumptions)
-    context = _gather_context(session, project_id, topic, answers)
+    context, context_item_ids = _gather_context(session, project_id, topic, answers)
+    scaffold = _reasoning_scaffold(session, project_id, topic)  # spine + project-weighted lenses
+    reasoning_frame = {"spine": scaffold["spine"], "lenses": scaffold["lenses"]}  # for the UI (overridable)
+    # #8 auto-compute: give the model EDOS's own deterministically-computed budgets so it reasons WITH verified
+    # numbers, not estimates. Same facts are re-verified and shown on the card (below). Best-effort.
+    _auto_facts = _auto_compute(context)
+    if _auto_facts:
+        context = context + ["[COMPUTED BY EDOS — trust over any estimate] " + "; ".join(
+            f"{c['quantity']} = {c['result']} (= {c['expression']})" for c in _auto_facts)]
 
     try:
         out = router.execute(
             Capability.deepdive,
-            {"mode": "decide", "topic": topic, "answers": answers, "context": context},
+            {"mode": "decide", "topic": topic, "answers": answers, "context": context,
+             "reasoning_scaffold": scaffold["text"]},
             schema=DECISION_CARD_SCHEMA,
             tier=Tier.frontier,  # decision reasoning is the HEAVY task → route to the best (frontier) chain
         )
-        if isinstance(out, dict) and out.get("detail") and out.get("recommendation"):
-            detail = dict(out["detail"])
-            detail.setdefault("recommendation", {"chosen": "", "reasons": [], "eliminated": []})
-            detail.setdefault("dependencies", context[:4])
-            detail.setdefault("related_decisions", [])
-            detail.setdefault("missing", "")
-            decision = Decision(
-                summary=str(out["summary"]),
-                recommendation=str(out["recommendation"]),
-                confidence=float(out.get("confidence", 0.6)),
-                status="recommended",
-                assumptions=out.get("assumptions", []),
-                risks=out.get("risks", []),
-                evidence=out.get("evidence") or [
-                    {"claim": "deep-dive reasoning", "source": "deep-dive", "kind": "inference"}],
-            )
-            _link_related(session, project_id, detail)
-            return decision, detail
+        built = _card_from_llm(session, project_id, topic, context, out)
+        if built is not None:
+            built[1]["context_item_ids"] = context_item_ids  # #7: remember which items fed this decision
+            built[1]["reasoning_frame"] = reasoning_frame     # spine + weighted lenses used (audit/UI)
+            # #8: verify the model's arithmetic AND fold in EDOS's own auto-computed budgets (thermal/battery)
+            _comps = (built[1].get("computations") or []) + _auto_compute(context)
+            built[1]["computations"] = _verify_computations(_comps)
+            return built
     except Exception:  # noqa: BLE001, S110 — any LLM/validation failure falls back to the heuristic below
         pass
 
     detail = _heuristic_detail(topic, answers, context)
+    detail["context_item_ids"] = context_item_ids  # #7: remember which items fed this decision
+    detail["reasoning_frame"] = reasoning_frame     # spine + weighted lenses used (audit/UI)
+    decision = _heuristic_decision(topic, answers, context, detail)
+    _link_related(session, project_id, detail)
+    return decision, detail
+
+
+# The LLM often labels fields its own way (assumptions as {value, risk_if_wrong}; risks as {name, severity,
+# description}). The Decision contract is strict (extra="forbid", required confidence/likelihood), so an
+# un-coerced payload raises ValidationError and the rich card is silently lost to the heuristic. These
+# coercers map the common shapes onto the contract so the model's real output actually reaches the user.
+_SEVERITIES = {"low", "medium", "high", "critical"}
+_LIKELIHOODS = {"low", "medium", "high"}
+
+
+def _coerce_assumptions(raw: object) -> list[dict]:
+    out: list[dict] = []
+    for a in raw or []:
+        if isinstance(a, str):
+            out.append({"statement": a, "confidence": 0.5})
+            continue
+        if not isinstance(a, dict):
+            continue
+        stmt = a.get("statement") or a.get("value") or a.get("assumption")
+        if not stmt:
+            continue
+        try:
+            conf = min(1.0, max(0.0, float(a.get("confidence"))))
+        except (TypeError, ValueError):
+            conf = 0.5
+        item = {"statement": str(stmt), "confidence": conf}
+        if a.get("risk_if_wrong"):
+            item["risk_if_wrong"] = str(a["risk_if_wrong"])
+        out.append(item)
+    return out
+
+
+def _coerce_risks(raw: object) -> list[dict]:
+    out: list[dict] = []
+    for r in raw or []:
+        if isinstance(r, str):
+            out.append({"description": r, "severity": "medium", "likelihood": "medium"})
+            continue
+        if not isinstance(r, dict):
+            continue
+        desc = r.get("description") or r.get("risk") or r.get("name")
+        if not desc:
+            continue
+        sev = str(r.get("severity", "medium")).lower()
+        lik = str(r.get("likelihood", "medium")).lower()
+        item = {"description": str(desc),
+                "severity": sev if sev in _SEVERITIES else "medium",
+                "likelihood": lik if lik in _LIKELIHOODS else "medium"}
+        if r.get("mitigation"):
+            item["mitigation"] = str(r["mitigation"])
+        out.append(item)
+    return out
+
+
+def _coerce_tradeoffs(raw: object) -> list[dict]:
+    out: list[dict] = []
+    for t in raw or []:
+        if isinstance(t, dict) and t.get("option"):
+            out.append({"option": str(t["option"]), "benefit": str(t.get("benefit", "")),
+                        "drawback": str(t.get("drawback", ""))})
+    return out
+
+
+def _coerce_evidence(raw: object) -> list[dict]:
+    out: list[dict] = []
+    for e in raw or []:
+        if isinstance(e, dict) and e.get("claim") and e.get("source"):
+            item = {"claim": str(e["claim"]), "source": str(e["source"])}
+            if e.get("kind") in {"fact", "assumption", "inference", "external"}:
+                item["kind"] = e["kind"]
+            out.append(item)
+    return out
+
+
+def _card_from_llm(
+    session: Session, project_id: str, topic: str, context: list[str], out: object,
+) -> tuple[Decision, dict] | None:
+    """Turn a schema-valid LLM decision payload into `(Decision, detail)`, or `None` if it's unusable.
+    Shared by `decide()` and `revise()` so both honour the LLM's own comparison_matrix / criteria."""
+    if not (isinstance(out, dict) and out.get("detail") and out.get("recommendation")):
+        return None
+    detail = dict(out["detail"])
+    detail.setdefault("topic", topic)
+    detail.setdefault("recommendation", {"chosen": "", "reasons": [], "eliminated": []})
+    detail.setdefault("dependencies", context[:4])
+    detail.setdefault("related_decisions", [])
+    detail.setdefault("missing", "")
+    decision = Decision(
+        summary=str(out["summary"]),
+        recommendation=str(out["recommendation"]),
+        confidence=float(out.get("confidence", 0.6)),
+        status="recommended",
+        assumptions=_coerce_assumptions(out.get("assumptions")),
+        risks=_coerce_risks(out.get("risks")),
+        tradeoffs=_coerce_tradeoffs(out.get("tradeoffs")),
+        next_actions=[str(x) for x in (out.get("next_actions") or []) if x][:6],
+        evidence=_coerce_evidence(out.get("evidence")) or [
+            {"claim": "deep-dive reasoning", "source": "deep-dive", "kind": "inference"}],
+    )
+    _link_related(session, project_id, detail)
+    return decision, detail
+
+
+def revise(
+    session: Session, project_id: str, prior: Decision, prior_detail: dict, instruction: str,
+    router: ModelRouter | None = None,
+) -> tuple[Decision, dict]:
+    """Re-evaluate an existing decision given the engineer's revision `instruction`, producing an improved
+    (Decision, detail). The instruction is folded into the project context (it's new information), and the
+    prior decision is handed to the model as the baseline to sharpen — LLM first, heuristic fallback.
+
+    The caller persists the result as a NEW immutable version of the same decision lineage."""
+    router = router or ModelRouter()
+    instruction = (instruction or "").strip()
+    topic = (prior_detail or {}).get("topic") or prior.summary
+    # the revision instruction is new project knowledge — persist it like an answer
+    _persist_answers(session, project_id, [{"id": "revision", "answer": instruction}])
+    context, context_item_ids = _gather_context(
+        session, project_id, topic, [{"id": "revision", "answer": instruction}])
+
+    prior_card = {
+        "summary": prior.summary,
+        "recommendation": prior.recommendation,
+        "assumptions": [a.model_dump() if hasattr(a, "model_dump") else a for a in (prior.assumptions or [])],
+        "risks": [r.model_dump() if hasattr(r, "model_dump") else r for r in (prior.risks or [])],
+        "comparison_matrix": (prior_detail or {}).get("comparison_matrix"),
+    }
+    try:
+        out = router.execute(
+            Capability.deepdive,
+            {"mode": "revise", "topic": topic, "instruction": instruction,
+             "prior": prior_card, "context": context},
+            schema=DECISION_CARD_SCHEMA,
+            tier=Tier.frontier,  # a revision is a fresh heavy reasoning pass → best chain
+        )
+        built = _card_from_llm(session, project_id, topic, context, out)
+        if built is not None:
+            built[1]["context_item_ids"] = context_item_ids  # #7
+            return built
+    except Exception:  # noqa: BLE001, S110 — fall back to the heuristic below on any LLM/validation failure
+        pass
+
+    # heuristic fallback: fold the instruction in as an answer so criteria/context reflect it
+    answers = [{"id": "revision", "answer": instruction}] if instruction else []
+    detail = _heuristic_detail(topic, answers, context)
+    detail["context_item_ids"] = context_item_ids  # #7
     decision = _heuristic_decision(topic, answers, context, detail)
     _link_related(session, project_id, detail)
     return decision, detail

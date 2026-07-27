@@ -39,6 +39,36 @@ def test_verification_prompt_is_lower_only_and_critique():
     assert "lower" in text  # confidence can only be lowered
 
 
+def test_erc_core_encodes_four_archetypes_and_reasoning_method():
+    # ERC core is the shared reasoning brain — it must carry the principal-embedded machinery,
+    # not just a stance. Checked via a template that substitutes it.
+    text = load_template("decision_prompt:v1").lower()
+    # four senior archetypes present
+    for archetype in ("senior embedded engineer", "systems engineer", "principal engineer",
+                      "solution architect"):
+        assert archetype in text, f"ERC core missing archetype: {archetype}"
+    # the reasoning METHOD (not just stance)
+    assert "constraints before options" in text
+    assert "runner-up" in text          # show the line + the option it beat
+    assert "second-order ripple" in text
+    # the break-the-loop mandate — EDOS's embedded-specific edge
+    assert "premature part-lock" in text
+    assert "silent contradiction" in text
+    # preserved guarantees still intact after the upgrade
+    assert "never invent project data" in text
+
+
+def test_deepdive_decide_encodes_crystallized_card_content():
+    # Wave 3 · Step 7 — the card is the closing argument, not a static dump.
+    text = load_template("deepdive_prompt:v1").lower()
+    assert "runner_up" in text and "tipped_by" in text           # show the #2 option + what tipped it
+    assert "blind_spots" in text and "distinct from" in text      # blind spots ≠ risks
+    assert "tripwires" in text                                    # review_conditions are pre-committed flips
+    assert "provenance" in text and "computed:" in text          # tag computed vs datasheet vs inferred
+    assert "show the line" in text                                # recommendation reads as an argument
+    assert "computations" in text and "re-evaluate" in text       # #8: model emits checkable arithmetic
+
+
 def test_no_domain_lock_in_core():
     # the core principles must be generic — not hard-coded to the benchmark domains
     core = load_template("decision_prompt:v1").lower()

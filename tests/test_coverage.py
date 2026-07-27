@@ -89,7 +89,9 @@ def test_answer_is_idempotent_per_question(client):
         client.post(f"/v1/projects/{pid}/coverage/answer",
                     json={"domain": "Testing", "question_id": q["id"], "answer": "a"})
     detail = client.get(f"/v1/projects/{pid}/coverage").json()["domains"]["Testing"]
-    assert detail["answered"] == [q["id"]]  # counted once, not thrice
+    # `answered` is now [{id,q,answer}] (editable Q&A), but idempotency still holds: counted once, not thrice.
+    assert len(detail["answered"]) == 1
+    assert detail["answered"][0]["id"] == q["id"]
 
 
 def test_attach_document_raises_coverage(client):

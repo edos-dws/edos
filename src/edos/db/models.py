@@ -19,9 +19,11 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from edos.db.base import Base
 
-# Placeholder embedding dimension for CP-1. Real dimension is set when the embedding model is chosen
-# (CP-2/CP-3). Flagged in CP-1-REPORT.md.
-EMBED_DIM = 8
+# Embedding dimension for the pgvector column. 768 = the Matryoshka-truncated size of the Gemini embedding
+# models (gemini-embedding-001 / -2 are 3072 natively; truncated to 768 to stay under pgvector's ~2000-dim
+# index limit and keep storage/search efficient). The deterministic stub also produces 768-dim vectors.
+# Changing this requires a column migration + a re-embed backfill.
+EMBED_DIM = 768
 
 
 def _utcnow() -> dt.datetime:
@@ -108,6 +110,9 @@ class ProjectItem(Base):
     # Optional engineering domain tag (UI-CP-2): Architecture|Hardware|Firmware|Manufacturing|Testing|
     # Certification. Feeds the coverage engine; null = untagged (still a valid, retrievable item).
     domain: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # Learned usefulness (#7 feedback loop): nudged + when this item fed an ACCEPTED decision, − when it fed a
+    # REVERSED one. A small, bounded term in the retrieval rank_score, so the engine self-tunes over time.
+    feedback_score: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
@@ -135,6 +140,22 @@ class DecisionOutcome(Base):
     outcome: Mapped[str] = mapped_column(String)  # accepted | challenged | reversed
     confidence_at_outcome: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class LensFeedback(Base):
+    """Learned lens salience (self-tuning weights). `key` is a spine ``axis:value`` token (e.g.
+    ``power_source:battery``); `score` accumulates + when a decision of that project-direction is accepted and
+    − when reversed, for the lenses that were load-bearing (deep) in that decision. The weighting engine reads
+    a bounded sum of these as its learned term, so lens emphasis self-tunes from outcomes on similar-direction
+    projects. Additive table — absence just means "nothing learned yet"."""
+
+    __tablename__ = "lens_feedback"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String, index=True)       # spine "axis:value" token
+    lens_id: Mapped[str] = mapped_column(String, index=True)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    __table_args__ = (UniqueConstraint("key", "lens_id", name="uq_lens_feedback_key_lens"),)
 
 
 class AssumptionResolution(Base):

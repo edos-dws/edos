@@ -94,7 +94,8 @@ def test_no_followup_when_consistent(session):
 def test_offline_fallback_returns_questions(session):
     pid = "p-v2-empty"
     plan = deepdive.plan_questions(session, pid, "Thermal design for a 100A power stage with forced-air")
-    assert 5 <= len(plan["questions"]) <= 8      # heuristic probes fire offline
+    # need-driven offline heuristic: probes fire but the count is bounded (0–5), never a forced quota.
+    assert 1 <= len(plan["questions"]) <= 5      # heuristic probes fire offline, capped at 5
     assert plan["skipped"] == []                 # empty project → nothing already known
     assert plan["note"] == ""                    # not "fully covered"
 

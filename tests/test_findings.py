@@ -97,6 +97,22 @@ def test_stance_contradiction_vs_stored_decision(client):
     assert "balancing" in contradictions[0]["detail"].lower()
 
 
+def test_stance_contradiction_on_compute_tier(client):
+    """Feature 4 — broader contradiction concepts: committing to bare-metal MCU after a stored Linux/MPU
+    decision (or vice-versa) must surface as a critical contradiction, not slip through."""
+    pid = _new_project(client)
+    client.post("/v1/decisions", json={
+        "project_id": pid,
+        "decision": _decision("Compute platform",
+                              "We will use an application processor running embedded linux for the camera stack"),
+        "status": "accepted"})
+    r = client.post(f"/v1/projects/{pid}/review",
+                    json={"text": "Let's use a bare-metal MCU (cortex-m) to cut power and cost."})
+    contradictions = [f for f in r.json()["findings"] if f["category"] == "contradiction"]
+    assert contradictions
+    assert "compute tier" in contradictions[0]["detail"].lower()
+
+
 def test_graph_conflict_becomes_contradiction(client, session):
     pid = _new_project(client)
     a = client.post(f"/v1/projects/{pid}/items",

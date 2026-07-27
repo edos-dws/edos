@@ -103,6 +103,28 @@ def answered_ids(
     return set(session.scalars(stmt).all())
 
 
+def answered_detail(
+    session: Session, project_id: str, domain: str, *, as_of: dt.datetime | None = None
+) -> list[dict]:
+    """Answered question-set questions WITH their question text + the engineer's answer, so the UI can show
+    them (in an 'answered' state) and let the engineer edit them. Answer text lives on the linked item
+    (``Q: … \\nA: …``)."""
+    q_text = {q["id"]: q["q"] for q in question_set(domain)}
+    stmt = select(CoverageAnswer).where(
+        CoverageAnswer.project_id == project_id, CoverageAnswer.domain == domain
+    )
+    if as_of is not None:
+        stmt = stmt.where(CoverageAnswer.created_at <= as_of)
+    out: list[dict] = []
+    for ca in session.scalars(stmt):
+        item = session.get(ProjectItem, ca.item_id) if ca.item_id else None
+        answer = ""
+        if item and "\nA:" in item.content:
+            answer = item.content.split("\nA:", 1)[1].strip()
+        out.append({"id": ca.question_id, "q": q_text.get(ca.question_id, ca.question_id), "answer": answer})
+    return out
+
+
 def _domain_counts(
     session: Session, project_id: str, *, as_of: dt.datetime | None = None
 ) -> dict[str, dict[str, int]]:
@@ -161,17 +183,18 @@ def coverage_report(
 
     for d in DOMAINS:
         qs = question_set(d)
-        answered = answered_ids(session, project_id, d, as_of=as_of)
+        adetail = answered_detail(session, project_id, d, as_of=as_of)
+        ans_ids = {a["id"] for a in adetail}
         items, docs = counts[d]["items"], counts[d]["docs"]
-        cov = _domain_coverage(items, docs, len(answered), len(qs))
+        cov = _domain_coverage(items, docs, len(ans_ids), len(qs))
         pct = round(cov * 100)
         by_domain[d] = pct
         detail[d] = {
             "coverage": pct,
             "items": items,
             "docs": docs,
-            "answered": sorted(answered),
-            "unanswered": [q for q in qs if q["id"] not in answered],
+            "answered": adetail,  # [{id, q, answer}] — shown as editable "answered" cards in the UI
+            "unanswered": [q for q in qs if q["id"] not in ans_ids],
             "total_questions": len(qs),
         }
         w = DOMAIN_WEIGHTS.get(d, 1.0)

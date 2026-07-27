@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from edos.engines.ranking import rank_score
+from edos.engines.ranking import RANK_WEIGHTS, rank_score
 from edos.engines.rules import expand
 from edos.models.context import ContextItem, ContextPackage
 
@@ -33,7 +33,10 @@ class ContextEngine:
         scored: list[ContextItem] = []
         for cand in candidates:
             signals = cand["signals"]
-            score = rank_score(**signals)
+            # Pass only the Ch-15 ranker's known signals: candidates may now carry extra signals (e.g. the #7
+            # `feedback` term, which the semantic retriever's own ranker handles), and this locked formula must
+            # not receive keys it doesn't define.
+            score = rank_score(**{k: signals[k] for k in RANK_WEIGHTS if k in signals})
             scored.append(
                 ContextItem(
                     type=cand["type"],

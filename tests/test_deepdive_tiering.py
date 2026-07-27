@@ -21,7 +21,8 @@ class _SpyRouter:
 
 def test_question_generation_routes_to_lightweight_tier():
     spy = _SpyRouter()
-    deepdive._candidate_questions("Peak current 100A MOSFET selection", spy)
+    # _candidate_questions(topic, context=None, router=None) — router is keyword now that context sits between.
+    deepdive._candidate_questions("Peak current 100A MOSFET selection", router=spy)
     assert spy.tiers == [Tier.lightweight]
 
 

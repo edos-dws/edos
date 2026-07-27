@@ -83,6 +83,22 @@ _CONCEPTS: dict[str, list[tuple[str, tuple[str, ...]]]] = {
         ("active", ("forced air", "forced-air", "liquid cooling", "active cooling")),
         ("passive", ("passive cooling", "natural convection", "conduction cooling")),
     ],
+    "compute tier": [
+        ("mcu", ("bare-metal mcu", "microcontroller", "cortex-m", "bare-metal design")),
+        ("linux", ("mpu running linux", "application processor", "embedded linux", "cortex-a")),
+    ],
+    "scheduling model": [
+        ("rtos", ("rtos", "freertos", "zephyr rtos", "threadx", "real-time os")),
+        ("bare_metal", ("superloop", "bare-metal loop", "no rtos", "polling loop")),
+    ],
+    "regulator topology": [
+        ("ldo", ("ldo regulator", "linear regulator", "low-dropout regulator")),
+        ("switcher", ("switching regulator", "smps", "buck converter", "buck-boost converter", "dc-dc converter")),
+    ],
+    "power source": [
+        ("battery", ("battery-powered", "coin-cell powered", "runs on a battery")),
+        ("mains", ("mains-powered", "wall-powered", "line-powered", "ac-dc powered")),
+    ],
 }
 
 

@@ -10,6 +10,11 @@ Build EDOS by working `BACKLOG.md` **top to bottom, one ticket at a time.** EDOS
 engineering-reasoning system, not a chatbot. Core principle from the roadmap: **"AI reasons. Software
 orchestrates."** The intelligence is in how the system organizes/validates knowledge, not in the LLM.
 
+## Coding guidelines (apply to all important operations)
+
+Follow **`CODING-GUIDELINES.md`** (think before coding · simplicity first · surgical changes · goal-driven
+execution / loop-until-verified) on every backend/frontend change of substance.
+
 ## Source-of-truth hierarchy (when things disagree)
 
 1. `contracts/*.schema.json` — **locked interface contracts. Highest authority.**

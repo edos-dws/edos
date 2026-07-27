@@ -1,0 +1,22 @@
+{
+  "_note": "Retrieval eval set. Queries are paraphrases (need semantic matching, not keyword overlap) so the harness discriminates a real embedder/reranker/HyDE from the stub. Distractors (ble/rtos/ip67) must NOT surface.",
+  "items": [
+    {"id": "i_shunt",   "type": "decision",    "content": "Chose a low-side shunt resistor with a delta-sigma ADC for main pack current sensing"},
+    {"id": "i_peak",    "type": "requirement", "content": "Continuous 100A with 200A surges for five seconds"},
+    {"id": "i_cost",    "type": "requirement", "content": "Sensing bill of materials under three dollars at ten thousand units per year"},
+    {"id": "i_ambient", "type": "requirement", "content": "Sealed enclosure reaching sixty degrees C ambient, no forced air"},
+    {"id": "i_soc",     "type": "requirement", "content": "State-of-charge estimate must stay within two percent"},
+    {"id": "i_iso",     "type": "requirement", "content": "Isolation to 500 Vrms between the pack and the low-voltage side"},
+    {"id": "i_conn",    "type": "requirement", "content": "Uses an Amphenol Surlok connector rated for 250A continuous"},
+    {"id": "i_ble",     "type": "requirement", "content": "A phone app over Bluetooth shows the charge level to the end user"},
+    {"id": "i_rtos",    "type": "requirement", "content": "Control firmware uses FreeRTOS with a one kilohertz control loop"},
+    {"id": "i_ip67",    "type": "document",    "content": "The housing is IP67 rated blue ABS plastic"}
+  ],
+  "queries": [
+    {"query": "how should I measure the battery pack current accurately and cheaply", "expected": ["i_shunt", "i_peak", "i_cost"]},
+    {"query": "what accuracy do I need for the fuel gauge",                            "expected": ["i_soc"]},
+    {"query": "the thermal environment the board has to survive",                      "expected": ["i_ambient"]},
+    {"query": "safety separation between the high and low voltage domains",            "expected": ["i_iso"]},
+    {"query": "which connector can handle the high current",                           "expected": ["i_conn"]}
+  ]
+}

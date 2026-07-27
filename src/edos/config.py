@@ -103,6 +103,23 @@ class Settings:
     # separate, softer target). Kept modest so a decision fits comfortably.
     llm_max_output_tokens: int = int(os.environ.get("EDOS_LLM_MAX_OUTPUT_TOKENS", "8000"))
 
+    # ---- Embeddings (semantic retrieval). Provider-agnostic: swap the model/provider with env, no code change.
+    # `EDOS_EMBEDDER`: "gemini" | "stub" | "auto" (default). "auto" = gemini when a Gemini key is present, else
+    # the deterministic offline stub (so tests/CI stay offline). `EDOS_EMBED_MODEL` picks the Gemini embedding
+    # model (both gemini-embedding-001 and gemini-embedding-2 are 3072-dim, truncated to EDOS_EMBED_DIM via
+    # Matryoshka + re-normalised). EDOS_EMBED_DIM must match the pgvector column dimension (768).
+    embedder: str = os.environ.get("EDOS_EMBEDDER", "auto").strip().lower()
+    embed_model: str = os.environ.get("EDOS_EMBED_MODEL", "gemini-embedding-001")
+
+    # Reranker (retrieval precision). "auto" (default) = gemini when a key exists, else the no-op reranker.
+    # `EDOS_RERANK_MODEL` picks a cheap model (Lite) so reranking stays cheap vs the decision call.
+    reranker: str = os.environ.get("EDOS_RERANKER", "auto").strip().lower()
+    rerank_model: str = os.environ.get("EDOS_RERANK_MODEL", "gemini-3.5-flash-lite")
+
+    # Query expansion (retrieval recall). "auto" (default) = HyDE when a key exists, else no-op. Reuses the
+    # cheap Lite model (rerank_model). Applied on the decision retrieval path only, so cost stays bounded.
+    query_expansion: str = os.environ.get("EDOS_QUERY_EXPANSION", "auto").strip().lower()
+
     def key_for(self, provider: str) -> str:
         """Return the configured API key for a provider name ('gemini' | 'anthropic'), or '' if unset."""
         return {"gemini": self.gemini_api_key, "anthropic": self.anthropic_api_key}.get(provider, "")

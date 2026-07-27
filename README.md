@@ -9,6 +9,9 @@ You ask an engineering question inside a project → EDOS **retrieves the releva
 structured decision (recommendation, confidence, assumptions, risks, tradeoffs, freeze-blockers, provenance)
 that you **accept** (written back into project knowledge) or **challenge** (re-reason).
 
+- **▶ How it works (start here):** [`knowledge-base/how-edos-reasons.md`](./knowledge-base/how-edos-reasons.md)
+  — the full current reasoning workflow, end to end. Companion docs: [`decision-flow.md`](./knowledge-base/decision-flow.md),
+  [`context-engine.md`](./knowledge-base/context-engine.md), [`embedded-reasoning-model.md`](./knowledge-base/embedded-reasoning-model.md).
 - **Roadmap:** `/home/dharmik/Documents/roadmap/EDOS_Technical_Architecture_Blueprint_Chapter_*.md`
 - **Build agent rules:** [`CLAUDE.md`](./CLAUDE.md) · **Phase-2 plan:** [`BACKLOG-PHASE2.md`](./BACKLOG-PHASE2.md)
 - **Design docs:** [`docs/planning/`](./docs/planning/) · **Locked contracts:** [`contracts/`](./contracts/)
