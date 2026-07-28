@@ -14,15 +14,17 @@ class MalformedOutputError(Exception):
     """No schema-valid output survived generate → repair → fallback. The caller MUST NOT persist anything."""
 
 
-def produce_valid(schema: dict, attempts: list[Callable[[], dict]]) -> dict:
+def produce_valid(schema: dict, attempts: list[Callable[[Exception | None], dict]]) -> dict:
     """Return the first attempt whose output satisfies `schema`.
 
-    `attempts` is ordered: typically [generate, repair-retry, fallback-model] (Ch 9). If none validate,
-    raise `MalformedOutputError` — the caller must not write anything to storage.
+    `attempts` is ordered: typically [generate, repair-retry, fallback-model] (Ch 9). Each attempt is called
+    with the **previous attempt's validation error** (or None on the first) so a repair attempt can feed the
+    concrete failure back to the model as a hint, rather than blindly retrying. If none validate, raise
+    `MalformedOutputError` — the caller must not write anything to storage.
     """
     last: Exception | None = None
     for produce in attempts:
-        candidate = produce()
+        candidate = produce(last)
         try:
             jsonschema.validate(instance=candidate, schema=schema)
             return candidate

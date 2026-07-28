@@ -16,13 +16,13 @@ lives in [`BUILD_PLAN.md`](./BUILD_PLAN.md) and the *tickets* in [`BACKLOG.md`](
 |-------|-------|
 | Current checkpoint | **🟢 LIVE — real Gemini connected (free-tier, gemini-3.6-flash); smoke: contract-valid decision. Next: derive T from scored runs** |
 | Current ticket | none in-flight (loop self-pacing) |
-| Build gate | 🟢 GREEN — 119 tests + ruff |
+| Build gate | 🟢 GREEN — 366 tests + ruff |
 | Infra | 🟢 Postgres 16.14 (pgvector ON) :5432 · Redis :6379 |
 | Base branch | **`develop`** (integration); CP branches merge here. Runner self-merges (see CLAUDE.md) |
 | Blocked? | No |
-| Waiting on human? | **YES — 2 items: (1) go-live real LLM (API key), (2) derive freeze threshold T from scored runs** |
-| Repo | https://github.com/edos-dws/edos (`develop` @ CP-9 mechanism; freeze OFF) |
-| Last updated | 2026-07-22 (base→develop; CP-2 merged; CP-3 started) |
+| Waiting on human? | **YES — 2 items: (1) derive freeze threshold T from scored runs, (2) recall@k gold-set (OD-3)** |
+| Repo | https://github.com/edos-dws/edos (`develop`; freeze OFF) |
+| Last updated | 2026-07-27 (project-conditioned reasoning system + extensions landed on `develop`; 366 tests) |
 
 ---
 

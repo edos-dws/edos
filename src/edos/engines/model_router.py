@@ -115,14 +115,25 @@ class ModelRouter:
         _ = tier or tier_for(cap)  # tier selection (the provider resolves the chain from this)
         if schema is None:
             return self.provider.execute(cap, context, None, render(cap, context, None), tier)
-        # generate → repair-retry (same provider, repair hint) → fallback provider (Ch 9). Each attempt gets
-        # its fully-rendered prompt. If none produce schema-valid JSON, produce_valid raises → nothing persists.
-        repair_ctx = {**context, "_repair": True}
+        # generate → repair-retry (same provider, WITH the concrete validation error as a hint) → fallback
+        # provider (Ch 9). Each attempt gets its fully-rendered prompt; the repair attempt folds the previous
+        # attempt's `jsonschema.ValidationError` into the context (`_repair_hint`) so the model is told exactly
+        # what was malformed instead of blindly re-running. If none produce schema-valid JSON, produce_valid
+        # raises → nothing persists.
+        def _run(ctx: dict) -> dict:
+            return self.provider.execute(cap, ctx, schema, render(cap, ctx, schema), tier)
+
+        def _repair(err: Exception | None) -> dict:
+            ctx = {**context, "_repair": True}
+            if err is not None:
+                ctx["_repair_hint"] = f"Your previous output failed schema validation: {err}"
+            return _run(ctx)
+
         return produce_valid(
             schema,
             [
-                lambda: self.provider.execute(cap, context, schema, render(cap, context, schema), tier),
-                lambda: self.provider.execute(cap, repair_ctx, schema, render(cap, repair_ctx, schema), tier),
-                lambda: self.fallback.execute(cap, context, schema, render(cap, context, schema), tier),
+                lambda _err: _run(context),
+                lambda err: _repair(err),
+                lambda _err: self.fallback.execute(cap, context, schema, render(cap, context, schema), tier),
             ],
         )

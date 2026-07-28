@@ -37,7 +37,10 @@ def _coverage_fraction(session: Session, project_id: str) -> float:
         from edos.engines.coverage import coverage_report
         return coverage_report(session, project_id)["overall"] / 100.0
     except Exception:  # noqa: BLE001
-        return 1.0  # unknown coverage => don't artificially flatten
+        # On failure return 0.0 (not 1.0): the weighting flattens by max(coverage, spine_confidence), so 0.0
+        # simply defers to the spine's own confidence rather than masking a broken coverage engine as "full
+        # coverage" — the latter would silently suppress the thin-context flattening signal.
+        return 0.0
 
 
 def _learned_weights(session: Session, fingerprint) -> dict:

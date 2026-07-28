@@ -10,19 +10,23 @@ SCHEMA = {"type": "object", "required": ["ok"], "properties": {"ok": {"const": T
 
 def test_repair_returns_first_valid_attempt():
     calls = {"n": 0}
+    seen_errors = []
 
-    def flaky():
+    def flaky(err):  # attempts now receive the previous validation error (None on the first)
         calls["n"] += 1
+        seen_errors.append(err)
         return {"ok": False} if calls["n"] == 1 else {"ok": True}  # malformed first, valid on repair
 
     out = produce_valid(SCHEMA, [flaky, flaky])
     assert out == {"ok": True}
     assert calls["n"] == 2  # repaired on the second attempt
+    assert seen_errors[0] is None                    # first attempt has no prior error
+    assert seen_errors[1] is not None                # the repair attempt is handed the concrete failure
 
 
 def test_all_malformed_is_rejected_not_returned():
     with pytest.raises(MalformedOutputError):
-        produce_valid(SCHEMA, [lambda: {"ok": False}, lambda: {"ok": "nope"}])
+        produce_valid(SCHEMA, [lambda _e: {"ok": False}, lambda _e: {"ok": "nope"}])
 
 
 class _BadThenGoodProvider:

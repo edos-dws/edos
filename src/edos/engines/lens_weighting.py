@@ -8,7 +8,8 @@ happens.
                  + Σ spine-affinity contributions   (Layer 1: causal, from the direction fingerprint)
                  + β · topic relevance               (Layer 2: this specific decision)
                  + γ · project structural hits        (actual components/facts present)
-                 + δ · learned                        (feedback — 0 until a lens-outcome store exists)
+                 + δ · learned                        (feedback — bounded ±DELTA_LEARNED, from the
+                                                        `lens_feedback` store via `feedback.lens_learned_weights`)
 
 then, applied over the raw score:
   * ENGINEER OVERRIDES win (a lens the engineer pins to a weight).
