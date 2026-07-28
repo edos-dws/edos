@@ -1,0 +1,76 @@
+name: Eval (Tier 2 — live quality)
+
+# Tier-2 eval (A3): measures real retrieval/decision quality with a LIVE model, OFF the PR critical path.
+# The PR gate (ci.yml) stays hermetic/stub-only and fast. This runs on demand and nightly, scores against
+# the committed baseline (evals/baseline.json), and fails on a regression beyond the margin.
+on:
+  workflow_dispatch:
+    inputs:
+      margin:
+        description: "Regression margin (metric drop that fails the gate)"
+        default: "0.05"
+  schedule:
+    - cron: "0 6 * * *"   # nightly 06:00 UTC
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: edos
+          POSTGRES_PASSWORD: edos
+          POSTGRES_DB: edos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U edos"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://edos:edos@localhost:5432/edos
+      # Live config — the whole point of Tier 2 is measuring the real (not stub) pipeline.
+      EDOS_PROVIDER: gemini
+      EDOS_EMBEDDER: gemini
+      EDOS_RERANKER: gemini
+      EDOS_QUERY_EXPANSION: hyde
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Guard — require a key (Tier 2 is a live eval)
+        run: |
+          if [ -z "${GEMINI_API_KEY}" ]; then
+            echo "::warning::GEMINI_API_KEY secret not set — Tier-2 live eval cannot measure real quality."
+            echo "no_key=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,providers]"
+
+      - name: Run eval scorecard
+        if: env.no_key != '1'
+        run: python scripts/eval/run_all.py --out scorecard.json
+
+      - name: Upload scorecard
+        if: env.no_key != '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-scorecard
+          path: scorecard.json
+
+      - name: Compare vs committed baseline (fails on regression)
+        if: env.no_key != '1'
+        run: |
+          python scripts/eval/compare.py \
+            --scorecard scorecard.json \
+            --margin "${{ github.event.inputs.margin || '0.05' }}"
