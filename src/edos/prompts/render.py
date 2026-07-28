@@ -20,6 +20,7 @@ CAPABILITY_PROMPT: dict[str, str] = {
     "findings": "findings_prompt:v1",
     "challenge": "challenge_prompt:v1",
     "grounding": "grounding_prompt:v1",
+    "relationship": "relationship_prompt:v1",
 }
 
 

@@ -208,6 +208,11 @@ class GraphEdge(Base):
     relation_type: Mapped[str] = mapped_column(String, index=True)
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     validity: Mapped[str] = mapped_column(String, default="active")  # active|superseded|stale|conflicted
+    # A5 provenance: how this edge came to exist. "explicit" = author-declared / keyword-reference (Layer 1);
+    # "semantic" = proposed by the LLM relationship classifier (Layer 2). `rationale` is the classifier's
+    # one-line justification, so a semantic edge is auditable and distinguishable from an author-declared one.
+    origin: Mapped[str] = mapped_column(String, default="explicit", server_default="explicit", index=True)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class DocumentChunk(Base):

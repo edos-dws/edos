@@ -96,8 +96,13 @@ def _set_validity(session: Session, node_id: str, validity: str) -> None:
 def add_edge(
     session: Session, *, source_id: str, target_id: str, relation: RelationType | str,
     confidence: float = 1.0, require_target: bool = True,
+    origin: str = "explicit", rationale: str | None = None,
 ) -> GraphEdge:
-    """Add an edge with integrity + temporal side-effects. Symmetric for conflicts_with."""
+    """Add an edge with integrity + temporal side-effects. Symmetric for conflicts_with.
+
+    `origin` distinguishes author-declared/keyword edges (`explicit`) from LLM-proposed ones (`semantic`);
+    `rationale` records the classifier's justification. add_edge stays the SINGLE gatekeeper — a semantic
+    (LLM-proposed) edge still passes the same integrity checks, so the model can never corrupt the graph."""
     relation = RelationType(relation)
     if source_id == target_id:
         raise GraphIntegrityError("self-edge not allowed")
@@ -106,8 +111,8 @@ def add_edge(
     if relation is RelationType.supersedes and _supersedes_path_exists(session, target_id, source_id):
         raise GraphIntegrityError("supersedes cycle rejected (must stay a DAG)")
 
-    edge = GraphEdge(source_id=source_id, target_id=target_id,
-                     relation_type=relation.value, confidence=confidence)
+    edge = GraphEdge(source_id=source_id, target_id=target_id, relation_type=relation.value,
+                     confidence=confidence, origin=origin, rationale=rationale)
     session.add(edge)
 
     # temporal side-effects
@@ -127,7 +132,8 @@ def add_edge(
         ).first()
         if exists is None:
             session.add(GraphEdge(source_id=target_id, target_id=source_id,
-                                  relation_type=RelationType.conflicts_with.value, confidence=confidence))
+                                  relation_type=RelationType.conflicts_with.value, confidence=confidence,
+                                  origin=origin, rationale=rationale))
     session.flush()
     return edge
 

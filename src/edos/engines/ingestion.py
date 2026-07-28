@@ -98,6 +98,17 @@ def ingest_item(
         item.needs_linking = True  # soft flag — surfaced for linking, never a silent orphan
     session.flush()
 
+    # A5 semantic edges (Layer 2, flag-gated): classify this item against its semantic neighbours and add
+    # low-stakes edges (high-stakes conflict/supersede are surfaced, not auto-applied). BEST-EFFORT — a
+    # provider/quota outage or any failure must never fail the ingest; offline it is a no-op.
+    from edos.config import settings
+    if settings.semantic_edges:
+        try:
+            from edos.engines import graph_semantic
+            graph_semantic.propose_semantic_edges(session, project_id=project_id, item_id=id)
+        except Exception:  # noqa: BLE001, S110 — semantic edges are additive; never block the ingest
+            pass
+
     # #5 structured fact extraction — turn a rich item into clean, discrete, retrievable facts. BEST-EFFORT:
     # it calls the extraction LLM and embeds each fact, so a provider/quota outage must not fail the ingest —
     # the source item is already safely persisted; the derived facts are an enhancement we can rebuild later.

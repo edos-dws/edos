@@ -29,6 +29,7 @@ class Capability(str, Enum):
     decision = "decision"
     verification = "verification"
     grounding = "grounding"
+    relationship = "relationship"
 
 
 class Tier(int, Enum):
@@ -51,6 +52,7 @@ CAPABILITY_TIER: dict[Capability, Tier] = {
     Capability.decision: Tier.frontier,
     Capability.verification: Tier.frontier,
     Capability.grounding: Tier.standard,  # per-claim entailment is cheaper than a frontier decision
+    Capability.relationship: Tier.standard,  # edge classification, not frontier reasoning
 }
 
 

@@ -132,6 +132,12 @@ class Settings:
     # measured against a labeled grounding set. One batched, standard-tier call per decision.
     grounding_nli: bool = os.environ.get("EDOS_GROUNDING_NLI", "0").strip().lower() in ("1", "true", "yes")
 
+    # Semantic graph edges (A5): when set, ingesting an item runs an LLM pass that classifies its relationship
+    # to its nearest neighbours and adds low-stakes edges (high-stakes conflict/supersede are surfaced for
+    # confirmation, never auto-applied). OFF by default — adds an LLM call per ingest, changes the graph, and
+    # is only meaningful with real embeddings (A4) + measured against the edge-quality eval. Offline no-op.
+    semantic_edges: bool = os.environ.get("EDOS_SEMANTIC_EDGES", "0").strip().lower() in ("1", "true", "yes")
+
     def key_for(self, provider: str) -> str:
         """Return the configured API key for a provider name ('gemini' | 'anthropic'), or '' if unset."""
         return {"gemini": self.gemini_api_key, "anthropic": self.anthropic_api_key}.get(provider, "")
