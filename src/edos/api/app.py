@@ -199,8 +199,13 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_session)) 
                     "questions": result.questions}
         else:
             # faithfulness / grounding gate (CP-14): trace claims to retrieved context; ungrounded →
-            # lower confidence + record as freeze_blockers (kept contract-valid).
-            fr = faithfulness.check(result, [c.get("ref_id") for c in candidates])
+            # lower confidence + record as freeze_blockers (kept contract-valid). A1: when
+            # EDOS_GROUNDING_NLI is on, pass the retrieved context TEXT so a semantic judge checks each claim
+            # is actually *supported* (entails), not merely cited — offline this degrades to Layer-1.
+            refs = [c.get("ref_id") for c in candidates]
+            texts = ({c.get("ref_id"): c.get("content", "") for c in candidates if c.get("ref_id")}
+                     if settings.grounding_nli else None)
+            fr = faithfulness.check(result, refs, context_texts=texts)
             result = faithfulness.apply_gate(result, fr)  # deterministic grounding (owns the source-trace)
             # A2: independent LLM critic on the main path (opt-in). context_refs=None so we do NOT re-run the
             # deterministic faithfulness that apply_gate already did (avoids double-penalty/duplicate blockers);

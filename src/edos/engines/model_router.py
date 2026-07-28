@@ -28,6 +28,7 @@ class Capability(str, Enum):
     impact_triage = "impact_triage"
     decision = "decision"
     verification = "verification"
+    grounding = "grounding"
 
 
 class Tier(int, Enum):
@@ -49,6 +50,7 @@ CAPABILITY_TIER: dict[Capability, Tier] = {
     Capability.impact_triage: Tier.standard,
     Capability.decision: Tier.frontier,
     Capability.verification: Tier.frontier,
+    Capability.grounding: Tier.standard,  # per-claim entailment is cheaper than a frontier decision
 }
 
 

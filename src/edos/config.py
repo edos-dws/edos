@@ -126,6 +126,12 @@ class Settings:
     # `/v1/verify` always runs the critic regardless of this flag (it is an explicit verification request).
     verify_on_analyze: bool = os.environ.get("EDOS_VERIFY_ON_ANALYZE", "0").strip().lower() in ("1", "true", "yes")
 
+    # Layer-2 semantic grounding (A1): when set, /v1/analyze passes the retrieved context TEXT to the
+    # faithfulness gate so an LLM NLI judge checks each claim is actually *supported* (entails), not merely
+    # cited. OFF by default (needs a key; offline it degrades to Layer-1 traceability anyway) — opt-in until
+    # measured against a labeled grounding set. One batched, standard-tier call per decision.
+    grounding_nli: bool = os.environ.get("EDOS_GROUNDING_NLI", "0").strip().lower() in ("1", "true", "yes")
+
     def key_for(self, provider: str) -> str:
         """Return the configured API key for a provider name ('gemini' | 'anthropic'), or '' if unset."""
         return {"gemini": self.gemini_api_key, "anthropic": self.anthropic_api_key}.get(provider, "")

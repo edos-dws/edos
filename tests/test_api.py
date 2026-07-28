@@ -73,6 +73,26 @@ def test_analyze_with_verify_on_analyze_flag_stays_contract_valid(client, monkey
     assert body["status"] in ("recommended", "verified")    # verify may promote; never frozen
 
 
+def test_analyze_with_grounding_nli_flag_stays_contract_valid(client, monkeypatch):
+    """A1 integration: with EDOS_GROUNDING_NLI enabled, /v1/analyze passes the retrieved context TEXT to the
+    faithfulness gate (semantic support-judge). Offline the judge degrades to Layer-1 traceability, so the
+    path stays contract-valid and never frozen — and composes with the (opt-in) verification critic."""
+    import dataclasses
+
+    from edos.config import settings
+    monkeypatch.setattr("edos.api.app.settings",
+                        dataclasses.replace(settings, grounding_nli=True, verify_on_analyze=True))
+    resp = client.post("/v1/analyze", json={
+        "project_id": "p1",
+        "question": "Is the nRF52840 right for LoRaWAN?",
+        "context_items": [_cand("requirement", "R-3", "LoRaWAN reporting over a long-range low-power link")],
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    validate_against_contract(body)
+    assert body["status"] in ("recommended", "verified")     # never frozen
+
+
 def test_ask_endpoint_returns_intent(client):
     resp = client.post("/v1/ask", json={"project_id": "p1", "question": "hello"})
     assert resp.status_code == 200

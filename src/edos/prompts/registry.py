@@ -85,3 +85,5 @@ register(PromptSpec("findings_prompt", "v1", "Engineering Review: categorized fi
                     ("claude-sonnet-5", "gpt-5"), "none", 4000, "findings_prompt.v1.md"))
 register(PromptSpec("challenge_prompt", "v1", "Challenge My Decision: argue against the recommendation",
                     ("claude-opus-4-8", "claude-sonnet-5"), "none", 3000, "challenge_prompt.v1.md"))
+register(PromptSpec("grounding_prompt", "v1", "Grounding: per-claim NLI support judge (entails/neutral/contradicts)",
+                    ("claude-sonnet-5", "gpt-5-mini"), "none", 3000, "grounding_prompt.v1.md"))

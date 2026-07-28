@@ -46,3 +46,55 @@ def test_gate_preserves_confidence_when_fully_grounded():
     gated = fg.apply_gate(d, fg.check(d, ["REQ-1"]))
     assert gated.confidence == 0.8        # 0.8 * 1.0
     assert gated.freeze_blockers == []
+
+
+# --- A1: Layer-2 semantic support-judge (cited -> *supported*). Fake router = deterministic/offline. ---
+class _JudgeRouter:
+    def __init__(self, judgments):
+        self.judgments = judgments
+    def execute(self, capability, context, schema=None, tier=None):
+        return {"judgments": self.judgments}
+
+
+class _RaisingJudge:
+    def execute(self, capability, context, schema=None, tier=None):
+        from edos.engines.prompt import MalformedOutputError
+        raise MalformedOutputError("no valid judge output")
+
+
+def test_layer2_cited_but_contradicted_becomes_ungrounded():
+    d = _decision([{"claim": "IP68 rated", "source": "DS-1", "kind": "fact"}], confidence=0.8)
+    texts = {"DS-1": "The enclosure is IP54 rated."}  # contradicts the IP68 claim
+    r = fg.check(d, ["DS-1"], context_texts=texts,
+                 router=_JudgeRouter([{"index": 0, "support": "contradicts", "confidence": 0.9}]))
+    assert r.faithfulness_score == 0.0                      # the cited-but-contradicted claim isn't grounded
+    assert any("contradicts" in c for c in r.ungrounded_claims)
+    gated = fg.apply_gate(d, r)
+    assert gated.confidence < 0.8                           # scaled down
+    assert any("contradicts" in b for b in gated.freeze_blockers)
+
+
+def test_layer2_cited_and_entailed_stays_grounded():
+    d = _decision([{"claim": "IP68 rated", "source": "DS-1", "kind": "fact"}], confidence=0.8)
+    texts = {"DS-1": "The enclosure meets IP68 for submersion to 1.5 m."}
+    r = fg.check(d, ["DS-1"], context_texts=texts,
+                 router=_JudgeRouter([{"index": 0, "support": "entails", "confidence": 0.95}]))
+    assert r.faithfulness_score == 1.0
+    assert r.grounded is True
+    assert r.ungrounded_claims == []
+
+
+def test_layer2_degrades_to_layer1_on_error():
+    d = _decision([{"claim": "IP68", "source": "DS-1", "kind": "fact"}], confidence=0.8)
+    r = fg.check(d, ["DS-1"], context_texts={"DS-1": "some text"}, router=_RaisingJudge())
+    assert r.faithfulness_score == 1.0                      # Layer-1 only: source present => grounded
+    assert r.grounded is True
+
+
+def test_layer1_still_catches_fabricated_citation_under_layer2():
+    d = _decision([{"claim": "real", "source": "DS-1", "kind": "fact"},
+                   {"claim": "fake", "source": "GHOST", "kind": "fact"}], confidence=0.8)
+    r = fg.check(d, ["DS-1"], context_texts={"DS-1": "supports real"},
+                 router=_JudgeRouter([{"index": 0, "support": "entails", "confidence": 0.9}]))
+    assert "fake" in r.ungrounded_claims                    # dangling citation caught by Layer 1
+    assert r.faithfulness_score == 0.5                      # 1 of 2 grounded
