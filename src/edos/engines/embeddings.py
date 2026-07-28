@@ -73,7 +73,12 @@ class GeminiEmbeddingProvider:
             model=self.model, contents=text or " ",
             config=types.EmbedContentConfig(output_dimensionality=self.dim),
         )
-        return _l2_normalize(list(resp.embeddings[0].values))
+        vals = list(resp.embeddings[0].values)
+        if len(vals) != self.dim:
+            # Never silently store a wrong-dimension vector: the pgvector column is fixed at EMBED_DIM and a
+            # mismatched vector would corrupt the space. Fail loudly so ingest catches it and stores NULL.
+            raise ValueError(f"Gemini embed returned {len(vals)}-dim vector, expected {self.dim}")
+        return _l2_normalize(vals)
 
 
 # Registry: add a provider here (+ its class) and it's selectable via EDOS_EMBEDDER — nothing else changes.

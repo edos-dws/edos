@@ -217,6 +217,12 @@ class DocumentChunk(Base):
     document_id: Mapped[str] = mapped_column(String, index=True)
     content: Mapped[str] = mapped_column(Text)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM), nullable=True)
+    # Embedder provenance (A4): which embedder produced `embedding`, and at what dimension. The stub and
+    # Gemini both emit 768-dim vectors but in *different vector spaces* — without this, a stub-space vector
+    # compared against a Gemini query is silently meaningless. Provenance makes the mismatch detectable and
+    # lets the backfill be resumable/idempotent (re-embed only rows whose model ≠ the current embedder).
+    embedding_model: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    embedding_dim: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 def new_decision_version(session: Session, current: DecisionRecord, **changes) -> DecisionRecord:

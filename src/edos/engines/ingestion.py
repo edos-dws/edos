@@ -78,7 +78,8 @@ def ingest_item(
     # its other signals for this item until it is re-embedded) rather than rolling the whole ingest back.
     try:
         vector = embedder.embed(content)  # the provider call — the part that can 429/quota-fail
-        session.add(DocumentChunk(project_id=project_id, document_id=id, content=content, embedding=vector))
+        session.add(DocumentChunk(project_id=project_id, document_id=id, content=content, embedding=vector,
+                                  embedding_model=embedder.name, embedding_dim=embedder.dim))  # A4 provenance
         session.flush()
     except Exception:  # noqa: BLE001, S110 — embedding is best-effort; a provider/quota error must not lose the item
         pass  # keep the already-flushed item; skip only its semantic chunk (re-embed later)

@@ -58,3 +58,15 @@ def test_ingest_survives_embedder_quota_failure(session):
     # but no semantic chunk was stored (skipped, not crashed)
     chunk = session.scalars(select(DocumentChunk).where(DocumentChunk.document_id == "REQ-Q")).first()
     assert chunk is None
+
+
+def test_ingest_stamps_embedding_provenance(session):
+    """A4: every embedded chunk records WHICH embedder produced it (and the dim), so a stub-space vs
+    Gemini-space mismatch is detectable and the backfill can be resumable/idempotent."""
+    from edos.db.models import EMBED_DIM
+    ingestion.ingest_item(session, id="REQ-PROV", project_id="pprov", item_type="requirement",
+                          content="pH sensor calibration over temperature")
+    chunk = session.scalars(select(DocumentChunk).where(DocumentChunk.document_id == "REQ-PROV")).first()
+    assert chunk is not None
+    assert chunk.embedding_model == "stub"        # tests run on the stub embedder
+    assert chunk.embedding_dim == EMBED_DIM
