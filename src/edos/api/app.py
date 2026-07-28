@@ -24,6 +24,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from edos.api.deps import get_session, session_factory
+from edos.config import settings
 from edos.db.models import CoverageAnswer, GraphEdge, ProjectItem, new_decision_version
 from edos.engines import (
     assumptions as assumptions_engine,
@@ -200,7 +201,16 @@ async def analyze(req: AnalyzeRequest, session: Session = Depends(get_session)) 
             # faithfulness / grounding gate (CP-14): trace claims to retrieved context; ungrounded →
             # lower confidence + record as freeze_blockers (kept contract-valid).
             fr = faithfulness.check(result, [c.get("ref_id") for c in candidates])
-            result = faithfulness.apply_gate(result, fr)
+            result = faithfulness.apply_gate(result, fr)  # deterministic grounding (owns the source-trace)
+            # A2: independent LLM critic on the main path (opt-in). context_refs=None so we do NOT re-run the
+            # deterministic faithfulness that apply_gate already did (avoids double-penalty/duplicate blockers);
+            # the critic still sees the evidence inline in the decision. Offline → deterministic floor (free).
+            # This makes the WS "verifying" stage honest. promote() may lift recommended→verified or record
+            # blockers; confidence only ever decreases. Never sets frozen.
+            if settings.verify_on_analyze:
+                _vengine = VerificationEngine()
+                _verdict = _vengine.verify(result, context_refs=None)
+                result = _vengine.promote(result, _verdict)
             body = result.to_contract_dict()
             await hub.publish(req.project_id, {"type": "decision.ready", "summary": result.summary,
                                                "confidence": result.confidence})

@@ -79,3 +79,58 @@ def test_disagreement_appends_without_dropping_existing_blockers():
     assert result.status == "recommended"
     assert "Bench validation pending" in result.freeze_blockers  # original kept
     assert len(result.freeze_blockers) > 1  # verify issues appended on top
+
+
+# --- A2: independent LLM critic wired through the router (fake router = deterministic, offline) ---
+class _CriticRouter:
+    """A fake ModelRouter whose verification call returns a fixed verdict payload."""
+    def __init__(self, verdict: dict) -> None:
+        self.verdict = verdict
+    def execute(self, capability, context, schema=None, tier=None) -> dict:
+        return self.verdict
+
+
+class _RaisingRouter:
+    def execute(self, capability, context, schema=None, tier=None) -> dict:
+        from edos.engines.prompt import MalformedOutputError
+        raise MalformedOutputError("no schema-valid critic output")
+
+
+def test_llm_critic_disagreement_lowers_confidence_and_records_blockers():
+    # GOOD has no structural issue, but the independent critic disagrees → confidence strictly lower,
+    # status stays recommended, and the critic's issues become freeze_blockers.
+    router = _CriticRouter({"agreement": False, "adjusted_confidence": 0.3,
+                            "issues": ["contradicts a prior decision on the SoC family"]})
+    eng = VerificationEngine(router=router)
+    v = eng.verify(GOOD)
+    assert v.agreement is False
+    assert v.adjusted_confidence < GOOD.confidence
+    assert any("contradicts" in i for i in v.issues)
+    promoted = eng.promote(GOOD, v)
+    assert promoted.status == "recommended"                       # not promoted
+    assert any("contradicts" in b for b in promoted.freeze_blockers)
+
+
+def test_llm_critic_cannot_raise_confidence_adversarial():
+    # Adversarial: the critic claims a HIGHER confidence than the decision. The clamp (code, not prompt)
+    # must hold — confidence never increases.
+    router = _CriticRouter({"agreement": True, "adjusted_confidence": 0.99, "issues": []})
+    v = VerificationEngine(router=router).verify(GOOD)  # decision confidence 0.8
+    assert v.adjusted_confidence <= GOOD.confidence
+    assert v.adjusted_confidence == 0.8                            # held at the decision's own confidence
+
+
+def test_llm_critic_malformed_degrades_to_deterministic_floor():
+    # A critic that errors (offline / malformed) must never break verification — it degrades to the floor.
+    eng = VerificationEngine(router=_RaisingRouter())
+    assert eng.verify(GOOD).adjusted_confidence == 0.8            # floor: no structural issue
+    v_bad = eng.verify(UNSUPPORTED)
+    assert v_bad.agreement is False and v_bad.issues              # floor: structural issue still caught
+
+
+def test_verify_with_no_refs_skips_faithfulness_double_run():
+    # The /v1/analyze integration passes context_refs=None so faithfulness runs exactly once (in apply_gate),
+    # not a second time inside verify. Proven here: no refs => no faithfulness score computed.
+    assert VerificationEngine().verify(GOOD, context_refs=None).faithfulness is None
+    # and when refs ARE given (the /v1/verify path), the faithfulness pass does run.
+    assert VerificationEngine().verify(GOOD, context_refs=["R-1"]).faithfulness is not None

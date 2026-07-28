@@ -53,6 +53,26 @@ def test_verify_endpoint_runs_the_safety_pass(client):
     assert body["decision"]["freeze_blockers"]             # blockers recorded
 
 
+def test_analyze_with_verify_on_analyze_flag_stays_contract_valid(client, monkeypatch):
+    """A2 integration: with EDOS_VERIFY_ON_ANALYZE enabled, /v1/analyze auto-runs the verification critic
+    (offline → deterministic floor) and still returns a contract-valid decision that never reaches frozen —
+    confidence only ever decreases, and the path degrades gracefully."""
+    import dataclasses
+
+    from edos.config import settings
+    # Settings is a frozen dataclass — swap the app module's binding to a copy with the flag flipped on.
+    monkeypatch.setattr("edos.api.app.settings", dataclasses.replace(settings, verify_on_analyze=True))
+    resp = client.post("/v1/analyze", json={
+        "project_id": "p1",
+        "question": "Is the nRF52840 right for LoRaWAN?",
+        "context_items": [_cand("requirement", "R-3", "LoRaWAN reporting")],
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    validate_against_contract(body)                         # still decision-schema-valid
+    assert body["status"] in ("recommended", "verified")    # verify may promote; never frozen
+
+
 def test_ask_endpoint_returns_intent(client):
     resp = client.post("/v1/ask", json={"project_id": "p1", "question": "hello"})
     assert resp.status_code == 200

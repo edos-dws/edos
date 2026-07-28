@@ -120,6 +120,12 @@ class Settings:
     # cheap Lite model (rerank_model). Applied on the decision retrieval path only, so cost stays bounded.
     query_expansion: str = os.environ.get("EDOS_QUERY_EXPANSION", "auto").strip().lower()
 
+    # Auto-run the independent LLM verification critic on the /v1/analyze path (A2). OFF by default: it can
+    # lower confidence and add freeze_blockers on the main decision path, and (with a key) roughly doubles the
+    # frontier calls per analyze — opt-in until trusted. Offline it degrades to the deterministic floor (free).
+    # `/v1/verify` always runs the critic regardless of this flag (it is an explicit verification request).
+    verify_on_analyze: bool = os.environ.get("EDOS_VERIFY_ON_ANALYZE", "0").strip().lower() in ("1", "true", "yes")
+
     def key_for(self, provider: str) -> str:
         """Return the configured API key for a provider name ('gemini' | 'anthropic'), or '' if unset."""
         return {"gemini": self.gemini_api_key, "anthropic": self.anthropic_api_key}.get(provider, "")
