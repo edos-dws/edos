@@ -237,6 +237,10 @@ affected (esp. frozen) decisions **re-check** (temporal + conflict) → **alert*
 - [x] **20.1 Domain grounding** — sources ingest → retrievable + cited. AC: domain fact retrievable + cited.
 - [x] **20.2 Domain rules (procedural memory)** — rules applied in reasoning. AC: rule violation flagged.
 - [x] **20.3 Proactive watchdog** — new knowledge → re-check affected → alert. AC: new conflicting item → alert on affected decision.
+- [ ] **20.4 External-source fetch (OD-9-BLOCKED)** — live datasheet/standard/part-DB fetch → ingest → cite.
+  Deferral home is `engines/internet.py` (a *declared* stub that raises pointing at OD-9, not silent dead
+  code). BLOCKED on OD-9 (which sources + licensing — human pick); do not fabricate a source list. Build the
+  fetcher behind `internet.py` and wire it into the domain-grounding ingest path once OD-9 is decided.
 **Open:** OD-9.
 
 **Gate:** 🔴 HUMAN.

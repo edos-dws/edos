@@ -2,9 +2,16 @@
 
 "The LLM never searches the project. The Retriever does." Deterministic hybrid retrieval:
 anchor extraction → dense (pgvector cosine kNN) + lexical (term overlap) + graph traversal/expansion +
-recency → per-candidate signals → weighted `rank_score` (via the Context Engine). A **hard-constraint floor**
-keeps must-see items (active requirements, open conflicts); a **missing-context guard** flags thin coverage
-instead of reasoning blind. Temporal validity feeds the confidence signal so stale/superseded items rank down.
+recency → per-candidate signals. `select_context` then ranks those signals with the **semantic-led**
+weight set (`ranking.blend` with `RETRIEVAL_WEIGHTS` + a bounded feedback nudge — the SAME single blend the
+graph-led decision path uses, just different weights; see `ranking.py` for why the two paths differ) and
+reranks top-50→top-K. A **missing-context guard** (`coverage_ok`) flags thin coverage instead of reasoning
+blind. Temporal validity feeds the confidence signal so stale/superseded items rank down.
+
+Note: `select_context` deliberately does NOT force-inject a "hard-constraint floor" of every requirement —
+that re-injected the very distractors the reranker had dropped (see its docstring). `retrieve` still marks
+must-see items with full `focus` so ranking/compression is biased to keep them; that is a soft bias, not a
+hard override.
 
 LLM-gated and deferred (same stub pattern as CP-12): anchor LLM-fallback, cross-encoder/LLM rerank, and
 agentic multi-hop. The deterministic pipeline here is the source of truth for retrieval quality (measured by
@@ -20,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from edos.db.graph import weight_for
 from edos.db.models import DocumentChunk, GraphEdge, ProjectItem
-from edos.engines import graph_builder
+from edos.engines import graph_builder, ranking
 from edos.engines.embeddings import EmbeddingProvider, default_embedder
 from edos.engines.query_expansion import get_query_expander
 from edos.engines.reranker import get_reranker
@@ -181,12 +188,11 @@ def label_for(item_type: str) -> str:
 
 
 def _rank_score(signals: dict) -> float:
-    """Blend the retriever signals into one score (semantic-led, graph + recency + must-see focus), nudged by
-    the item's learned usefulness (#7 feedback). The feedback term is bounded to ±0.10 so it tunes, never
-    dominates the semantic signal."""
-    fb = max(-1.0, min(1.0, signals.get("feedback", 0.0) / 3.0))
-    return (0.45 * signals["semantic"] + 0.25 * signals["graph"] + 0.15 * signals["recency"]
-            + 0.10 * signals["focus"] + 0.05 * signals.get("confidence", 0.5) + 0.10 * fb)
+    """SELECTION/eval-path score: the semantic-led blend (`RETRIEVAL_WEIGHTS`) + a bounded ±feedback nudge.
+    Thin wrapper over the SAME `ranking.blend` the decision path uses — only the weight set and the feedback
+    term differ. WHY this path is semantic-led while the decision path is graph-led (and whether that split
+    should survive) is a declared choice deferred to the A3 eval — see `ranking.py`."""
+    return ranking.blend(signals, ranking.RETRIEVAL_WEIGHTS, feedback_weight=ranking.FEEDBACK_WEIGHT)
 
 
 def select_context(
