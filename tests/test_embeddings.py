@@ -40,7 +40,7 @@ def test_gemini_embed_dimension_guard_raises_not_silently_stores():
         values = [0.1] * 10          # wrong dimension (10, not EMBED_DIM)
 
     class _Resp:
-        embeddings = [_Emb()]
+        embeddings = [_Emb()]  # noqa: RUF012 — throwaway test fake, not a real mutable-default footgun
 
     class _Models:
         def embed_content(self, **kw):

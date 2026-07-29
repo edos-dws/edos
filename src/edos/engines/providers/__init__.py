@@ -10,10 +10,43 @@ Go-live is a config change, not a code change: set `EDOS_PROVIDER` and drop the 
 from __future__ import annotations
 
 from edos.config import settings
+from edos.engines.model_router import Capability, StubProvider, Tier, tier_for
 from edos.engines.providers.anthropic_provider import AnthropicProvider
 from edos.engines.providers.gemini_provider import GeminiProvider
 
 _REAL_PROVIDERS = {"gemini": GeminiProvider, "anthropic": AnthropicProvider}
+
+# Calls that stay on the PREMIUM provider under hybrid routing: the actual decision generation
+# (deep-dive decide/revise use Capability.deepdive at frontier tier; /v1/analyze uses Capability.decision).
+# Everything else — questions, follow-ups, intent, verification, grounding, challenge, findings, knowledge
+# extraction, semantic edges — routes to the cheaper base provider.
+_PREMIUM_CAPABILITIES = {Capability.decision, Capability.deepdive}
+
+
+class HybridProvider:
+    """Cost-split router masquerading as one Provider: sends the heavy decision-generation calls to the
+    premium vendor (Claude) and everything else to the base vendor (Gemini). A vendor with no key degrades to
+    the other live vendor, and only to the stub if neither is live — never a silent stub while a real vendor
+    is available."""
+
+    def __init__(self, premium, base) -> None:
+        self._premium = premium
+        self._base = base
+        self._stub = StubProvider()
+
+    def _is_premium_call(self, capability, tier) -> bool:
+        cap = Capability(capability)
+        effective_tier = tier if tier is not None else tier_for(cap)
+        return effective_tier == Tier.frontier and cap in _PREMIUM_CAPABILITIES
+
+    def _pick(self, capability, tier):
+        premium_call = self._is_premium_call(capability, tier)
+        chosen = self._premium if premium_call else self._base
+        other = self._base if premium_call else self._premium
+        return chosen or other or self._stub  # fall to the other live vendor before the stub
+
+    def execute(self, capability, context, schema=None, prompt=None, tier=None):
+        return self._pick(capability, tier).execute(capability, context, schema, prompt, tier)
 
 
 def build_live_provider(name: str, *, key: str | None = None):
@@ -69,6 +102,14 @@ def build_providers():
     selected = settings.llm_provider
     if selected in ("", "stub"):
         return None, None  # explicit stub / unset → offline, even if real keys are present
+    # Hybrid (cost-split) routing: premium vendor for decision generation, base vendor for everything else.
+    if settings.hybrid_routing:
+        premium = build_live_provider(settings.premium_provider)
+        base = build_live_provider(settings.base_provider)
+        if premium is None and base is None:
+            return None, None  # neither vendor keyed → offline stub
+        hybrid = HybridProvider(premium, base)
+        return hybrid, hybrid  # the hybrid IS the fallback (it already picks a live vendor per call)
     if selected not in _REAL_PROVIDERS:
         raise ValueError(f"unknown EDOS_PROVIDER {selected!r} (expected 'gemini', 'anthropic', or 'stub')")
     vendor = _effective_vendor()
@@ -88,17 +129,28 @@ def provider_status() -> dict:
     so a "I set my key but it still looks stubbed" situation is visible instead of silent.
     """
     primary, fallback = build_providers()
-    effective = _effective_vendor() if settings.llm_provider not in ("", "stub") else None
-    return {
+    hybrid = settings.hybrid_routing and settings.llm_provider not in ("", "stub")
+    status = {
         "selected": settings.llm_provider,
-        "effective": effective or "stub",
-        "auto_selected": bool(effective and effective != settings.llm_provider),
+        "hybrid_routing": bool(hybrid),
         "live": primary is not None,
         "primary": type(primary).__name__ if primary else "StubProvider",
-        "fallback": type(fallback).__name__ if fallback else None,
         "gemini_key_present": bool(settings.gemini_api_key),
         "anthropic_key_present": bool(settings.anthropic_api_key),
     }
+    if hybrid:
+        # what each lane resolves to (decision generation vs everything else)
+        status["premium"] = settings.premium_provider
+        status["base"] = settings.base_provider
+        status["premium_live"] = build_live_provider(settings.premium_provider) is not None
+        status["base_live"] = build_live_provider(settings.base_provider) is not None
+    else:
+        effective = _effective_vendor() if settings.llm_provider not in ("", "stub") else None
+        status["effective"] = effective or "stub"
+        status["auto_selected"] = bool(effective and effective != settings.llm_provider)
+        status["fallback"] = type(fallback).__name__ if fallback else None
+    return status
 
 
-__all__ = ["AnthropicProvider", "GeminiProvider", "build_live_provider", "build_providers", "provider_status"]
+__all__ = ["AnthropicProvider", "GeminiProvider", "HybridProvider", "build_live_provider", "build_providers",
+           "provider_status"]

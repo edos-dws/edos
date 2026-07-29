@@ -76,6 +76,18 @@ class Settings:
     gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")
     anthropic_api_key: str = os.environ.get("ANTHROPIC_API_KEY", "")
 
+    # --- Hybrid (cost-split) routing -----------------------------------------------------------------------
+    # Keep the PREMIUM provider (Claude/frontier) ONLY for the heavy decision-generation calls — the deep-dive
+    # `decide`/`revise` and the `/v1/analyze` decision (frontier-tier `decision`/`deepdive`) — and route
+    # EVERYTHING ELSE (intent, questions, follow-ups, verification, grounding, challenge, findings, knowledge
+    # extraction, semantic edges) to the cheaper BASE provider (Gemini). This slashes cost for testing while
+    # keeping the actual decision on the best model. OFF by default (all calls go to `EDOS_PROVIDER`); set
+    # EDOS_HYBRID_ROUTING=1 to enable. Needs both a premium and a base key; a vendor with no key degrades to
+    # the other live vendor, else the stub. `EDOS_PROVIDER=stub` still forces everything offline (tests/CI).
+    hybrid_routing: bool = os.environ.get("EDOS_HYBRID_ROUTING", "0").strip().lower() in ("1", "true", "yes")
+    premium_provider: str = os.environ.get("EDOS_PREMIUM_PROVIDER", "anthropic").strip().lower()
+    base_provider: str = os.environ.get("EDOS_BASE_PROVIDER", "gemini").strip().lower()
+
     # Model IDs per capability tier, env-overridable. Defaults are the current Flash family — verified working
     # on a Google AI Studio FREE-tier key (Pro models return free-tier quota `limit: 0`). `gemini-3.6-flash`
     # is the exact "Gemini Flash 3.6" the EDOS benchmark validated. On a PAID key, point the frontier tier at

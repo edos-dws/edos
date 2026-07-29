@@ -17,12 +17,14 @@ os.environ["EDOS_PROVIDER"] = "stub"
 os.environ["EDOS_EMBEDDER"] = "stub"
 os.environ["EDOS_RERANKER"] = "noop"
 os.environ["EDOS_QUERY_EXPANSION"] = "noop"
+os.environ["EDOS_HYBRID_ROUTING"] = "0"  # deterministic: a dev `.env` with EDOS_HYBRID_ROUTING=1 must not leak in
 
 import pytest
 from sqlalchemy import text
 
 from edos.db.base import make_engine, make_session_factory
 from edos.db.schema import create_all, drop_all
+
 
 def _db_name(url: str) -> str:
     return url.rsplit("/", 1)[-1].split("?")[0]

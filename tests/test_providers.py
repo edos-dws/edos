@@ -144,6 +144,65 @@ def test_unknown_provider_still_raises_loud(monkeypatch):
         build_providers()
 
 
+# --- hybrid (cost-split) routing: premium for decision generation, base for the rest --------------------
+from edos.engines.providers import HybridProvider
+
+
+class _Rec:
+    """Records which lane a call was routed to."""
+    def __init__(self, name):
+        self.name = name
+
+    def execute(self, capability, context, schema=None, prompt=None, tier=None):
+        return {"by": self.name}
+
+
+def test_hybrid_routes_decision_generation_to_premium_everything_else_to_base():
+    h = HybridProvider(_Rec("premium"), _Rec("base"))
+    # decide / revise → Capability.deepdive at frontier tier → PREMIUM (Claude)
+    assert h.execute(Capability.deepdive, {}, tier=Tier.frontier)["by"] == "premium"
+    # /v1/analyze decision (no tier override → frontier by default) → PREMIUM
+    assert h.execute(Capability.decision, {})["by"] == "premium"
+    # everything else → BASE (Gemini): verification is frontier but NOT a premium capability
+    assert h.execute(Capability.verification, {})["by"] == "base"
+    # deep-dive questions / follow-ups → Capability.deepdive at lightweight tier → BASE
+    assert h.execute(Capability.deepdive, {}, tier=Tier.lightweight)["by"] == "base"
+    for cap in (Capability.intent, Capability.grounding, Capability.challenge,
+                Capability.findings, Capability.relationship, Capability.knowledge_extraction):
+        assert h.execute(cap, {})["by"] == "base"
+
+
+def test_hybrid_falls_to_other_live_vendor_before_stub():
+    # base vendor unkeyed → a base-lane call uses the premium vendor (a real model), NOT a silent stub
+    h = HybridProvider(_Rec("premium"), None)
+    assert h.execute(Capability.intent, {})["by"] == "premium"
+
+
+def test_hybrid_uses_stub_only_when_neither_vendor_live():
+    h = HybridProvider(None, None)
+    out = h.execute(Capability.intent, {}, schema=None, prompt="p")
+    assert out == {"capability": "intent", "stub": True}  # deterministic stub
+
+
+def test_build_providers_hybrid_returns_hybrid_and_status(monkeypatch):
+    _with_settings(monkeypatch, llm_provider="anthropic", hybrid_routing=True,
+                   anthropic_api_key="ak", gemini_api_key="gk")
+    primary, fallback = build_providers()
+    assert isinstance(primary, HybridProvider)
+    assert fallback is primary  # the hybrid already picks a live vendor per call
+    status = provider_status()
+    assert status["hybrid_routing"] is True
+    assert status["premium"] == "anthropic" and status["base"] == "gemini"
+    assert status["premium_live"] is True and status["base_live"] is True
+
+
+def test_hybrid_stub_env_stays_offline(monkeypatch):
+    # EDOS_PROVIDER=stub still wins over hybrid → fully offline (tests/CI), even with real keys present.
+    _with_settings(monkeypatch, llm_provider="stub", hybrid_routing=True,
+                   anthropic_api_key="ak", gemini_api_key="gk")
+    assert build_providers() == (None, None)
+
+
 # --- router auto-selection -------------------------------------------------
 def test_router_defaults_to_stub_when_no_live_provider():
     assert isinstance(ModelRouter().provider, StubProvider)
