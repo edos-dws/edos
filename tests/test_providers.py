@@ -87,6 +87,63 @@ def test_build_providers_offline_under_stub_env():
     assert status["live"] is False and status["primary"] == "StubProvider"
 
 
+# --- provider auto-selection safety-net (the silent-stub footgun) ----------
+import dataclasses
+
+from edos.config import settings as _settings
+
+
+def _with_settings(monkeypatch, **over):
+    """Point the providers module at a Settings clone with overridden provider/keys (frozen → replace)."""
+    monkeypatch.setattr("edos.engines.providers.settings", dataclasses.replace(_settings, **over))
+
+
+def test_configured_vendor_with_its_key_is_used(monkeypatch):
+    _with_settings(monkeypatch, llm_provider="anthropic", anthropic_api_key="ak", gemini_api_key="")
+    primary, fallback = build_providers()
+    assert isinstance(primary, AnthropicProvider)
+    assert fallback is None  # other vendor unkeyed → no cross-vendor fallback
+
+
+def test_auto_selects_keyed_vendor_when_configured_vendor_has_no_key(monkeypatch):
+    # THE footgun: EDOS_PROVIDER left at 'gemini' but only an Anthropic key was dropped in .env.
+    # Old behaviour: gemini has no key → (None, None) → every call silently ran on the stub.
+    _with_settings(monkeypatch, llm_provider="gemini", gemini_api_key="", anthropic_api_key="ak")
+    primary, fallback = build_providers()
+    assert isinstance(primary, AnthropicProvider)  # auto-substituted the vendor that actually has a key
+    assert fallback is None
+    status = provider_status()
+    assert status["live"] is True
+    assert status["selected"] == "gemini" and status["effective"] == "anthropic"
+    assert status["auto_selected"] is True  # visible, not silent
+
+
+def test_explicit_stub_stays_stub_even_with_real_keys(monkeypatch):
+    # EDOS_PROVIDER=stub is explicit and must win — keeps tests/CI offline even if real keys are present.
+    _with_settings(monkeypatch, llm_provider="stub", gemini_api_key="gk", anthropic_api_key="ak")
+    assert build_providers() == (None, None)
+    assert provider_status()["auto_selected"] is False
+
+
+def test_both_keys_give_cross_vendor_fallback(monkeypatch):
+    _with_settings(monkeypatch, llm_provider="anthropic", anthropic_api_key="ak", gemini_api_key="gk")
+    primary, fallback = build_providers()
+    assert isinstance(primary, AnthropicProvider)
+    assert isinstance(fallback, GeminiProvider)  # the other keyed vendor covers a repair miss (Ch 9)
+
+
+def test_no_keys_falls_back_to_stub(monkeypatch):
+    _with_settings(monkeypatch, llm_provider="anthropic", anthropic_api_key="", gemini_api_key="")
+    assert build_providers() == (None, None)
+
+
+def test_unknown_provider_still_raises_loud(monkeypatch):
+    # a typo must fail loudly, NOT silently auto-pick a keyed vendor.
+    _with_settings(monkeypatch, llm_provider="openai", anthropic_api_key="ak", gemini_api_key="gk")
+    with pytest.raises(ValueError):
+        build_providers()
+
+
 # --- router auto-selection -------------------------------------------------
 def test_router_defaults_to_stub_when_no_live_provider():
     assert isinstance(ModelRouter().provider, StubProvider)
