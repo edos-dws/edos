@@ -41,6 +41,7 @@ from edos.engines import (
     extraction,
     faithfulness,
     feedback,
+    graph_semantic,
     graph_view,
     ingestion,
     resolution,
@@ -586,11 +587,40 @@ def project_graph(project_id: str, session: Session = Depends(get_session)) -> d
 
 @app.get("/v1/projects/{project_id}/contradictions")
 def project_contradictions(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
-    """Cross-decision contradictions: the project's `conflicts_with` pairs (surfaced by the graph builder +
-    watchdog), resolved to labels with a short explanation."""
+    """Cross-decision contradictions: the project's CONFIRMED `conflicts_with` pairs (surfaced by the graph
+    builder + watchdog), resolved to labels with a short explanation. Suspected (semantic, unconfirmed)
+    conflicts are excluded here — see `/suspected-conflicts`."""
     if store.get_project(session, project_id) is None:
         raise HTTPException(status_code=404, detail="project not found")
     return graph_view.contradictions(session, project_id)
+
+
+class SuspectedAction(BaseModel):
+    source_id: str
+    target_id: str
+    relation: str = "conflicts_with"
+
+
+@app.get("/v1/projects/{project_id}/suspected-conflicts")
+def project_suspected_conflicts(project_id: str, session: Session = Depends(get_session)) -> list[dict]:
+    """Semantic high-stakes proposals awaiting human confirm (B2): conflicts/supersedes/invalidates the LLM
+    classifier flagged on ingest but that have NOT flipped any node's validity. Confirm or dismiss each."""
+    if store.get_project(session, project_id) is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return graph_semantic.list_suspected(session, project_id)
+
+
+@app.post("/v1/suspected-conflicts/confirm")
+def confirm_suspected_ep(body: SuspectedAction, session: Session = Depends(get_session)) -> dict:
+    """Confirm a suspected edge → it becomes real (applies the temporal side-effects via the graph builder:
+    conflicts_with marks both nodes conflicted; supersedes/invalidates transitions the target)."""
+    return graph_semantic.confirm_suspected(session, body.source_id, body.target_id, body.relation)
+
+
+@app.post("/v1/suspected-conflicts/dismiss")
+def dismiss_suspected_ep(body: SuspectedAction, session: Session = Depends(get_session)) -> dict:
+    """Dismiss a suspected edge → marked `dismissed` (kept for audit, never applied, never re-surfaced)."""
+    return graph_semantic.dismiss_suspected(session, body.source_id, body.target_id, body.relation)
 
 
 @app.get("/v1/decisions/{decision_id}/diff")

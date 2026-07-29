@@ -119,7 +119,12 @@ def contradictions(session: Session, project_id: str) -> list[dict]:
 
     pairs: list[dict] = []
     seen: set[tuple[str, str]] = set()
-    for e in session.scalars(select(GraphEdge).where(GraphEdge.relation_type == _CONFLICT)):
+    # CONFIRMED contradictions only — exclude semantic proposals still `suspected` and human-`dismissed`
+    # ones (those surface via the watchdog / suspected-conflicts endpoint, not here).
+    for e in session.scalars(select(GraphEdge).where(
+        GraphEdge.relation_type == _CONFLICT,
+        GraphEdge.validity.not_in(["suspected", "dismissed"]),
+    )):
         if e.source_id not in label or e.target_id not in label:
             continue
         key = tuple(sorted((e.source_id, e.target_id)))

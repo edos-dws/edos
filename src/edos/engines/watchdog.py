@@ -52,4 +52,20 @@ def scan(session: Session, project_id: str) -> list[Alert]:
             alerts.append(Alert("invalidated_dependency", e.source_id,
                                 f"'{e.source_id}' {e.relation_type} '{e.target_id}', which is now "
                                 f"{tgt.validity} — re-check this decision.", "high"))
+
+    # 3. suspected (semantic) high-stakes proposals awaiting confirm — surfaced, NOT yet applied (B2). These
+    # are edges the LLM relationship classifier flagged but that must not flip validity until a human confirms.
+    _WORD = {RelationType.conflicts_with.value: "conflicts with",
+             RelationType.supersedes.value: "may supersede",
+             RelationType.invalidates.value: "may invalidate"}
+    suspected = session.scalars(
+        select(GraphEdge).where(GraphEdge.relation_type.in_(list(_WORD)), GraphEdge.validity == "suspected")
+    ).all()
+    for e in suspected:
+        if e.source_id not in by_id and e.target_id not in by_id:
+            continue  # not this project's
+        note = f" ({e.rationale})" if e.rationale else ""
+        alerts.append(Alert("suspected_conflict", e.source_id,
+                            f"EDOS suspects '{e.source_id}' {_WORD[e.relation_type]} '{e.target_id}'{note} — "
+                            f"confirm or dismiss (not applied yet).", "medium"))
     return alerts
